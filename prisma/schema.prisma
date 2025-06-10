@@ -1,0 +1,222 @@
+// prisma/schema.prisma
+
+// --- IMPORTANT: ORDER MATTERS ---
+// Define Enums first, as they can be referenced by models
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Define NotificationType enum
+enum NotificationType {
+  CONNECTION_ACCEPTED
+  POST_LIKE
+  POST_COMMENT
+  MESSAGE
+  JOB_APPLICATION_VIEWED
+  EVENT_INVITE
+  // Add other notification types as needed
+}
+
+// Define Message first, as it's referenced by Conversation and User
+model Message {
+  id             String      @id @default(uuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  sender         User        @relation(fields: [senderId], references: [id])
+  senderId       String
+  content        String
+  createdAt      DateTime    @default(now())
+}
+
+// Define Conversation next, as it references Message and is referenced by User
+model Conversation {
+  id         String    @id @default(uuid())
+  participants User[]    @relation(name: "ConversationParticipants")
+  messages   Message[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+// Define ConnectionRequest next, as it references User
+model ConnectionRequest {
+  id              String        @id @default(uuid())
+  sender          User          @relation(name: "SentConnectionRequests", fields: [senderId], references: [id])
+  senderId        String
+  receiver        User          @relation(name: "ReceivedConnectionRequests", fields: [receiverId], references: [id])
+  receiverId      String
+  status          RequestStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([senderId, receiverId]) // Ensures a user can only send one request to another user
+}
+
+// Define User, as it references Conversation, Message, ConnectionRequest, Role, Post, Comment, and Notification
+model User {
+  id                         String            @id @default(uuid())
+  name                       String?
+  email                      String            @unique
+  hashedPassword             String?
+  image                      String?           // Existing image field for user avatars. Will be linked to Profile.profilePictureUrl
+  role                       Role              @default(USER)
+  profile                    Profile?
+  conversationsJoined        Conversation[]    @relation(name: "ConversationParticipants")
+  sentMessages               Message[]
+
+  // Relationships for connection requests
+  sentConnectionRequests     ConnectionRequest[] @relation(name: "SentConnectionRequests")
+  receivedConnectionRequests ConnectionRequest[] @relation(name: "ReceivedConnectionRequests")
+
+  // Added for posts functionality
+  posts                      Post[]
+  comments                   Comment[]
+
+  // User can receive multiple notifications, and also be the sender of notifications
+  notificationsReceived      Notification[]    @relation("UserNotifications")
+  notificationsSent          Notification[]    @relation("SenderNotifications") // Optional, for tracking who sent the notification
+
+  createdAt                  DateTime          @default(now())
+}
+
+
+// --- NEW: Skill Model ---
+model Skill {
+  id        String   @id @default(uuid())
+  name      String   @unique // Assuming skill names are unique globally or per user
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String?  // Made optional here, as a skill could exist without being tied to a profile initially (e.g. a global list)
+
+  @@map("skills") // Map to 'skills' table
+}
+
+// --- NEW: Education Model ---
+model Education {
+  id           String    @id @default(uuid())
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId    String
+  degree       String
+  institution  String
+  fieldOfStudy String?
+  startDate    DateTime
+  endDate      DateTime? // Nullable for ongoing education
+  description  String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("education") // Map to 'education' table
+}
+
+
+// Updated Profile model
+model Profile {
+  id                String       @id @default(uuid())
+  user              User         @relation(fields: [userId], references: [id])
+  userId            String       @unique
+  bio               String?
+  headline          String?
+  location          String?
+  resumeUrl         String?
+  // REMOVED: skills              Json?
+  // REMOVED: education           Json?
+  isProfileComplete Boolean      @default(false)
+  profilePictureUrl String?
+  coverPhotoUrl     String?
+
+  experiences       Experience[] // Relation to Experience model for job history
+  education         Education[]  // NEW: Relation to Education model
+  skills            Skill[]      // NEW: Relation to Skill model
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@map("profiles")
+}
+
+// NEW: Experience Model for Job History
+model Experience {
+  id          String   @id @default(uuid())
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId   String
+  title       String
+  company     String
+  location    String?
+  startDate   DateTime
+  endDate     DateTime? // Nullable for current job
+  description String?
+  isCurrent   Boolean  @default(false) // Flag for current job
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("experiences") // Explicitly map to 'experiences' table
+}
+
+
+// Post Model (with comments relationship)
+model Post {
+  id          String   @id @default(uuid())
+  content     String
+  authorId    String
+  likesCount  Int      @default(0)
+  commentsCount Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[] // New: Post can have multiple comments
+
+  @@map("posts")
+}
+
+// Comment Model (updated with likesCount)
+model Comment {
+  id           String    @id @default(uuid())
+  content      String
+  author       User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId     String
+  post         Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId       String
+  likesCount   Int       @default(0) // NEW: Likes count for comments
+  createdAt    DateTime  @default(now())
+  parentCommentId String?    // NEW: Optional field for reply parent comment
+  parent       Comment? @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies      Comment[] @relation("CommentReplies") // NEW: Self-relation to store replies
+
+  @@map("comments")
+}
+
+// New Notification Model
+model Notification {
+  id             String           @id @default(uuid())
+  recipient      User             @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipientId    String
+  type           NotificationType
+  message        String
+  read           Boolean          @default(false)
+  // Optional: sender, if the notification is from a specific user (e.g., connection request, like)
+  sender         User?            @relation("SenderNotifications", fields: [senderId], references: [id])
+  senderId       String?
+  // Optional: targetId, if the notification relates to a specific entity (e.g., postId, connectionRequestId, messageId)
+  targetId       String?          // Can be ID of Post, Message, ConnectionRequest etc.
+  createdAt      DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
