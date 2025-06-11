@@ -105,3 +105,70 @@ export async function GET(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const notifIdStr = searchParams.get("id");
+    if (!notifIdStr) {
+      return NextResponse.json(
+        { message: "Notification id is required." },
+        { status: 400 }
+      );
+    }
+    // Use notifIdStr directly as a string, do not cast to Number
+    const notifId = notifIdStr; // Ensure the id is a string as expected by Prisma
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
+    await prisma.notification.delete({
+      where: { id: notifId },
+    });
+    return NextResponse.json(
+      { message: "Notification cleared." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("API Error deleting notification:", error);
+    return NextResponse.json(
+      {
+        message: "Internal server error deleting notification.",
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// NEW: PATCH endpoint to mark all notifications as read
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    const userId = session.user.id;
+    // Update all unread notifications for this user
+    await prisma.notification.updateMany({
+      where: { recipientId: userId, read: false },
+      data: { read: true },
+    });
+    return NextResponse.json(
+      { message: "All notifications marked as read" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("API Error marking all notifications as read:", error);
+    return NextResponse.json(
+      {
+        message: "Internal server error marking notifications as read.",
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}

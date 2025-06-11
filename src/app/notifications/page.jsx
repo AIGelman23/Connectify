@@ -4,110 +4,7 @@
 import { useEffect, useState, useCallback } from "react"; // Added useCallback
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-
-// Navbar component (copied for consistency and self-containment)
-function Navbar({ session, router }) {
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/auth/login' }); // Redirect to login after sign out
-  };
-
-  return (
-    // Font Awesome icons are expected to be installed and imported globally (e.g., in layout.jsx or globals.css)
-    <nav className="bg-white shadow-md py-3 px-4 sm:px-6 lg:px-8 sticky top-0 z-50 border-b border-gray-200">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
-        {/* Logo/Home Link */}
-        <div className="flex-shrink-0">
-          <button onClick={() => router.push("/dashboard")} className="flex items-center text-indigo-600 hover:text-indigo-800 transition duration-150 ease-in-out">
-            <svg className="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 16v4a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4m4-2l-4-4m0 0l-4 4m4-4V4m0 0V3a1 1 0 011-1h2a1 1 0 011 1v1m-6 10h6"></path>
-            </svg>
-            <span className="text-xl font-bold">Connectify</span>
-          </button>
-        </div>
-
-        {/* Search Bar (visible on larger screens) */}
-        <div className="hidden md:block flex-grow max-w-sm mx-4">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <i className="fas fa-search text-gray-400"></i>
-            </div>
-            <input
-              type="text"
-              placeholder="Search..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Navigation Links */}
-        <div className="flex items-center space-x-6">
-          <NavLink iconClass="fas fa-home" text="Home" href="/dashboard" router={router} />
-          <NavLink iconClass="fas fa-users" text="My Network" href="/network" router={router} />
-          <NavLink iconClass="fas fa-briefcase" text="Jobs" href="/jobs" router={router} />
-          <NavLink iconClass="fas fa-comment-dots" text="Messaging" href="/messages" router={router} />
-          <NavLink iconClass="fas fa-bell" text="Notifications" href="/notifications" router={router} />
-
-          {/* User Profile Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <img
-                src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
-                alt="User Avatar"
-                className="w-8 h-8 rounded-full object-cover mr-4 border-2 border-indigo-300"
-                onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}` }}
-              />
-              <span className="hidden lg:block text-gray-700 font-semibold">{session?.user?.name?.split(' ')[0] || 'User'}</span>
-              <svg className="w-4 h-4 text-gray-500 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-
-            {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-1 border border-gray-200 z-10 animate-fade-in-down">
-                <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                  <p className="font-bold">{session?.user?.name || 'Unnamed User'}</p>
-                  <p className="text-gray-500 truncate">{session?.user?.email}</p>
-                </div>
-                <button
-                  onClick={() => { router.push("/edit-profile"); setIsProfileMenuOpen(false); }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition duration-150 ease-in-out"
-                >
-                  View Profile
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-800 transition duration-150 ease-in-out border-t border-gray-100 mt-1 pt-2"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-// Helper component for navigation links (copied for consistency)
-function NavLink({ iconClass, text, href, router }) {
-  const isActive = router.pathname === href; // Simple active state check
-
-  return (
-    <button
-      onClick={() => router.push(href)}
-      className={`hidden sm:flex flex-col items-center p-2 rounded-lg ${isActive ? 'text-indigo-600 font-bold bg-indigo-50' : 'text-gray-600 hover:bg-gray-100'} transition duration-150 ease-in-out text-sm`}
-    >
-      <i className={`${iconClass} text-lg mb-1`}></i>
-      <span>{text}</span>
-    </button>
-  );
-}
+import Navbar from '../../components/NavBar';
 
 
 export default function NotificationsPage() {
@@ -180,6 +77,19 @@ export default function NotificationsPage() {
     // In a real app, you'd send an API call to mark as read on the backend
     // fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
   };
+
+  const clearNotification = useCallback(async (id) => {
+    try {
+      const res = await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error('Failed to clear notification');
+      }
+      // Re-fetch notifications from backend
+      fetchNotifications();
+    } catch (error) {
+      console.error("Error clearing notification:", error);
+    }
+  }, [fetchNotifications]);
 
   if (status === "loading" || loading) {
     return (
@@ -284,6 +194,19 @@ export default function NotificationsPage() {
                 {!notification.read && (
                   <div className="flex-shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1"></div>
                 )}
+
+                {/* New Clear Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearNotification(notification.id);
+                  }}
+                  className="text-gray-400 hover:text-red-600"
+                  title="Clear notification"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
               </div>
             ))}
           </div>

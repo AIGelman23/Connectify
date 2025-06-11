@@ -3,18 +3,16 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ChatProvider } from "@/context/ChatContext"; // Import your ChatProvider
+import QueryProvider from '@/components/QueryProvider'; // Import the QueryProvider
 
 export function Providers({ children }) {
-  return (
-    <SessionProvider>
-      {/*
-        Wrap your children with ChatProvider.
-        It must be inside SessionProvider so that ChatProvider can access
-        the session data (user ID, JWT, etc.) via useSession().
-      */}
-      <ChatProvider>
-        {children}
-      </ChatProvider>
-    </SessionProvider>
-  );
+	return (
+		<SessionProvider>
+			<QueryProvider> {/* <-- QueryProvider is used here */}
+				<ChatProvider>
+					{children}
+				</ChatProvider>
+			</QueryProvider>
+		</SessionProvider>
+	);
 }

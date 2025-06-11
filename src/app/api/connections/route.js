@@ -74,7 +74,7 @@ export async function GET(request) {
     // Process each user to determine their connection status relative to the current user
     usersToDisplay = allUsers.map((user) => {
       let connectionStatus = "NOT_CONNECTED";
-      let requestId = null; // To store the request ID if a pending request exists
+      let requestId = null;
 
       // Check if current user SENT a request to 'user'
       const sentToUser = userConnectionRequests.find(
@@ -96,12 +96,12 @@ export async function GET(request) {
         (req) => req.senderId === user.id && req.receiverId === userId
       );
       if (receivedFromUser) {
-        if (receivedFromUser.status === "PENDING") {
-          if (connectionStatus === "NOT_CONNECTED") {
-            // Only set if not already SENT_PENDING
-            connectionStatus = "RECEIVED_PENDING";
-            requestId = receivedFromUser.id;
-          }
+        if (
+          receivedFromUser.status === "PENDING" &&
+          connectionStatus === "NOT_CONNECTED"
+        ) {
+          connectionStatus = "RECEIVED_PENDING";
+          requestId = receivedFromUser.id;
         }
         if (receivedFromUser.status === "ACCEPTED") {
           connectionStatus = "CONNECTED"; // CONNECTED always takes precedence
@@ -123,10 +123,19 @@ export async function GET(request) {
         requestId: requestId, // Include the request ID if applicable
       };
     });
+    // Extract accepted connections and suggestions from all users
+    const acceptedFriends = usersToDisplay.filter(
+      (user) => user.connectionStatus === "CONNECTED"
+    );
+    const suggestions = usersToDisplay.filter(
+      (user) => user.connectionStatus === "NOT_CONNECTED"
+    );
 
     return NextResponse.json(
       {
-        users: usersToDisplay,
+        users: usersToDisplay, // Optional: full list, if needed
+        connections: acceptedFriends, // Actual connections
+        suggestions, // Users not connected yet
         message:
           usersToDisplay.length > 0
             ? "Users found successfully"

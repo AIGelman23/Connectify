@@ -1,124 +1,242 @@
-// components/PostCard.jsx
-"use client";
+import React, { useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Comment, Reply } from './Comment';
 
-import { useState, useCallback } from "react";
-// Import Comment component
-import Comment from './Comment' // Assuming Comment component is in its own file
+export default function PostCard({ post, sessionUserId, setPostError, openReplyModal }) {
+	const { data: session } = useSession();
+	const [activeCommentForPost, setActiveCommentForPost] = useState(null);
+	const queryClient = useQueryClient();
 
-const PostCard = ({ post, session, sessionUserId, onLike, onAddComment, onReply, onInlineReply = () => { } }) => {
-  const [showComments, setShowComments] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
+	// Like Post Mutation
+	const { mutate: likePost } = useMutation({
+		mutationFn: async (postId) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ postId, action: 'like' }),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to like post.");
+			}
+			return res.json();
+		},
+		onMutate: async (postId) => {
+			await queryClient.cancelQueries({ queryKey: ['posts'] });
+			const previousPosts = queryClient.getQueryData(['posts']);
 
-  const handleToggleComments = () => {
-    setShowComments(prev => !prev);
-    setCommentInput(""); // Clear input when collapsing
-  };
+			queryClient.setQueryData(['posts'], (oldData) => {
+				if (!oldData) return oldData;
+				return {
+					...oldData,
+					pages: oldData.pages.map(page => ({
+						...page,
+						posts: page.posts.map(p =>
+							p.id === postId ? { ...p, likesCount: (p.likesCount || 0) + 1 } : p
+						),
+					})),
+				};
+			});
+			return { previousPosts };
+		},
+		onError: (err, postId, context) => {
+			setPostError(err.message || "Failed to like post. Please try again.");
+			if (context?.previousPosts) {
+				queryClient.setQueryData(['posts'], context.previousPosts);
+			}
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+	});
 
-  const handlePostComment = async () => {
-    if (commentInput.trim()) {
-      await onAddComment(post.id, commentInput);
-      setCommentInput("");
-      setShowComments(true);
-    }
-  };
+	// Add Comment Mutation
+	const { mutate: addComment, isPending: isCommenting } = useMutation({
+		mutationFn: async ({ postId, commentContent }) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ postId, action: 'comment', comment: commentContent }),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to add comment.");
+			}
+			return res.json();
+		},
+		onSuccess: () => {
+			setActiveCommentForPost(null); // Close comment input after successful post
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+		onError: (err) => {
+			setPostError(err.message || "Failed to add comment. Please try again.");
+		},
+	});
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm mb-4 py-3 px-4">
-      {/* Post Header */}
-      <div className="flex items-center mb-2">
-        <img
-          src={post.user.imageUrl}
-          alt={`${post.user.name}'s avatar`}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <div className="ml-3">
-          <p className="font-bold text-gray-800 text-base">{post.user.name}</p>
-          <p className="text-xs text-gray-500">{post.user.headline} • {post.timestamp}</p>
-        </div>
-      </div>
+	// Delete Comment/Reply Mutation
+	const { mutate: deleteCommentOrReply } = useMutation({
+		mutationFn: async ({ commentId, postId }) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'delete_comment',
+					commentId: commentId,
+					postId: postId
+				}),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to delete comment/reply.");
+			}
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+		onError: (err) => {
+			setPostError(err.message || "Failed to delete comment/reply. Please try again.");
+		},
+	});
 
-      {/* Post Content */}
-      <div className="mb-3">
-        <p className="text-gray-800 text-base">{post.content}</p>
-        {/* ...existing media rendering if any... */}
-      </div>
+	const handleLike = useCallback(() => {
+		if (!sessionUserId) {
+			setPostError("You must be logged in to like a post.");
+			return;
+		}
+		likePost(post.id);
+	}, [post.id, sessionUserId, likePost, setPostError]);
 
-      {/* Post Stats */}
-      <div className="flex justify-between items-center text-xs text-gray-600 border-t border-b border-gray-200 py-2 mb-2">
-        <span>{post.likesCount || 0} Likes</span>
-        <span>{post.commentsCount || 0} Comments</span>
-      </div>
+	const handleAddComment = useCallback((e) => {
+		e.preventDefault();
+		const commentContent = e.target.elements.commentInput.value;
+		if (!sessionUserId) {
+			setPostError("You must be logged in to comment on a post.");
+			return;
+		}
+		if (commentContent.trim()) {
+			addComment({ postId: post.id, commentContent });
+			e.target.elements.commentInput.value = ''; // Clear input
+		}
+	}, [post.id, sessionUserId, addComment, setPostError]);
 
-      {/* Post Actions */}
-      <div className="flex justify-around items-center mb-2">
-        <button
-          onClick={() => onLike(post.id)}
-          className="flex items-center space-x-1 px-3 py-1 rounded hover:bg-blue-100 transition text-gray-700"
-        >
-          <i className="far fa-thumbs-up"></i>
-          <span className="text-sm font-semibold">Like</span>
-        </button>
-        <button
-          onClick={handleToggleComments}
-          className="flex items-center space-x-1 px-3 py-1 rounded hover:bg-blue-100 transition text-gray-700"
-        >
-          <i className="far fa-comment"></i>
-          <span className="text-sm font-semibold">Comment</span>
-        </button>
-        <button className="flex items-center space-x-1 px-3 py-1 rounded hover:bg-blue-100 transition text-gray-700">
-          <i className="far fa-share-square"></i>
-          <span className="text-sm font-semibold">Share</span>
-        </button>
-      </div>
 
-      {/* Comments Section */}
-      {showComments && (
-        <div className="mt-3 border-t pt-3">
-          {/* Comment Input */}
-          <div className="flex items-center space-x-3 mb-3">
-            <img
-              // Use the session for profile pic, with fallback if not present
-              src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
-              alt="Your avatar"
-              className="w-8 h-8 rounded-full object-cover"
-            />
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Write a comment..."
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                onKeyPress={(e) => { if (e.key === 'Enter') handlePostComment(); }}
-                className="w-full pl-4 pr-10 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-300 text-sm"
-              />
-              <button
-                onClick={handlePostComment}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 transition p-1"
-                aria-label="Post comment"
-              >
-                <i className="fas fa-paper-plane"></i>
-              </button>
-            </div>
-          </div>
+	const handleDeleteComment = useCallback((commentId, postId) => {
+		if (!sessionUserId) {
+			setPostError("You must be logged in to delete a comment.");
+			return;
+		}
+		if (confirm("Are you sure you want to delete this comment/reply? This action cannot be undone.")) {
+			deleteCommentOrReply({ commentId, postId });
+		}
+	}, [sessionUserId, deleteCommentOrReply, setPostError]);
 
-          {/* Display Comments */}
-          {post.comments && post.comments.length > 0 ? (
-            post.comments.map(comment => (
-              <Comment
-                key={comment.id}
-                comment={comment}
-                sessionUserId={sessionUserId}
-                postId={post.id} // NEW: Pass postId for nested replies
-                onInlineReply={(commentId, replyText) => onInlineReply(post.id, commentId, replyText)}
-              />
-            ))
-          ) : (
-            <p className="text-center text-xs text-gray-500">No comments yet. Be the first to comment!</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+	const toggleCommentSection = () => {
+		setActiveCommentForPost(prevId => (prevId === post.id ? null : post.id));
+	};
 
-export default PostCard;
+	const handlePostTypeAction = (type) => {
+		alert(`${type} functionality not implemented yet.`);
+	};
+
+	return (
+		<div key={post.id} className="bg-white rounded-lg shadow-md p-4 mb-6 border border-gray-200">
+			{/* Post Header */}
+			<div className="flex items-center mb-3">
+				<img
+					src={post.user.imageUrl}
+					alt={`${post.user.name}'s avatar`}
+					className="w-10 h-10 rounded-full object-cover border border-gray-200"
+				/>
+				<div className="ml-3">
+					<p className="font-semibold text-gray-800">{post.user.name}</p>
+					<p className="text-sm text-gray-500">{post.user.headline}</p>
+					<p className="text-xs text-gray-400">{post.timestamp}</p>
+				</div>
+			</div>
+
+			{/* Post Content */}
+			<div className="mb-4">
+				<p className="text-gray-700">{post.content}</p>
+			</div>
+
+			{/* Post Stats */}
+			<div className="flex justify-between items-center text-sm text-gray-500 mb-3 border-b border-gray-100 pb-2">
+				<span>{post.likesCount || 0} Likes</span>
+				<span>{post.commentsCount || 0} Comments</span>
+			</div>
+
+			{/* Post Actions (Like, Comment, Share) */}
+			<div className="flex justify-around items-center border-b border-gray-100 pb-2 mb-4">
+				<button
+					onClick={handleLike}
+					className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-indigo-600 transition duration-150 ease-in-out"
+				>
+					<i className="far fa-thumbs-up"></i>
+					<span>Like</span>
+				</button>
+				<button
+					onClick={toggleCommentSection}
+					className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-indigo-600 transition duration-150 ease-in-out"
+				>
+					<i className="far fa-comment"></i>
+					<span>Comment</span>
+				</button>
+				<button
+					type="button"
+					className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-indigo-600 transition duration-150 ease-in-out"
+					onClick={() => handlePostTypeAction("share")}
+				>
+					<i className="far fa-share-square"></i>
+					<span>Share</span>
+				</button>
+			</div>
+
+			{/* Comment Input and Comments List */}
+			{activeCommentForPost === post.id && (
+				<div className="mt-4">
+					{/* Current User's Comment Input */}
+					<form onSubmit={handleAddComment} className="flex items-center space-x-3 mb-4">
+						<img
+							src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
+							alt="Your avatar"
+							className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200"
+						/>
+						<div className="flex-1 relative">
+							<input
+								type="text"
+								name="commentInput" // Added name for form submission
+								placeholder="Write a comment..."
+								className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-full bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+							/>
+							<button
+								type="submit" // Changed to submit
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 hover:text-indigo-800 transition duration-150 ease-in-out p-1 rounded-full"
+								aria-label="Post comment"
+							>
+								<i className="fas fa-paper-plane"></i>
+							</button>
+						</div>
+					</form>
+
+					{/* List of Comments */}
+					{post.comments && post.comments.length > 0 ? (
+						post.comments.map(comment => (
+							<Comment
+								key={comment.id}
+								comment={comment}
+								onReply={openReplyModal}
+								sessionUserId={sessionUserId}
+								onDeleteComment={handleDeleteComment}
+								postId={post.id}
+							/>
+						))
+					) : (
+						<p className="text-gray-500 text-sm text-center">No comments yet. Be the first to comment!</p>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
