@@ -259,6 +259,19 @@ export async function POST(request) {
     console.log(
       `New connection request sent from ${senderId} to ${receiverId}: ${newRequest.id}`
     );
+
+    // --- Create notification for receiver ---
+    await prisma.notification.create({
+      data: {
+        recipientId: receiverId,
+        type: "CONNECTION_REQUEST",
+        message: "You have a new connection request.",
+        senderId: senderId,
+        targetId: newRequest.id,
+        read: false,
+      },
+    });
+
     return NextResponse.json(
       {
         message: "Connection request sent.",

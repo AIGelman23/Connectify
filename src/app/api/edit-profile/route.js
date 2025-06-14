@@ -201,7 +201,7 @@ export async function PUT(request) {
 					// Use explicit mapping
 					profileId: profile.id,
 					degree: eduItem.degree,
-					institution: eduItem.school || "", // Map 'school' from frontend to 'institution' with fallback
+					institution: eduItem.institution || "", // Map 'institution' from frontend
 					fieldOfStudy: eduItem.fieldOfStudy || null,
 					startDate: new Date(eduItem.startDate),
 					endDate: eduItem.endDate ? new Date(eduItem.endDate) : null,
@@ -218,11 +218,11 @@ export async function PUT(request) {
 			});
 			if (skills.length > 0) {
 				const skillPromises = skills.map(async (skillName) => {
-					const existingSkill = await tx.skill.findUnique({
+					const existingSkill = await tx.skill.findUnique({ // <-- This is problematic
 						where: { name: skillName },
 					});
 					if (existingSkill) {
-						return tx.skill.update({
+						return tx.skill.update({ // <-- Updates existing skill globally, not just for THIS profile
 							where: { id: existingSkill.id },
 							data: { profileId: profile.id },
 						});

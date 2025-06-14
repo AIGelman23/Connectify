@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'; // Keep use
 
 import Navbar from '../../components/NavBar';
 import PostFeed from '../../components/PostFeed';
+import CreatePostCard from '../../components/CreatePostCard'; // <-- Make sure this import is at the top level
 
 export default function HomePage() {
 	const { data: session, status } = useSession();
@@ -159,7 +160,40 @@ export default function HomePage() {
 		setReplyText("");
 	};
 
-	// Combine loading states for initial display
+	// --- All hooks must be called unconditionally and in the same order ---
+	const handleCreatePost = useCallback(
+		async ({ fileUrl, fileType, content }) => {
+			if (!session?.user?.id) {
+				setPostError("You must be logged in to create a post.");
+				return;
+			}
+			// Remove the condition that forces text when media is provided.
+			// if (!content?.trim() && !fileUrl) { ... }
+			try {
+				const res = await fetch('/api/posts', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						content: content,
+						imageUrl: fileType === "image" ? fileUrl : undefined,
+						videoUrl: fileType === "video" ? fileUrl : undefined,
+					}),
+				});
+				if (!res.ok) {
+					const errorData = await res.json();
+					throw new Error(errorData.message || "Failed to create post.");
+				}
+				setNewPostContent("");
+				queryClient.invalidateQueries({ queryKey: ['posts'] });
+			} catch (err) {
+				setPostError(err.message || "Failed to post. Please try again.");
+			}
+		},
+		[session?.user?.id, queryClient]
+	);
+	// --- All hooks above this line ---
+
+	// --- Conditional rendering below this line only ---
 	const finalLoadingState = loadingInitialData || (status === "authenticated" && !profile && !postError);
 
 	if (finalLoadingState) {
@@ -200,53 +234,12 @@ export default function HomePage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-100 flex flex-col">
+		<div className="min-h-screen flex flex-col">
 			<Navbar session={session} router={router} />
 			<main className="flex-1 overflow-hidden">
 				<div className="max-w-lg mx-auto py-8 px-4">
 					{/* Post Creation Section */}
-					<div className="bg-white rounded-lg shadow-md p-4 mb-6 border border-gray-200">
-						<h3 className="text-lg font-semibold text-gray-800 mb-3">Create Post</h3>
-						<div className="flex items-center space-x-3 mb-4">
-							<img
-								src={session?.user?.image || `https://placehold.co/40x40/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
-								alt="Your avatar"
-								className="w-10 h-10 rounded-full object-cover border border-gray-200"
-							/>
-							<textarea
-								className="flex-1 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-500 resize-y min-h-[60px]"
-								placeholder="What's on your mind?"
-								value={newPostContent}
-								onChange={(e) => setNewPostContent(e.target.value)}
-								rows="3"
-							></textarea>
-						</div>
-						{postError && <p className="text-red-600 text-sm mb-3">{postError}</p>}
-						<div className="flex justify-end space-x-3 border-t border-gray-100 pt-3">
-							<button
-								type="button"
-								className="flex items-center space-x-2 text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-full transition duration-150"
-								onClick={() => alert("Photo functionality not implemented yet.")}
-							>
-								<i className="fas fa-image"></i> <span>Photo</span>
-							</button>
-							<button
-								type="button"
-								className="flex items-center space-x-2 text-green-600 hover:bg-green-50 px-4 py-2 rounded-full transition duration-150"
-								onClick={() => alert("Video functionality not implemented yet.")}
-							>
-								<i className="fas fa-video"></i> <span>Video</span>
-							</button>
-							<button
-								onClick={handlePostSubmit}
-								disabled={isPosting}
-								className="px-6 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								{isPosting ? "Posting..." : "Post"}
-							</button>
-						</div>
-					</div>
-
+					<CreatePostCard onCreatePost={handleCreatePost} />
 					{/* Posts Feed Component */}
 					<PostFeed
 						sessionUserId={session?.user?.id}

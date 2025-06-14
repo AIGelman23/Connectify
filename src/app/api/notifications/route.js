@@ -43,10 +43,10 @@ export async function GET(request) {
     // For example, if 'targetId' points to a specific post or job,
     // you could fetch more details about that entity.
     const formattedNotifications = notifications.map((notif) => {
-      // For connection_accepted, we might populate user details from 'sender'
       let userDetails = null;
       if (notif.sender) {
         userDetails = {
+          id: notif.sender.id,
           name: notif.sender.name,
           imageUrl:
             notif.sender.image ||
@@ -84,7 +84,9 @@ export async function GET(request) {
         message: notif.message,
         read: notif.read,
         createdAt: notif.createdAt,
-        user: userDetails, // User associated with the notification (e.g., who accepted the connection)
+        user: userDetails,
+        targetId: notif.targetId, // <-- Add this
+        senderId: notif.senderId, // <-- Add this
         job: jobDetails, // Job details if applicable
         event: eventDetails, // Event details if applicable
       };

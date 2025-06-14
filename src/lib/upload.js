@@ -16,28 +16,62 @@ export default async function handler(req, res) {
 
   try {
     const form = formidable({
-      maxFileSize: 10 * 1024 * 1024, // 10MB limit
+      maxFileSize: 50 * 1024 * 1024, // 50MB limit
+      keepExtensions: true, // preserve file extension
     });
 
-    const [fields, files] = await form.parse(req);
+    // Wrap form.parse in a Promise
+    const parseForm = (req) =>
+      new Promise((resolve, reject) => {
+        form.parse(req, (err, fields, files) => {
+          if (err) reject(err);
+          else resolve([fields, files]);
+        });
+      });
 
-    const file = files.file[0];
+    const [fields, files] = await parseForm(req);
+    const getFile = (fileField) =>
+      Array.isArray(fileField) ? fileField[0] : fileField;
+    const file =
+      getFile(files.profilePicture) ||
+      getFile(files.coverPhoto) ||
+      getFile(files.resume) ||
+      getFile(files.file);
+
+    console.log("DEBUG: Uploaded file details:", file); // <-- diagnostic log
+
     if (!file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
     // Read file buffer
-    const fileBuffer = fs.readFileSync(file.filepath);
+    let fileBuffer;
+    try {
+      fileBuffer = fs.readFileSync(file.filepath);
+    } catch (err) {
+      console.error("Error reading uploaded file:", err);
+      return res.status(500).json({ error: "Failed to read uploaded file" });
+    }
 
     // Upload to S3
-    const result = await uploadFileToS3(
-      fileBuffer,
-      file.originalFilename || "unnamed-file",
-      file.mimetype || "application/octet-stream"
-    );
+    let result;
+    try {
+      result = await uploadFileToS3(
+        fileBuffer,
+        file.originalFilename || "unnamed-file",
+        file.mimetype || "application/octet-stream"
+      );
+    } catch (err) {
+      console.error("Error uploading to S3:", err);
+      return res.status(500).json({ error: "Failed to upload to S3" });
+    }
 
     // Clean up temp file
-    fs.unlinkSync(file.filepath);
+    try {
+      fs.unlinkSync(file.filepath);
+    } catch (err) {
+      console.warn("Failed to clean up temp file:", err);
+    }
 
     if (result.success) {
       res.status(200).json({

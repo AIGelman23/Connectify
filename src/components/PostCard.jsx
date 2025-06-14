@@ -141,34 +141,65 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 	};
 
 	return (
-		<div key={post.id} className="bg-white rounded-lg shadow-md p-4 mb-6 border border-gray-200">
+		<div key={post.id} className="post-card rounded-lg shadow-md p-4 mb-6 border border-gray-200">
 			{/* Post Header */}
 			<div className="flex items-center mb-3">
 				<img
-					src={post.user.imageUrl}
-					alt={`${post.user.name}'s avatar`}
+					src={
+						post.author?.profile?.profilePictureUrl ||
+						post.author?.image ||
+						post.author?.imageUrl ||
+						`https://placehold.co/40x40/A78BFA/ffffff?text=${post.author?.name ? post.author.name[0].toUpperCase() : 'U'}`
+					}
+					alt={`${post.author?.name || "User"}'s avatar`}
 					className="w-10 h-10 rounded-full object-cover border border-gray-200"
 				/>
 				<div className="ml-3">
-					<p className="font-semibold text-gray-800">{post.user.name}</p>
-					<p className="text-sm text-gray-500">{post.user.headline}</p>
+					<p className="font-semibold">{post.author?.name}</p>
+					<p className="text-sm text-gray-500">{post.author?.headline}</p>
 					<p className="text-xs text-gray-400">{post.timestamp}</p>
 				</div>
 			</div>
 
 			{/* Post Content */}
 			<div className="mb-4">
-				<p className="text-gray-700">{post.content}</p>
+				<p>{post.content}</p>
+				{/* Show image or video if present */}
+				{post.imageUrl && (
+					<div className="mt-3 flex justify-center">
+						<img
+							src={post.imageUrl}
+							alt="Post attachment"
+							className="max-h-96 rounded-lg border border-gray-200 shadow"
+							style={{ maxWidth: "100%" }}
+						/>
+					</div>
+				)}
+				{post.videoUrl && (
+					<div className="mt-3 flex justify-center">
+						<video
+							src={post.videoUrl}
+							controls
+							className="max-h-96 rounded-lg border border-gray-200 shadow"
+							style={{ maxWidth: "100%", background: "#000" }}
+						>
+							<source src={post.videoUrl} type="video/mp4" />
+							<source src={post.videoUrl} type="video/webm" />
+							<source src={post.videoUrl} type="video/ogg" />
+							Your browser does not support the video tag.
+						</video>
+					</div>
+				)}
 			</div>
 
 			{/* Post Stats */}
-			<div className="flex justify-between items-center text-sm text-gray-500 mb-3 border-b border-gray-100 pb-2">
+			<div className="flex justify-between items-center text-sm text-gray-500 mb-3 pb-2">
 				<span>{post.likesCount || 0} Likes</span>
 				<span>{post.commentsCount || 0} Comments</span>
 			</div>
 
 			{/* Post Actions (Like, Comment, Share) */}
-			<div className="flex justify-around items-center border-b border-gray-100 pb-2 mb-4">
+			<div className="flex justify-around items-center pb-2 mb-4">
 				<button
 					onClick={handleLike}
 					className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-indigo-600 transition duration-150 ease-in-out"

@@ -3,8 +3,13 @@
 import ExperienceModal from "../../components/profile/ExperienceModal";
 
 // Experience section component
-export default function EditProfileExperience({ currentProfileState, openExperienceModal, handleDeleteExperience, formErrors, isEditable }) {
-	// For date formatting, assume using same helper from page.jsx or inline comment.
+export default function EditProfileExperience({
+	currentProfileState,
+	openExperienceModal,
+	handleDeleteExperience,
+	formErrors,
+	isEditable
+}) {	// For date formatting, assume using same helper from page.jsx or inline comment.
 	const formatDate = (dateString) => {
 		// ...existing code...
 		if (!dateString) return '';
@@ -15,13 +20,13 @@ export default function EditProfileExperience({ currentProfileState, openExperie
 		}
 	};
 	return (
-		<section className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+		<section className="p-6 rounded-lg shadow-sm">
 			<div className="flex justify-between items-center mb-6">
-				<h2 className="text-2xl font-semibold text-gray-800">Experience</h2>
+				<h2 className="text-2xl font-semibold">Experience</h2>
 				{isEditable && (
 					<button
 						type="button"
-						onClick={() => openExperienceModal()}
+						onClick={() => openExperienceModal(null)}
 						className="px-4 py-2 bg-[#1877f2] text-white font-semibold rounded-md hover:bg-[#166fe5] transition duration-150 ease-in-out"
 					>
 						Add New
@@ -35,11 +40,11 @@ export default function EditProfileExperience({ currentProfileState, openExperie
 					</p>
 				) : (
 					currentProfileState.experience.map((exp) => (
-						<div key={exp.id} className="bg-white rounded-lg shadow border p-4">
-							<p className="font-semibold text-gray-800">{exp.title}</p>
-							<p className="text-gray-600 text-sm">{exp.company}</p>
-							<p className="text-gray-500 text-xs">{exp.location}</p>
-							<p className="text-gray-500 text-xs">
+						<div key={exp.id} className="rounded-lg shadow p-4">
+							<p className="font-semibold">{exp.title}</p>
+							<p className="text-sm">{exp.company}</p>
+							<p className="text-xs">{exp.location}</p>
+							<p className="text-xs">
 								{formatDate(exp.startDate)} – {exp.isCurrent ? 'Present' : formatDate(exp.endDate)}
 							</p>
 							{isEditable && (

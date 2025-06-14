@@ -1,37 +1,32 @@
 // lib/s3.js - S3 configuration and utility functions
-import AWS from "aws-sdk";
-require("dotenv").config({ path: ".env.local" });
+import S3 from "aws-sdk/clients/s3";
 
-const s3 = new AWS.S3({
+const s3 = new S3({
+  region: process.env.AWS_S3_REGION,
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_S3_REGION,
 });
 
-export const uploadFileToS3 = async (fileBuffer, fileName, mimeType) => {
-  const params = {
-    Bucket: process.env.AWS_S3_BUCKET_NAME,
-    Key: `uploads/${Date.now()}-${fileName}`,
-    Body: fileBuffer,
-    ContentType: mimeType,
-    ACL: "public-read", // Make file publicly accessible
-  };
+export async function uploadFileToS3(fileBuffer, originalFilename, mimeType) {
+  // Sanitize the filename (remove spaces) and prefix with a timestamp to prevent collisions
+  const timestamp = Date.now();
+  const sanitizedFilename = originalFilename.replace(/\s+/g, "-");
+  const key = `${timestamp}-${sanitizedFilename}`;
 
   try {
-    const data = await s3.upload(params).promise();
-    return {
-      success: true,
-      url: data.Location,
-      key: data.Key,
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: mimeType,
     };
+    const data = await s3.upload(params).promise();
+    return { success: true, url: data.Location, key };
   } catch (error) {
     console.error("S3 upload error:", error);
-    return {
-      success: false,
-      error: error.message,
-    };
+    return { success: false, error: error.message };
   }
-};
+}
 
 export const deleteFileFromS3 = async (key) => {
   const params = {

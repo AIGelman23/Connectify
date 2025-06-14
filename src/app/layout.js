@@ -1,18 +1,15 @@
 // src/app/layout.jsx
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
 import "@fortawesome/fontawesome-free/css/all.css";
 
 // --- FIX IS HERE: Changed to named import for Providers ---
 // Assuming providers.jsx is in src/app/ and not src/components/
-import { Providers } from "../components/Providers"; // If providers.jsx is in src/app/
+import { Providers } from "../components/Providers";
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
 
-// If providers.jsx were truly in src/components/, it would be:
-// import { Providers } from "../components/Providers"; // Notice the curly braces
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
-	subsets: ["latin"],
+const client = new ApolloClient({
+	uri: 'http://localhost:4000/graphql', // Replace with your GraphQL server URL
+	cache: new InMemoryCache(),
 });
 
 export const metadata = {
@@ -23,9 +20,17 @@ export const metadata = {
 export default function RootLayout({ children }) {
 	return (
 		<html lang="en">
-			<body>
-				<Providers>{children}</Providers>
+			<body className="min-h-screen bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+				<Providers>
+					{children}
+				</Providers>
 			</body>
 		</html>
 	);
 }
+
+// --- IMPORTANT ---
+// Remove any useEffect, useLayoutEffect, or other React hooks from this file.
+// Do NOT add "use client" to this file. 
+// If you need to sync body classes with theme, do it in a separate client component inside <Providers>.
+// This file must remain a Server Component for Next.js 15+ layout API and metadata support.

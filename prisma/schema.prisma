@@ -82,6 +82,10 @@ model User {
   notificationsReceived      Notification[]    @relation("UserNotifications")
   notificationsSent          Notification[]    @relation("SenderNotifications") // Optional, for tracking who sent the notification
 
+  // NEW: Add these fields for password reset functionality
+  resetToken                 String?   
+  resetTokenExpiry           DateTime?
+
   createdAt                  DateTime          @default(now())
 }
 
@@ -162,16 +166,18 @@ model Experience {
 
 // Post Model (with comments relationship)
 model Post {
-  id          String   @id @default(uuid())
-  content     String
-  authorId    String
-  likesCount  Int      @default(0)
-  commentsCount Int    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  content       String?  // made optional for media-only posts
+  imageUrl      String?  // optional image URL field
+  videoUrl      String?  // optional video URL field
+  authorId      String
+  likesCount    Int      @default(0)
+  commentsCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments    Comment[] // New: Post can have multiple comments
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments      Comment[] // New: Post can have multiple comments
 
   @@map("posts")
 }

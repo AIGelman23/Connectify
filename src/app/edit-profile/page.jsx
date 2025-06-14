@@ -1,39 +1,28 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Navbar from '../../components/NavBar';
 import ExperienceModal from "../../components/profile/ExperienceModal";
 import EducationModal from "../../components/profile/EducationModal";
-import SkillModal from "../../components/profile/SkillModal";
+
 import ResumePreviewModal from "../../components/profile/ResumePreviewModal";
-import FriendsList from "../../components/profile/FriendsList";
+import FriendsListContainer from "../../components/profile/FriendsListContainer";
 
 import EditProfileHeader from "../../components/profile/EditProfileHeader";
-import EditProfileAbout from "../../components/profile/EditProfileAbout";
 import EditProfileExperience from "../../components/profile/EditProfileExperience";
 import EditProfileEducation from "../../components/profile/EditProfileEducation";
 import EditProfileSkills from "../../components/profile/EditProfileSkills";
 
-
-// Helper function to format dates
-const formatDate = (dateString) => {
-	if (!dateString) return '';
-	try {
-		return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long' }).format(new Date(dateString));
-	} catch (e) {
-		console.error("Error formatting date:", dateString, e);
-		return dateString; // Return original if invalid
-	}
-};
-
+import { v4 as uuidv4 } from 'uuid'; // Import uuid for generating unique IDs
 
 export default function EditProfilePage() {
 	const { data: session, status, update } = useSession();
+	console.log(status);
 	const router = useRouter();
 	const [loading, setLoading] = useState(true);
-
+	const [allConnections, setAllConnections] = useState([]);
 
 	// profileData stores the officially saved/fetched profile data
 	const [profileData, setProfileData] = useState({
@@ -49,6 +38,7 @@ export default function EditProfilePage() {
 		experience: [],
 		education: [],
 		skills: [],
+		acceptedFriends: [], // Initialize acceptedFriends here
 	});
 
 	// draftProfileData stores the data being actively edited (only populated in 'edit' mode)
@@ -77,16 +67,14 @@ export default function EditProfilePage() {
 
 	// States for modals (these operate on draftProfileData when in edit mode)
 	const [isExperienceModalOpen, setIsExperienceModalOpen] = useState(false);
-	const [editingExperience, setEditingExperience] = useState(null);
+	const [editingExperience, setEditingExperience] = useState(null); // The item being edited
 	const [isEducationModalOpen, setIsEducationModalOpen] = useState(false);
-	const [editingEducation, setEditingEducation] = useState(null);
-	const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
-	const [editingSkill, setEditingSkill] = useState(null);
+	const [editingEducation, setEditingEducation] = useState(null); // The item being edited
+	const [isSkillModalOpen, setIsSkillModalOpen] = useState(false); // Unused in this example
+	const [editingSkill, setEditingSkill] = useState(null); // Unused in this example
 	const [skillInput, setSkillInput] = useState('');
 
-	// New state for friend search
-	const [friendSearchTerm, setFriendSearchTerm] = useState("");
-
+	// --- useEffect for initial profile fetch ---
 	useEffect(() => {
 		if (status === "loading") {
 			return;
@@ -112,42 +100,35 @@ export default function EditProfilePage() {
 							throw new Error(`Failed to parse backend response as JSON: ${jsonParseError.message}. Raw response: "${rawResponseText.substring(0, 200)}..."`);
 						}
 
-						console.log("Fetched profile data from backend:", JSON.stringify(data.profile, null, 2));
-
 						setProfileData(prev => ({
 							...prev,
-							// Backend now sends `name`, `email`, `profilePicture`, `summary`, `experience`, `education`, `skills`
-							// directly at the top level of `data.profile` after formatting.
 							name: data.profile.name || session.user.name || '',
 							email: data.profile.email || session.user.email || '',
 							headline: data.profile.headline || '',
-							summary: data.profile.summary || '', // Correctly use data.profile.summary
+							summary: data.profile.summary || '',
 							location: data.profile.location || '',
-							// MODIFIED: Prioritize data.profile.profilePictureUrl from backend
 							profilePicture: data.profile.profilePictureUrl || session.user.image || '',
 							coverPhoto: data.profile.coverPhotoUrl || '',
 							resume: data.profile.resumeUrl || '',
 							isProfileComplete: data.profile.isProfileComplete || false,
-							experience: Array.isArray(data.profile.experience) ? data.profile.experience : [], // Correctly use data.profile.experience
-							education: Array.isArray(data.profile.education) ? data.profile.education : [],   // Correctly use data.profile.education
+							experience: Array.isArray(data.profile.experience) ? data.profile.experience : [],
+							education: Array.isArray(data.profile.education) ? data.profile.education : [],
 							skills: Array.isArray(data.profile.skills) ? data.profile.skills : [],
+							// Ensure acceptedFriends is initialized from backend data if available
+							acceptedFriends: Array.isArray(data.profile.acceptedFriends) ? data.profile.acceptedFriends : [],
 						}));
-						// ADDED: Log session user image after initial fetch
 						console.log("EditProfilePage: session.user.image AFTER initial fetch:", session?.user?.image);
 					} else {
 						let errorData = { message: `Failed to fetch profile: ${res.statusText}` };
 						try {
 							const text = await res.text();
-							console.error("Backend error raw response (non-ok status):", text);
 							errorData = JSON.parse(text);
 						} catch (jsonParseError) {
-							console.error("Failed to parse non-OK error response as JSON:", jsonParseError);
 							errorData.message = errorData.message + (text ? ` Raw: "${text.substring(0, 100)}..."` : '');
 						}
 						throw new Error(errorData.message || `Failed to fetch profile: ${res.statusText}`);
 					}
 				} catch (err) {
-					console.error("Error fetching profile:", err);
 					setFormErrors(prev => ({ ...prev, fetch: err.message || "Failed to load profile data." }));
 				} finally {
 					setLoading(false);
@@ -157,13 +138,46 @@ export default function EditProfilePage() {
 		}
 	}, [status, router, session]);
 
-	// ADDED: useEffect to monitor session.user.image changes in EditProfilePage
+	// useEffect to monitor session.user.image changes (already good)
 	useEffect(() => {
 		console.log("EditProfilePage (useEffect): Current session.user.image is:", session?.user?.image);
 	}, [session?.user?.image]);
 
+	useEffect(() => {
+		if (status === "authenticated") {
+			const fetchFriends = async () => {
+				try {
+					const res = await fetch('/api/connections');
+					if (res.ok) {
+						const data = await res.json();
+						setAllConnections(data.users); // Store the raw fetched data
+						setFormErrors({});
+					} else {
+						const errorData = await res.json();
+						console.error("Failed to fetch connections:", errorData.message);
+						setFormErrors(prev => ({ ...prev, friends: errorData.message || "Failed to load connections." }));
+					}
+				} catch (err) {
+					console.error("Network error fetching connections:", err);
+					setFormErrors(prev => ({ ...prev, friends: "Network error loading friends list." }));
+				}
+			};
+			fetchFriends();
+		} else if (status === "unauthenticated") {
+			setAllConnections([]);
+			setFormErrors({});
+		}
+	}, [status]);
 
-	// Handler for text input changes, updates draftProfileData
+	// Use useMemo to create the 'friendsList' prop.
+	// It will only re-calculate and return a new array reference
+	// if 'allConnections' changes.
+	const memoizedFriendsList = useMemo(() => {
+		return allConnections.filter(user => user.connectionStatus === 'CONNECTED');
+	}, [allConnections]); // Dependency: allConnections
+
+
+	// Handler for text input changes, updates draftProfileData (already good)
 	const handleChange = useCallback((e) => {
 		const { name, value } = e.target;
 		if (draftProfileData) {
@@ -171,7 +185,7 @@ export default function EditProfilePage() {
 		}
 	}, [draftProfileData]);
 
-	// Handler for file input changes, updates draftProfileData and file states
+	// Handler for file input changes, updates draftProfileData and file states (already good)
 	const handleFileChange = useCallback((e, fileType) => {
 		if (e.target.files && e.target.files[0]) {
 			const file = e.target.files[0];
@@ -183,13 +197,12 @@ export default function EditProfilePage() {
 				setDraftProfileData(prev => ({ ...prev, coverPhoto: URL.createObjectURL(file) }));
 			} else if (fileType === 'resume') {
 				setResumeFile(file);
-				// For resume, update the draft with the file name for display, not a blob URL
 				setDraftProfileData(prev => ({ ...prev, resume: file.name }));
 			}
 		}
 	}, []);
 
-	// Helper function to upload files to S3
+	// Helper function to upload files to S3 (already good)
 	const uploadFileToS3 = useCallback(async (file, fileType) => {
 		if (!file) return null;
 
@@ -227,7 +240,7 @@ export default function EditProfilePage() {
 		}
 	}, []);
 
-
+	// Form validation (already good)
 	const validateForm = useCallback((dataToValidate) => {
 		const errors = {};
 		if (!dataToValidate.name || dataToValidate.name.trim().length < 2) {
@@ -256,7 +269,7 @@ export default function EditProfilePage() {
 		return Object.keys(errors).length === 0;
 	}, [MAX_HEADLINE_LENGTH, MAX_SUMMARY_LENGTH, MAX_LOCATION_LENGTH]);
 
-
+	// handleSubmit function (already good, with slight improvements for clarity)
 	const handleSubmit = useCallback(async (e) => {
 		e.preventDefault();
 		if (!draftProfileData) return;
@@ -272,46 +285,38 @@ export default function EditProfilePage() {
 
 		let finalProfilePictureUrl = draftProfileData.profilePicture;
 		let finalCoverPhotoUrl = draftProfileData.coverPhoto;
-		let finalResumeUrl = draftProfileData.resume; // Initialize with current draft resume value
+		let finalResumeUrl = draftProfileData.resume;
 
 		try {
+			// Handle profile picture upload/removal
 			if (profilePictureFile) {
 				finalProfilePictureUrl = await uploadFileToS3(profilePictureFile, 'profilePicture');
-				if (finalProfilePictureUrl === null) {
-					setLoading(false); return;
-				}
-			} else if (draftProfileData.profilePicture === '') { // Explicitly cleared by user
-				finalProfilePictureUrl = '';
-			} else if (!profilePictureFile && profileData.profilePicture) { // No new file, but there was an existing one
-				finalProfilePictureUrl = profileData.profilePicture;
+				if (finalProfilePictureUrl === null) { setLoading(false); return; }
+			} else if (profileData.profilePicture && draftProfileData.profilePicture === '') {
+				finalProfilePictureUrl = ''; // User explicitly cleared existing image
+			} else {
+				finalProfilePictureUrl = profileData.profilePicture; // Keep existing if not changed/cleared
 			}
-			// If no file was ever set and none is uploaded, it remains empty, which is correct.
 
-
+			// Handle cover photo upload/removal
 			if (coverPhotoFile) {
 				finalCoverPhotoUrl = await uploadFileToS3(coverPhotoFile, 'coverPhoto');
-				if (finalCoverPhotoUrl === null) {
-					setLoading(false); return;
-				}
+				if (finalCoverPhotoUrl === null) { setLoading(false); return; }
 			} else if (profileData.coverPhoto && draftProfileData.coverPhoto === '') {
-				finalCoverPhotoUrl = '';
-			} else if (!coverPhotoFile && profileData.coverPhoto) {
-				finalCoverPhotoUrl = profileData.coverPhoto;
+				finalCoverPhotoUrl = ''; // User explicitly cleared existing image
+			} else {
+				finalCoverPhotoUrl = profileData.coverPhoto; // Keep existing if not changed/cleared
 			}
 
-			if (resumeFile) { // Only upload if a new file was selected
+			// Handle resume upload/removal
+			if (resumeFile) {
 				finalResumeUrl = await uploadFileToS3(resumeFile, 'resume');
-				if (finalResumeUrl === null) {
-					setLoading(false); return;
-				}
+				if (finalResumeUrl === null) { setLoading(false); return; }
 			} else if (profileData.resume && draftProfileData.resume === '') {
-				// If resume was removed from draft, ensure final URL is empty
-				finalResumeUrl = '';
-			} else if (!resumeFile && profileData.resume) {
-				// If no new file, but there was an existing one
-				finalResumeUrl = profileData.resume;
+				finalResumeUrl = ''; // User explicitly cleared existing resume
+			} else {
+				finalResumeUrl = profileData.resume; // Keep existing if not changed/cleared
 			}
-			// If no resume was ever set and none is uploaded, it remains empty, which is correct.
 
 			const formData = new FormData();
 			formData.append('name', draftProfileData.name);
@@ -320,13 +325,12 @@ export default function EditProfilePage() {
 			formData.append('location', draftProfileData.location);
 			formData.append('isProfileComplete', true);
 
-
 			formData.append('profilePictureUrl', finalProfilePictureUrl || '');
 			formData.append('coverPhotoUrl', finalCoverPhotoUrl || '');
-			formData.append('resumeUrl', finalResumeUrl || ''); // Use the resolved finalResumeUrl
+			formData.append('resumeUrl', finalResumeUrl || '');
 
-			const skillsToSend = draftProfileData.skills.map(s => s.name);
-			formData.append('skills', JSON.stringify(skillsToSend));
+			// Stringify arrays before appending to FormData
+			formData.append('skills', JSON.stringify(draftProfileData.skills.map(s => s.name)));
 			formData.append('experience', JSON.stringify(draftProfileData.experience));
 			formData.append('education', JSON.stringify(draftProfileData.education));
 
@@ -345,34 +349,28 @@ export default function EditProfilePage() {
 
 				setProfileData(prev => ({
 					...prev,
-					// Update profileData using the newly formatted data from the backend
 					name: data.profile.name || prev.name,
 					email: data.profile.email || prev.email,
 					headline: data.profile.headline || prev.headline,
 					summary: data.profile.summary || prev.summary,
 					location: data.profile.location || prev.location,
-					profilePicture: data.profile.profilePictureUrl || prev.profilePicture, // Use profilePictureUrl from backend
-					coverPhoto: data.profile.coverPhotoUrl || prev.coverPhoto, // Keep coverPhotoUrl mapping
-					resume: data.profile.resumeUrl || prev.resume, // Keep resumeUrl mapping
+					profilePicture: data.profile.profilePictureUrl || prev.profilePicture,
+					coverPhoto: data.profile.coverPhotoUrl || prev.coverPhoto,
+					resume: data.profile.resumeUrl || prev.resume,
 					isProfileComplete: data.profile.isProfileComplete,
 					experience: Array.isArray(data.profile.experience) ? data.profile.experience : [],
 					education: Array.isArray(data.profile.education) ? data.profile.education : [],
 					skills: Array.isArray(data.profile.skills) ? data.profile.skills : [],
 				}));
 
-				// MODIFIED: Call update without arguments to force a full session refresh
 				console.log("EditProfilePage: Calling full session update.");
-				await update();
-				// Note: console.log(session?.user?.image) immediately after update() here might not reflect the change yet,
-				// as `session` is a state and updates after the component re-renders.
-				// The useEffect hook above will capture the change more reliably.
-
+				await update(); // Force a full session refresh to update NextAuth.js session
 
 				if (!profileData.isProfileComplete) {
 					router.push('/dashboard');
 				}
-				setDraftProfileData(null);
-				setViewMode('view');
+				setDraftProfileData(null); // Clear draft data
+				setViewMode('view'); // Exit edit mode
 			} else {
 				const errorData = await res.json();
 				console.error("Failed to save profile:", errorData);
@@ -395,21 +393,20 @@ export default function EditProfilePage() {
 		update,
 		profileData.isProfileComplete,
 		profileData.resume,
-		profileData.profilePicture, // Added to dependencies for clarity
-		profileData.coverPhoto, // Added to dependencies for clarity
+		profileData.profilePicture,
+		profileData.coverPhoto,
+		profileData.acceptedFriends // Added for completeness, though not directly used in submit logic
 	]);
 
 
-	// Logic for entering edit mode
+	// Logic for entering edit mode (already good)
 	const enterEditMode = useCallback(() => {
 		console.log("Entering edit mode. Current profileData BEFORE setting draft:", profileData);
 		setDraftProfileData({
 			...profileData,
-			// Ensure these are deep copies for editing
 			experience: Array.isArray(profileData.experience) ? [...profileData.experience] : [],
 			education: Array.isArray(profileData.education) ? [...profileData.education] : [],
 			skills: Array.isArray(profileData.skills) ? profileData.skills.map(s => ({ ...s })) : [],
-			// Ensure profilePicture, coverPhoto, resume are correctly taken from profileData
 			profilePicture: profileData.profilePicture || '',
 			coverPhoto: profileData.coverPhoto || '',
 			resume: profileData.resume || '',
@@ -422,7 +419,7 @@ export default function EditProfilePage() {
 		console.log("viewMode set to 'edit'.");
 	}, [profileData]);
 
-	// Logic for canceling edit mode (still exists, but no button to trigger it)
+	// Logic for canceling edit mode (already good)
 	const cancelEditMode = useCallback(() => {
 		setDraftProfileData(null);
 		setProfilePictureFile(null);
@@ -434,31 +431,49 @@ export default function EditProfilePage() {
 
 
 	// --- Experience Modals ---
-	const openExperienceModal = useCallback((exp = null) => {
-		setEditingExperience(exp);
+	const openExperienceModal = useCallback((expPassedToModal = null) => {
+		let objectToSetAsEditing = null;
+
+		if (expPassedToModal) {
+			const foundInDraft = draftProfileData.experience.find(item => String(item.id) === String(expPassedToModal.id));
+			if (foundInDraft) {
+				objectToSetAsEditing = JSON.parse(JSON.stringify(foundInDraft)); // Deep clone
+			} else {
+				// Fallback, should ideally not be hit if IDs are consistent and draft is up-to-date
+				console.warn("Experience item not found in draftProfileData by ID. Using CLONED original argument.");
+				objectToSetAsEditing = JSON.parse(JSON.stringify(expPassedToModal));
+			}
+		} else {
+			objectToSetAsEditing = null; // For adding a NEW item
+		}
+
+		setEditingExperience(objectToSetAsEditing);
 		setIsExperienceModalOpen(true);
 		setFormErrors(prev => {
 			const newErrors = { ...prev };
 			delete newErrors.experience;
 			return newErrors;
 		});
-	}, []);
+	}, [draftProfileData]); // Dependency on draftProfileData to find the item in the latest state
 
 	const closeExperienceModal = useCallback(() => {
 		setIsExperienceModalOpen(false);
-		setEditingExperience(null);
+		setEditingExperience(null); // Reset the editing item
 	}, []);
 
 	const handleSaveExperience = useCallback((exp) => {
 		setDraftProfileData(prev => {
 			if (!prev) return prev;
-			const newExperience = editingExperience
-				? prev.experience.map(e => (e.id === exp.id ? exp : e))
-				: [...prev.experience, { ...exp, id: crypto.randomUUID() }];
+
+			const newExperience = editingExperience // Check if we were editing (i.e., editingExperience was not null)
+				? prev.experience.map(e => (e.id === exp.id ? exp : e)) // Update existing
+				: [...prev.experience, { ...exp, id: uuidv4() }]; // Add new with uuid
+
 			return { ...prev, experience: newExperience };
 		});
 		closeExperienceModal();
-	}, [editingExperience, closeExperienceModal]);
+	}, [editingExperience, closeExperienceModal]); // Dependency on editingExperience to distinguish add/edit
+	// and closeExperienceModal to call it
 
 	const handleDeleteExperience = useCallback((idToDelete) => {
 		setDraftProfileData(prev => {
@@ -470,32 +485,65 @@ export default function EditProfilePage() {
 		});
 	}, []);
 
-	// --- Education Modals ---
-	const openEducationModal = useCallback((edu = null) => {
-		setEditingEducation(edu);
+	// --- Education Modals --- (Your openEducationModal is excellent and already handles cloning)
+	const openEducationModal = useCallback((eduPassedToModal = null) => {
+		console.groupCollapsed("TRACE: openEducationModal Call");
+		console.log("1. ARGUMENT: eduPassedToModal (from 'Edit' button click):", eduPassedToModal);
+		console.log("   Type of eduPassedToModal.id:", typeof eduPassedToModal?.id, " Value:", eduPassedToModal?.id);
+		console.log("   Current draftProfileData.education array:", draftProfileData.education);
+
+		let objectToSetAsEditing = null;
+
+		if (eduPassedToModal) {
+			const foundInDraft = draftProfileData.education.find(item => {
+				const isMatch = String(item.id) === String(eduPassedToModal.id);
+				if (isMatch) {
+					console.log("2. FIND RESULT: Found matching item in draftProfileData:", item);
+					console.log("   Found item ID type:", typeof item.id, " value:", item.id);
+				}
+				return isMatch;
+			});
+
+			if (foundInDraft) {
+				objectToSetAsEditing = JSON.parse(JSON.stringify(foundInDraft)); // Deep clone
+				console.log("3. CLONED OBJECT (passed to setEditingEducation):", objectToSetAsEditing);
+			} else {
+				console.warn("4. WARNING: Item not found in draftProfileData by ID. Using CLONED original argument. This might be a timing issue for newly added items.");
+				objectToSetAsEditing = JSON.parse(JSON.stringify(eduPassedToModal)); // Clone the original passed object
+			}
+		} else {
+			objectToSetAsEditing = null; // For adding a NEW item
+			console.log("5. OPENING FOR NEW ITEM: objectToSetAsEditing is null.");
+		}
+
+		setEditingEducation(objectToSetAsEditing);
 		setIsEducationModalOpen(true);
 		setFormErrors(prev => {
 			const newErrors = { ...prev };
 			delete newErrors.education;
 			return newErrors;
 		});
-	}, []);
+		console.groupEnd();
+	}, [draftProfileData]); // `draftProfileData` dependency is crucial here for `find`
+
 
 	const closeEducationModal = useCallback(() => {
 		setIsEducationModalOpen(false);
-		setEditingEducation(null);
+		setEditingEducation(null); // Reset the editing item
 	}, []);
 
 	const handleSaveEducation = useCallback((edu) => {
+		console.log("handleSaveEducation received:", edu); // Debug: Check if institution is present
 		setDraftProfileData(prev => {
 			if (!prev) return prev;
-			const newEducation = editingEducation
-				? prev.education.map(e => (e.id === edu.id ? edu : e))
-				: [...prev.education, { ...edu, id: crypto.randomUUID() }];
+			const newEducation = editingEducation // Check if we were editing
+				? prev.education.map(e => (e.id === edu.id ? edu : e)) // Update existing
+				: [...prev.education, { ...edu, id: uuidv4() }]; // Add new with uuid
+			console.log("Updated education array:", newEducation); // Debug: Check array after update
 			return { ...prev, education: newEducation };
 		});
 		closeEducationModal();
-	}, [editingEducation, closeEducationModal]);
+	}, [editingEducation, closeEducationModal]); // Dependency on editingEducation to distinguish add/edit
 
 	const handleDeleteEducation = useCallback((idToDelete) => {
 		setDraftProfileData(prev => {
@@ -507,36 +555,17 @@ export default function EditProfilePage() {
 		});
 	}, []);
 
-	// --- Skills Modals/Handling ---
-	const openSkillModal = useCallback((skill = null) => {
-		setEditingSkill(skill);
-		setSkillInput(skill?.name || '');
-		setIsSkillModalOpen(true);
-		setFormErrors(prev => {
-			const newErrors = { ...prev };
-			delete newErrors.skills;
-			return newErrors;
-		});
-	}, []);
+	// --- Skills Handlers --- (already good)
+	const handleAddSkill = useCallback((skillName) => {
+		const trimmedSkillName = skillName.trim();
+		if (draftProfileData && trimmedSkillName) {
+			const skillExists = draftProfileData.skills.some(s => s.name === trimmedSkillName);
 
-	const closeSkillModal = useCallback(() => {
-		setIsSkillModalOpen(false);
-		setEditingSkill(null);
-		setSkillInput('');
-	}, []);
-
-	const handleAddSkill = useCallback((e) => {
-		e.preventDefault();
-		const skillToAddName = skillInput.trim();
-		if (draftProfileData && skillToAddName) {
-			const skillExists = draftProfileData.skills.some(s => s.name === skillToAddName);
-
-			if (!skillExists && skillToAddName.length <= MAX_SKILL_LENGTH) {
+			if (!skillExists && trimmedSkillName.length <= MAX_SKILL_LENGTH) {
 				setDraftProfileData(prev => ({
 					...prev,
-					skills: [...prev.skills, { id: crypto.randomUUID(), name: skillToAddName, profileId: prev.id || null }],
+					skills: [...(prev?.skills || []), { id: uuidv4(), name: trimmedSkillName, profileId: prev?.id || null }],
 				}));
-				setSkillInput('');
 				setFormErrors(prev => {
 					const newErrors = { ...prev };
 					delete newErrors.skillInput;
@@ -544,12 +573,11 @@ export default function EditProfilePage() {
 				});
 			} else if (skillExists) {
 				setFormErrors(prev => ({ ...prev, skillInput: "This skill already exists." }));
-			} else if (skillToAddName.length > MAX_SKILL_LENGTH) {
+			} else if (trimmedSkillName.length > MAX_SKILL_LENGTH) {
 				setFormErrors(prev => ({ ...prev, skillInput: `Skill cannot exceed ${MAX_SKILL_LENGTH} characters.` }));
 			}
 		}
-	}, [skillInput, draftProfileData, MAX_SKILL_LENGTH]);
-
+	}, [draftProfileData, MAX_SKILL_LENGTH]);
 
 	const handleDeleteSkill = useCallback((skillToDeleteId) => {
 		setDraftProfileData(prev => {
@@ -572,25 +600,25 @@ export default function EditProfilePage() {
 	}, []);
 
 
-	// Handler to remove profile picture (updates draftProfileData)
+	// Handler to remove profile picture (updates draftProfileData) (already good)
 	const handleRemoveProfilePicture = useCallback(() => {
 		setProfilePictureFile(null);
 		setDraftProfileData(prev => ({ ...prev, profilePicture: '' }));
 	}, []);
 
-	// Handler to remove cover photo (updates draftProfileData)
+	// Handler to remove cover photo (updates draftProfileData) (already good)
 	const handleRemoveCoverPhoto = useCallback(() => {
 		setCoverPhotoFile(null);
 		setDraftProfileData(prev => ({ ...prev, coverPhoto: '' }));
 	}, []);
 
-	// Handler to open resume preview modal
+	// Handler to open resume preview modal (already good)
 	const openResumePreview = useCallback((url) => {
 		setCurrentResumeUrl(url);
 		setIsResumePreviewOpen(true);
 	}, []);
 
-	// Handler to close resume preview modal
+	// Handler to close resume preview modal (already good)
 	const closeResumePreview = useCallback(() => {
 		setIsResumePreviewOpen(false);
 		setCurrentResumeUrl('');
@@ -613,23 +641,14 @@ export default function EditProfilePage() {
 	console.log("Before rendering - currentProfileState:", currentProfileState);
 	if (!currentProfileState) {
 		console.error("currentProfileState is null or undefined at render time, this should not happen.");
-		return null;
+		return null; // Or render an error state
 	}
 	console.log("currentProfileState.experience:", currentProfileState.experience);
 	console.log("currentProfileState.education:", currentProfileState.education);
 	console.log("currentProfileState.skills:", currentProfileState.skills);
-
-
-	// Replace the dummy fallback with actual connections from the backend:
-	const acceptedFriends = profileData.acceptedFriends || [];
-	const filteredFriends = acceptedFriends.filter(friend =>
-		friend.name.toLowerCase().includes(friendSearchTerm.toLowerCase())
-	);
-
-
 	return (
-		<div className="min-h-screen bg-gray-100 font-sans antialiased text-gray-900">
-			{/* Uncomment Navbar to display the navigation */}
+		<div className="min-h-screen font-sans antialiased text-gray-900">
+			{/* Navbar for navigation */}
 			<Navbar session={session} router={router} />
 			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 				<EditProfileHeader
@@ -640,49 +659,29 @@ export default function EditProfilePage() {
 					handleRemoveCoverPhoto={handleRemoveCoverPhoto}
 					enterEditMode={enterEditMode}
 				/>
-				{/* NEW: Friends List Section on Profile Page */}
-				<div className="mt-8">
-					<h2 className="text-2xl font-semibold text-gray-800 mb-4">Your Friends</h2>
-					<div className="mb-4">
-						<input
-							type="text"
-							placeholder="Search friends..."
-							value={friendSearchTerm}
-							onChange={(e) => setFriendSearchTerm(e.target.value)}
-							className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-						/>
-					</div>
-					<div className="flex space-x-4 overflow-x-auto py-2">
-						{filteredFriends.length > 0 ? (
-							filteredFriends.map(friend => (
-								<div key={friend.id} className="flex-shrink-0 bg-white p-4 rounded-lg shadow hover:shadow-lg transition">
-									<img
-										src={friend.imageUrl}
-										alt={friend.name}
-										className="w-16 h-16 rounded-full object-cover"
-									/>
-									<p className="mt-2 text-sm font-semibold text-gray-800 text-center">{friend.name}</p>
-								</div>
-							))
-						) : (
-							<div className="text-gray-600">No friends available.</div>
-						)}
-					</div>
-				</div>
+				{/* Friends List Section on Profile Page */}
+				{status === "loading" && <p>Loading friends...</p>}
+				{status === "unauthenticated" && <p>Please log in to see your friends.</p>}
+				{status === "authenticated" && (
+					<>
+						{/* Pass the memoized friendsList */}
+						<FriendsListContainer />
+					</>
+				)}
 				{viewMode === 'view' ? (
 					<>
-						{/* Removed EditProfileAbout from view mode */}
+						{/* Render sections in view mode */}
 						<EditProfileExperience
 							currentProfileState={currentProfileState}
-							openExperienceModal={openExperienceModal}
-							handleDeleteExperience={handleDeleteExperience}
+							// No openExperienceModal in view mode if it's just for display
+							handleDeleteExperience={handleDeleteExperience} // Still needed if user can delete in view mode
 							formErrors={formErrors}
 							isEditable={false}
 						/>
 						<EditProfileEducation
 							currentProfileState={currentProfileState}
-							openEducationModal={openEducationModal}
-							handleDeleteEducation={handleDeleteEducation}
+							// No openEducationModal in view mode if it's just for display
+							handleDeleteEducation={handleDeleteEducation} // Still needed if user can delete in view mode
 							formErrors={formErrors}
 							isEditable={false}
 						/>
@@ -692,7 +691,6 @@ export default function EditProfilePage() {
 							setSkillInput={setSkillInput}
 							handleAddSkill={handleAddSkill}
 							handleDeleteSkill={handleDeleteSkill}
-							openSkillModal={openSkillModal}
 							formErrors={formErrors}
 							MAX_SKILL_LENGTH={MAX_SKILL_LENGTH}
 							isEditable={false}
@@ -701,10 +699,10 @@ export default function EditProfilePage() {
 				) : (
 					// --- Edit Mode Display (wrapped in a form) ---
 					<form onSubmit={handleSubmit} className="space-y-6">
-						<div className="bg-gray-50 p-8 rounded-md shadow border border-gray-200">
-							{/* Basic Info Edit */}
+						<div className="profile-edit-mode-container p-8 rounded-md shadow">
+							{/* Basic Info Edit (already good, styles are applied via className) */}
 							<section className="mb-8">
-								<h2 className="text-2xl font-semibold text-gray-800 mb-6">Edit Your Basic Info</h2>
+								<h2 className="text-2xl font-semibold mb-6">Edit Your Basic Info</h2>
 								<div className="grid grid-cols-1 gap-4">
 									<div>
 										<label htmlFor="name" className="block text-sm font-semibold text-gray-700">Name</label>
@@ -762,38 +760,47 @@ export default function EditProfilePage() {
 
 							{/* Experience Edit */}
 							<section className="mb-8">
-								<h2 className="text-2xl font-semibold text-gray-800 mb-4">Edit Your Experience</h2>
+								<h2 className="text-2xl font-semibold mb-4">Edit Your Experience</h2>
 								<EditProfileExperience
 									currentProfileState={currentProfileState}
 									openExperienceModal={openExperienceModal}
 									handleDeleteExperience={handleDeleteExperience}
 									formErrors={formErrors}
 									isEditable={true}
+									// Pass modal-related state to the component for conditional rendering of its button
+									isExperienceModalOpen={isExperienceModalOpen}
+									closeExperienceModal={closeExperienceModal}
+									handleSaveExperience={handleSaveExperience}
+									editingExperience={editingExperience} // Pass the editing item
 								/>
 							</section>
 
 							{/* Education Edit */}
 							<section className="mb-8">
-								<h2 className="text-2xl font-semibold text-gray-800 mb-4">Edit Your Education</h2>
+								<h2 className="text-2xl font-semibold mb-4">Edit Your Education</h2>
 								<EditProfileEducation
 									currentProfileState={currentProfileState}
 									openEducationModal={openEducationModal}
 									handleDeleteEducation={handleDeleteEducation}
 									formErrors={formErrors}
 									isEditable={true}
+									// Pass modal-related state to the component for conditional rendering of its button
+									isEducationModalOpen={isEducationModalOpen}
+									closeEducationModal={closeEducationModal}
+									handleSaveEducation={handleSaveEducation}
+									editingEducation={editingEducation} // Pass the editing item
 								/>
 							</section>
 
 							{/* Skills Edit */}
 							<section className="mb-8">
-								<h2 className="text-2xl font-semibold text-gray-800 mb-4">Edit Your Skills</h2>
+								<h2 className="text-2xl font-semibold mb-4">Edit Your Skills</h2>
 								<EditProfileSkills
 									currentProfileState={currentProfileState}
 									skillInput={skillInput}
 									setSkillInput={setSkillInput}
 									handleAddSkill={handleAddSkill}
 									handleDeleteSkill={handleDeleteSkill}
-									openSkillModal={openSkillModal}
 									formErrors={formErrors}
 									MAX_SKILL_LENGTH={MAX_SKILL_LENGTH}
 									isEditable={true}
@@ -801,7 +808,7 @@ export default function EditProfilePage() {
 							</section>
 						</div>
 						{/* Sticky container with Cancel and Save Profile buttons */}
-						<div className="sticky bottom-0 bg-[#f0f2f5] py-4 shadow-md">
+						<div className="profile-edit-sticky-bottom sticky bottom-0 bg-[#f0f2f5] py-4 shadow-md">
 							<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-end items-center space-x-4">
 								<button
 									type="button"
@@ -821,9 +828,32 @@ export default function EditProfilePage() {
 						</div>
 					</form>
 				)}
+
+				{/* --- Modals (Apply the key prop here) --- */}
+				{isExperienceModalOpen && (
+					<ExperienceModal
+						// Key changes when `editingExperience` changes (i.e., new/different item being edited)
+						key={editingExperience ? editingExperience.id : 'new-experience-modal'}
+						isOpen={isExperienceModalOpen}
+						onClose={closeExperienceModal}
+						experienceToEdit={editingExperience} // Renamed prop for consistency with EducationModal
+						onSave={handleSaveExperience}
+					/>
+				)}
+
+				{isEducationModalOpen && (
+					<EducationModal
+						// Key changes when `editingEducation` changes (i.e., new/different item being edited)
+						key={editingEducation ? editingEducation.id : 'new-education-modal'}
+						isOpen={isEducationModalOpen}
+						onClose={closeEducationModal}
+						educationToEdit={editingEducation}
+						onSave={handleSaveEducation}
+					/>
+				)}
 			</div>
 
-			{/* Resume Preview Modal */}
+			{/* Resume Preview Modal (already good) */}
 			<ResumePreviewModal
 				isOpen={isResumePreviewOpen}
 				onClose={closeResumePreview}
@@ -832,3 +862,5 @@ export default function EditProfilePage() {
 		</div>
 	);
 }
+
+// NOTE: All styling is applied via className (using Tailwind CSS with dark: variants)

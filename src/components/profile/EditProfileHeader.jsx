@@ -8,7 +8,7 @@ export default function EditProfileHeader({
 	enterEditMode,
 }) {
 	return (
-		<div className="bg-white shadow-md border border-gray-200 rounded-lg overflow-hidden">
+		<div className="dark:shadow-lg rounded-lg overflow-hidden">
 			{/* Cover Photo */}
 			<div className="relative">
 				{currentProfileState.coverPhoto ? (
@@ -19,8 +19,8 @@ export default function EditProfileHeader({
 						onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x200/cccccc/333333?text=Cover+Photo+Error' }}
 					/>
 				) : (
-					<div className="w-full h-56 bg-gray-200 flex items-center justify-center">
-						<p className="text-gray-500">No cover photo</p>
+					<div className="w-full h-56 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+						<p>No cover photo</p>
 					</div>
 				)}
 				{viewMode === 'edit' && (
@@ -44,7 +44,7 @@ export default function EditProfileHeader({
 							<button
 								type="button"
 								onClick={handleRemoveCoverPhoto}
-								className="absolute top-3 right-3 bg-[#1877f2] text-white text-sm font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition"
+								className="absolute top-3 right-3 bg-[#1877f2] dark:bg-blue-700 text-white text-sm font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition"
 								title="Remove Cover Photo"
 							>
 								<i className="fas fa-trash-alt"></i>
@@ -54,48 +54,86 @@ export default function EditProfileHeader({
 				)}
 			</div>
 			{/* Profile Picture and Basic Info */}
-			<div className="relative px-4 pb-4 -mt-16 flex flex-col items-center">
-				<div className="relative w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden">
-					{currentProfileState.profilePicture ? (
-						<img
-							src={currentProfileState.profilePicture}
-							alt="Profile Picture"
-							className="w-full h-full object-cover"
-							onError={(e) => {
-								e.target.onerror = null;
-								e.target.src = `https://placehold.co/128x128/A78BFA/ffffff?text=${currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}`;
-							}}
-						/>
-					) : (
-						<span className="text-white text-5xl font-bold">
-							{currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}
-						</span>
-					)}
+			<div className="relative px-4 pb-6 flex flex-col items-center profile-main-info">
+				{/* Avatar positioned with negative margin */}
+				<div className="-mt-16 mb-2">
+					<div className="w-32 h-32 rounded-full border-4 border-white shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center relative">
+						{currentProfileState.profilePicture ? (
+							<div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
+								<img
+									src={currentProfileState.profilePicture}
+									alt="Profile Picture"
+									className="w-full h-full object-cover object-center"
+									style={{
+										aspectRatio: "1 / 1",
+										display: "block",
+										width: "100%",
+										height: "100%",
+										borderRadius: "9999px",
+									}}
+									onError={(e) => {
+										e.target.onerror = null;
+										e.target.src = `https://placehold.co/128x128/A78BFA/ffffff?text=${currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}`;
+									}}
+								/>
+							</div>
+						) : (
+							<div className="w-full h-full bg-indigo-400 dark:bg-indigo-600 flex items-center justify-center rounded-full">
+								<span className="text-white text-5xl font-bold">
+									{currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}
+								</span>
+							</div>
+						)}
+						{viewMode === 'edit' && (
+							<>
+								<label
+									htmlFor="profilePicture"
+									className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white text-xs font-medium rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1"
+									style={{
+										minWidth: 0,
+										minHeight: 0,
+										fontSize: "0.85rem",
+										lineHeight: 1.2,
+									}}
+								>
+									<i className="fas fa-camera text-base mr-1"></i>
+									<span className="text-xs">Change</span>
+									<input
+										type="file"
+										id="profilePicture"
+										name="profilePicture"
+										accept="image/jpeg,image/png,image/webp"
+										onChange={(e) => handleFileChange(e, 'profilePicture')}
+										className="hidden"
+									/>
+								</label>
+							</>
+						)}
+					</div>
 				</div>
-				<div className="mt-4 text-center">
-					<h1 className="text-2xl font-bold text-gray-800">{currentProfileState.name}</h1>
-					<p className="text-md text-gray-600">{currentProfileState.headline}</p>
-					<p className="text-sm text-gray-500 flex items-center justify-center mt-1">
+				<div className="mt-4 text-center w-full flex flex-col items-center">
+					<h1 className="text-2xl font-bold">{currentProfileState.name}</h1>
+					<p className="text-md">{currentProfileState.headline}</p>
+					<p className="text-sm flex items-center justify-center mt-1">
 						<i className="fas fa-map-marker-alt text-xs mr-1 mt-px"></i>
 						{currentProfileState.location}
 					</p>
-					{/* Display summary in view mode in a rounded light-gray badge */}
 					{viewMode === 'view' && currentProfileState.summary && (
-						<div className="mt-2 bg-gray-100 px-3 py-1 rounded-full inline-block">
-							<p className="text-sm text-gray-700">{currentProfileState.summary}</p>
+						<div className="my-4 px-3 py-1 rounded-full inline-block">
+							<p className="text-sm">{currentProfileState.summary}</p>
 						</div>
 					)}
+					{viewMode === 'view' && typeof enterEditMode === "function" && (
+						<button
+							type="button"
+							onClick={enterEditMode}
+							className="profile-edit-btn bg-[#1877f2] dark:bg-blue-700 text-white font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition flex items-center space-x-2"
+						>
+							<i className="fas fa-pencil-alt text-sm"></i>
+							<span>Edit Profile</span>
+						</button>
+					)}
 				</div>
-				{viewMode === 'view' && (
-					<button
-						type="button"
-						onClick={enterEditMode}
-						className="absolute top-4 right-4 bg-[#1877f2] text-white font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition flex items-center space-x-2"
-					>
-						<i className="fas fa-pencil-alt text-sm"></i>
-						<span>Edit Profile</span>
-					</button>
-				)}
 			</div>
 		</div>
 	);
