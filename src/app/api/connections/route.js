@@ -6,6 +6,21 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 
 export async function GET(request) {
+  return new Response(JSON.stringify({ message: "Not implemented." }), {
+    status: 501,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function POST(request) {
+  return new Response(JSON.stringify({ message: "Not implemented." }), {
+    status: 501,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/*
+export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -463,3 +478,4 @@ export async function PUT(request) {
     );
   }
 }
+*/
