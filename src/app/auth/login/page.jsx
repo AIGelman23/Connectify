@@ -1,3 +1,6 @@
+// src/app/auth/login/page.jsx
+"use client";
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
