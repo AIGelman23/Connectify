@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* --- Existing global theme variables and styles ... --- */
+
+/* Dark/light styles for FriendsListContainer */
+.friends-list-container {
+  padding: 1rem 1.5rem;
+  background-color: #f9fafb; /* Light: bg-gray-50 */
+  border-bottom: 1px solid #f3f4f6; /* Light: border-gray-100 */
+}
+html.dark .friends-list-container {
+  background-color: #1e293b; /* Dark: adjusted to a deeper navy */
+  border-bottom: 1px solid #334155; /* Dark: complementary border */
+}
+
+/* Dark/light styles for FriendsList */
+.friends-list {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0; /* Light: border-slate-200 */
+}
+html.dark .friends-list {
+  background-color: #1f2937; /* Dark: slightly lighter than container for contrast */
+  border-color: #2d3748; /* Dark: adjusted border */
+}
+
+/* Search input styles for FriendsList */
+.friends-list-search-input {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 0.75rem; // matching py-3 and px adjustments if needed
+}
+
+html.dark .friends-list-search-input {
+  background-color: #3a3b3c;
+  border-color: #4b5563;
+  color: #e4e6eb;
+}
+
+/* Header styles for FriendsList - Light mode only */
+html.light .friends-list-header {
+  padding: 1rem 1.5rem; // py-4 (1rem) and px-6 (1.5rem)
+  background: linear-gradient(to right, #eff6ff, #eef2ff);
+  border-bottom: 1px solid #f3f4f6; // border-gray-100
+}
+
+/* Friends List Header */
+.friends-list-header {
+  padding: 1rem 1.5rem; // equivalent to py-4 and px-6
+  background: linear-gradient(to right, #eff6ff, #eef2ff);
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 1rem; // add separation below header
+}
+html.dark .friends-list-header {
+  padding: 1rem 1.5rem;
+  background: linear-gradient(
+    to right,
+    #1e293b,
+    #1e293b
+  ); // uniform dark background
+  border-bottom: 1px solid #2d3748;
+  margin-bottom: 1rem;
+}
+
+/* Friends list search container with side padding */
+.friends-list-search-container {
+  padding: 1rem 1.5rem; // 1rem top/bottom, 1.5rem left/right
+  background-color: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+html.dark .friends-list-search-container {
+  padding: 1rem 1.5rem;
+  background-color: #1e293b;
+  border-bottom: 1px solid #2d3748;
+}
