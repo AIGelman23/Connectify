@@ -1,5 +1,3 @@
-"use server";
-
 // src/app/api/connections/route.js
 
 import { NextResponse } from "next/server";
