@@ -232,11 +232,20 @@ export default function EditProfilePage() {
 			}
 
 			const data = await response.json();
-			return data.urls[`${fileType}Url`];
+			if (!data.url) {
+				console.error("Upload API response:", data);
+				throw new Error(
+					(data && data.message) ||
+					`Upload failed: missing URL for ${fileType}.`
+				);
+			}
+			return data.url;
 		} catch (error) {
 			console.error(`Error uploading ${fileType}:`, error);
-			setFormErrors(prev => ({ ...prev, [`${fileType}Upload`]: `Failed to upload ${fileType}: ${error.message}` }));
-			return null;
+			setFormErrors(prev => ({
+				...prev,
+				[`${fileType}Upload`]: `Failed to upload ${fileType}: ${error.message}`,
+			}));
 		}
 	}, []);
 
