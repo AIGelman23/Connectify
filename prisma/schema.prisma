@@ -1,239 +1,181 @@
-// prisma/schema.prisma
-
-// --- IMPORTANT: ORDER MATTERS ---
-// Define Enums first, as they can be referenced by models
-enum RequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
+generator client {
+  provider = "prisma-client-js"
 }
 
-enum Role {
-  USER
-  ADMIN
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// Define NotificationType enum
-enum NotificationType {
-  CONNECTION_REQUEST
-  CONNECTION_ACCEPTED
-  POST_LIKE
-  POST_COMMENT
-  MESSAGE
-  JOB_APPLICATION_VIEWED
-  EVENT_INVITE
-  // Add other notification types as needed
-}
-
-// Define Message first, as it's referenced by Conversation and User
 model Message {
-  id             String      @id @default(uuid())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid())
   conversationId String
-  sender         User        @relation(fields: [senderId], references: [id])
   senderId       String
   content        String
-  createdAt      DateTime    @default(now())
+  createdAt      DateTime     @default(now())
+  sender         User         @relation(fields: [senderId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
-// Define Conversation next, as it references Message and is referenced by User
 model Conversation {
-  id         String    @id @default(uuid())
-  participants User[]    @relation(name: "ConversationParticipants")
-  messages   Message[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  messages     Message[]
+  participants User[]    @relation("ConversationParticipants")
 }
 
-// Define ConnectionRequest next, as it references User
 model ConnectionRequest {
-  id              String        @id @default(uuid())
-  sender          User          @relation(name: "SentConnectionRequests", fields: [senderId], references: [id])
-  senderId        String
-  receiver        User          @relation(name: "ReceivedConnectionRequests", fields: [receiverId], references: [id])
-  receiverId      String
-  status          RequestStatus @default(PENDING)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  receiver   User     @relation("ReceivedConnectionRequests", fields: [receiverId], references: [id])
+  sender     User     @relation("SentConnectionRequests", fields: [senderId], references: [id])
 
-  @@unique([senderId, receiverId]) // Ensures a user can only send one request to another user
+  @@unique([senderId, receiverId])
 }
 
-// Define User, as it references Conversation, Message, ConnectionRequest, Role, Post, Comment, and Notification
 model User {
-  id                         String            @id @default(uuid())
+  id                         String              @id @default(uuid())
   name                       String?
-  email                      String            @unique
+  email                      String              @unique
   hashedPassword             String?
   image                      String?
-  role                       Role              @default(USER)
-  profile                    Profile?
-  conversationsJoined        Conversation[]    @relation(name: "ConversationParticipants")
-  sentMessages               Message[]
-  sentConnectionRequests     ConnectionRequest[] @relation(name: "SentConnectionRequests")
-  receivedConnectionRequests ConnectionRequest[] @relation(name: "ReceivedConnectionRequests")
-  posts                      Post[]
-  comments                   Comment[]
-  notificationsReceived      Notification[]    @relation("UserNotifications")
-  notificationsSent          Notification[]    @relation("SenderNotifications")
-  resetToken                 String?   
+  role                       String              @default("USER")
+  createdAt                  DateTime            @default(now())
+  resetToken                 String?
   resetTokenExpiry           DateTime?
-
-  // Add this line for the opposite relation to TaggedFriend
-  taggedInPosts              TaggedFriend[]    @relation("UserTaggedFriends")
-
-  createdAt                  DateTime          @default(now())
+  receivedConnectionRequests ConnectionRequest[] @relation("ReceivedConnectionRequests")
+  sentConnectionRequests     ConnectionRequest[] @relation("SentConnectionRequests")
+  sentMessages               Message[]
+  taggedInPosts              TaggedFriend[]      @relation("UserTaggedFriends")
+  comments                   Comment[]
+  notificationsSent          Notification[]      @relation("SenderNotifications")
+  notificationsReceived      Notification[]      @relation("UserNotifications")
+  posts                      Post[]
+  profile                    Profile?
+  conversationsJoined        Conversation[]      @relation("ConversationParticipants")
 }
 
-
-// --- NEW: Skill Model ---
 model Skill {
   id        String   @id @default(uuid())
-  name      String   @unique // Assuming skill names are unique globally or per user
+  name      String   @unique
+  profileId String?
   profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  profileId String?  // Made optional here, as a skill could exist without being tied to a profile initially (e.g. a global list)
 
-  @@map("skills") // Map to 'skills' table
+  @@map("skills")
 }
 
-// --- NEW: Education Model ---
 model Education {
   id           String    @id @default(uuid())
-  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
   profileId    String
   degree       String
   institution  String
   fieldOfStudy String?
   startDate    DateTime
-  endDate      DateTime? // Nullable for ongoing education
+  endDate      DateTime?
   description  String?
-
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@map("education") // Map to 'education' table
+  @@map("education")
 }
 
-
-// Updated Profile model
 model Profile {
   id                String       @id @default(uuid())
-  user              User         @relation(fields: [userId], references: [id])
   userId            String       @unique
   bio               String?
   headline          String?
   location          String?
   resumeUrl         String?
-  // REMOVED: skills              Json?
-  // REMOVED: education           Json?
   isProfileComplete Boolean      @default(false)
   profilePictureUrl String?
   coverPhotoUrl     String?
-
-  experiences       Experience[] // Relation to Experience model for job history
-  education         Education[]  // NEW: Relation to Education model
-  skills            Skill[]      // NEW: Relation to Skill model
-
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  education         Education[]
+  experiences       Experience[]
+  user              User         @relation(fields: [userId], references: [id])
+  skills            Skill[]
 
   @@map("profiles")
 }
 
-// NEW: Experience Model for Job History
 model Experience {
-  id          String   @id @default(uuid())
-  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
   profileId   String
   title       String
   company     String
   location    String?
   startDate   DateTime
-  endDate     DateTime? // Nullable for current job
+  endDate     DateTime?
   description String?
-  isCurrent   Boolean  @default(false) // Flag for current job
+  isCurrent   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("experiences") // Explicitly map to 'experiences' table
+  @@map("experiences")
 }
 
-
-// Post Model (with comments relationship)
 model Post {
-  id            String   @id @default(uuid())
+  id            String         @id @default(uuid())
   content       String?
+  authorId      String
+  likesCount    Int            @default(0)
+  commentsCount Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   imageUrl      String?
   videoUrl      String?
-  authorId      String
-  likesCount    Int      @default(0)
-  commentsCount Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments      Comment[]
-
-  // Remove: taggedFriends String[] @default([])
-  // Add this relation table for tagging friends:
   taggedFriends TaggedFriend[]
+  comments      Comment[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("posts")
 }
 
-// New join table for tagged friends
 model TaggedFriend {
-  id      String @id @default(uuid())
-  post    Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId  String
-  user    User   @relation("UserTaggedFriends", fields: [userId], references: [id], onDelete: Cascade)
-  userId  String
+  id     String @id @default(uuid())
+  postId String
+  userId String
+  user   User   @relation("UserTaggedFriends", fields: [userId], references: [id], onDelete: Cascade)
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
 }
 
-// Comment Model (updated with likesCount)
 model Comment {
-  id           String    @id @default(uuid())
-  content      String
-  author       User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId     String
-  post         Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId       String
-  likesCount   Int       @default(0) // NEW: Likes count for comments
-  createdAt    DateTime  @default(now())
-  parentCommentId String?    // NEW: Optional field for reply parent comment
-  parent       Comment? @relation("CommentReplies", fields: [parentCommentId], references: [id])
-  replies      Comment[] @relation("CommentReplies") // NEW: Self-relation to store replies
+  id              String    @id @default(uuid())
+  content         String
+  authorId        String
+  postId          String
+  likesCount      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  parentCommentId String?
+  parent          Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[] @relation("CommentReplies")
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("comments")
 }
 
-// New Notification Model
 model Notification {
-  id             String           @id @default(uuid())
-  recipient      User             @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
-  recipientId    String
-  type           NotificationType
-  message        String
-  read           Boolean          @default(false)
-  // Optional: sender, if the notification is from a specific user (e.g., connection request, like)
-  sender         User?            @relation("SenderNotifications", fields: [senderId], references: [id])
-  senderId       String?
-  // Optional: targetId, if the notification relates to a specific entity (e.g., postId, connectionRequestId, messageId)
-  targetId       String?          // Can be ID of Post, Message, ConnectionRequest etc.
-  createdAt      DateTime         @default(now())
+  id          String   @id @default(uuid())
+  recipientId String
+  type        String
+  message     String
+  read        Boolean  @default(false)
+  senderId    String?
+  targetId    String?
+  createdAt   DateTime @default(now())
+  sender      User?    @relation("SenderNotifications", fields: [senderId], references: [id])
+  recipient   User     @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
-}
-
-
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
