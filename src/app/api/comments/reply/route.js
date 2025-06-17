@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 
+// Add this debug log to check what authOptions is
+console.log("authOptions type:", typeof authOptions);
+
 export async function POST(request) {
   try {
+    // If authOptions is a function, call it here:
+    // const session = await getServerSession(authOptions());
+    // Otherwise, keep as is:
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
       return NextResponse.json(
