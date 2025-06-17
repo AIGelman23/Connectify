@@ -3,7 +3,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Adjust path as necessary
-import prisma from "@/lib/prisma"; // Ensure this path is correct for your Prisma client instance
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 /**
  * GET /api/users/search

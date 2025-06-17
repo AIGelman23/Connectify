@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 // Add this debug log to check what authOptions is
 console.log("authOptions type:", typeof authOptions);
 

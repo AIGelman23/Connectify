@@ -3,7 +3,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth"; // For user authentication
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Import your authOptions
-import prisma from "@/lib/prisma"; // Assuming your Prisma client
+import { PrismaClient } from "@prisma/client"; // Prisma Client for database operations
+
+const prisma = new PrismaClient(); // Initialize Prisma Client
 
 // IMPORTANT: For file uploads, disable Next.js body parser for this route
 // This allows you to handle the FormData manually.
