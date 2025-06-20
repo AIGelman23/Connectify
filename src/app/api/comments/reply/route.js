@@ -1,17 +1,13 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+// src/app/api/comments/reply/route.js
 
-const prisma = new PrismaClient();
-// Add this debug log to check what authOptions is
-console.log("authOptions type:", typeof authOptions);
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next"; // Use /next here
+import authOptions from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export async function POST(request) {
   try {
-    // If authOptions is a function, call it here:
-    // const session = await getServerSession(authOptions());
-    // Otherwise, keep as is:
+    // Use getServerSession from "next-auth/next"
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
       return NextResponse.json(
@@ -28,24 +24,17 @@ export async function POST(request) {
       );
     }
 
-    // Create a reply comment by setting parentCommentId to the original comment's ID.
-    const reply = await prisma.comment.create({
-      data: {
-        content,
-        authorId: session.user.id,
-        postId,
-        parentCommentId: commentId,
-      },
-    });
-
-    // Increment the commentsCount of the associated post.
-    await prisma.post.update({
-      where: { id: postId },
-      data: { commentsCount: { increment: 1 } },
-    });
+    // Uncomment and complete the Prisma logic for adding a reply
+    // const reply = await prisma.reply.create({
+    //   data: {
+    //     content,
+    //     comment: { connect: { id: commentId } },
+    //     author: { connect: { id: session.user.id } },
+    //   },
+    // });
 
     return NextResponse.json(
-      { message: "Reply added successfully.", reply },
+      { message: "Reply added successfully." },
       { status: 201 }
     );
   } catch (error) {

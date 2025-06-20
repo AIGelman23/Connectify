@@ -54,7 +54,7 @@ export default function SignUpPage() {
         // Successfully registered AND signed in
         // Now, fetch the user's profile to check if it's complete
         try {
-          const profileRes = await fetch('/api/profile');
+          const profileRes = await fetch('/api/profile'); // Make sure this points to the correct API endpoint
           if (profileRes.ok) {
             const profileData = await profileRes.json();
             if (profileData.profile && profileData.profile.isProfileComplete) {
@@ -62,13 +62,12 @@ export default function SignUpPage() {
               router.push('/dashboard');
             } else {
               // Profile is not complete (e.g., brand new user), redirect to profile setup
-              router.push('/edit-profile'); // UPDATED: Redirect to the dedicated edit profile page
+              router.push('/edit-profile');
             }
           } else {
             // If fetching profile fails (e.g., 404), assume it's incomplete or needs creation
-            // and redirect to profile page as a fallback
-            console.warn('Failed to fetch profile after signup (e.g., 404), redirecting to profile setup.');
-            router.push('/edit-profile'); // UPDATED: Redirect to the dedicated edit profile page
+            console.warn('Failed to fetch profile after signup, redirecting to profile setup.');
+            router.push('/edit-profile');
           }
         } catch (profileFetchError) {
           console.error('Error fetching profile after signup:', profileFetchError);

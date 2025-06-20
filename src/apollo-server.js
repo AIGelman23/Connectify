@@ -1,11 +1,9 @@
 // src/index.js
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
-import { PrismaClient } from "@prisma/client";
+import prisma from "./lib/prisma.js";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers.js";
-
-const prisma = new PrismaClient();
 
 // Create the Apollo Server instance
 const server = new ApolloServer({

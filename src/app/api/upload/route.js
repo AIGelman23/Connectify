@@ -5,9 +5,23 @@ import formidable from "formidable";
 import fs from "fs";
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
+import { getServerSession } from "next-auth";
+import authOptions from "@/lib/auth";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { v4 as uuidv4 } from "uuid";
 
-// Disable Next.js body parsing
-export const config = {
+// Configure S3 client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+// IMPORTANT: For file uploads, disable Next.js body parser for this route
+// This allows you to handle the FormData manually.
+export const routeSegmentConfig = {
   api: {
     bodyParser: false,
   },
@@ -27,98 +41,73 @@ async function webRequestToNodeRequest(request) {
 
 export async function POST(request) {
   try {
-    const form = formidable({
-      maxFileSize: 50 * 1024 * 1024, // 50MB limit
-      keepExtensions: true, // preserve file extension
-    });
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
 
-    const nodeReq = await webRequestToNodeRequest(request);
+    const userId = session.user.id;
 
-    const parseForm = (req) =>
-      new Promise((resolve, reject) => {
-        form.parse(req, (err, fields, files) => {
-          if (err) reject(err);
-          else resolve([fields, files]);
-        });
-      });
+    // Get the form data
+    const formData = await request.formData();
 
-    const [fields, files] = await parseForm(nodeReq);
-    const getFile = (fileField) =>
-      Array.isArray(fileField) ? fileField[0] : fileField;
-    const file =
-      getFile(files.profilePicture) ||
-      getFile(files.coverPhoto) ||
-      getFile(files.resume) ||
-      getFile(files.file);
+    // Check what fields we have in the form data for debugging
+    console.log("Upload API received form data fields:", [...formData.keys()]);
 
-    console.log("DEBUG: Uploaded file details:", file); // <-- diagnostic log
+    // Determine file type from form data fields
+    let file, fileType;
+    if (formData.has("profilePicture")) {
+      file = formData.get("profilePicture");
+      fileType = "profilePicture";
+    } else if (formData.has("coverPhoto")) {
+      file = formData.get("coverPhoto");
+      fileType = "coverPhoto";
+    } else if (formData.has("resume")) {
+      file = formData.get("resume");
+      fileType = "resume";
+    } else {
+      file = formData.get("file");
+      fileType = "file";
+    }
 
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
-
-    let fileBuffer;
-    try {
-      fileBuffer = fs.readFileSync(file.filepath);
-      // Added logging for debugging file details and buffer length
-      console.log(
-        "DEBUG: File details - originalFilename:",
-        file.originalFilename,
-        "mimetype:",
-        file.mimetype,
-        "size:",
-        file.size,
-        "filepath:",
-        file.filepath
-      );
-      console.log("DEBUG: File buffer length:", fileBuffer.length);
-    } catch (err) {
-      console.error("Error reading uploaded file:", err);
       return NextResponse.json(
-        { error: "Failed to read uploaded file" },
-        { status: 500 }
+        { message: "No file uploaded." },
+        { status: 400 }
       );
     }
 
-    let result;
-    try {
-      result = await uploadFileToS3(
-        fileBuffer,
-        file.originalFilename || "unnamed-file",
-        file.mimetype || "application/octet-stream"
-      );
-    } catch (err) {
-      console.error("Error uploading to S3:", err);
-      return NextResponse.json(
-        { error: "Failed to upload to S3" },
-        { status: 500 }
-      );
-    }
+    // Generate unique name for the file
+    const uniqueFileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    const key = `${userId}/${fileType}/${uniqueFileName}`;
 
-    try {
-      fs.unlinkSync(file.filepath);
-    } catch (err) {
-      console.warn("Failed to clean up temp file:", err);
-    }
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    if (result.success) {
-      return NextResponse.json(
-        {
-          message: "File uploaded successfully",
-          url: result.url,
-          key: result.key,
-          fileName: file.originalFilename,
-          size: file.size,
-        },
-        { status: 200 }
-      );
-    } else {
-      return NextResponse.json({ error: result.error }, { status: 500 });
-    }
+    // Upload to S3 - REMOVED the ACL parameter
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: file.type,
+      // REMOVED: ACL: "public-read", // This was causing the error
+    });
+
+    await s3Client.send(command);
+
+    // Generate the public URL
+    const url = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+
+    console.log(`Successfully uploaded file to S3: ${url}`);
+
+    return NextResponse.json({ url }, { status: 200 });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      { error: "Upload failed: " + error.message },
+      { message: "File upload failed", error: error.message },
       { status: 500 }
     );
   }

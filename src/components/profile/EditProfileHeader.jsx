@@ -1,4 +1,8 @@
 "use client";
+
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
+
 export default function EditProfileHeader({
 	currentProfileState,
 	viewMode,
@@ -6,82 +10,100 @@ export default function EditProfileHeader({
 	handleRemoveProfilePicture,
 	handleRemoveCoverPhoto,
 	enterEditMode,
+	isOwnProfile = true, // Add new prop with default value true for backward compatibility
 }) {
+	const { update } = useSession();
+
+	// Debug logging to track state
+	useEffect(() => {
+		console.log("EditProfileHeader render - viewMode:", viewMode);
+		console.log("Current profile picture:", currentProfileState.profilePicture);
+		console.log("Current cover photo:", currentProfileState.coverPhoto);
+	}, [currentProfileState.profilePicture, currentProfileState.coverPhoto, viewMode]);
+
+	// Handle profile image change without session update
+	const handleProfileImageChange = (e) => {
+		// Just call the passed handler, don't update session
+		handleFileChange(e, 'profilePicture');
+	};
+
 	return (
 		<div className="dark:shadow-lg rounded-lg overflow-hidden">
 			{/* Cover Photo */}
-			<div className="relative">
+			<div className="relative h-52 bg-gradient-to-r from-blue-400 to-indigo-500">
 				{currentProfileState.coverPhoto ? (
 					<img
 						src={currentProfileState.coverPhoto}
-						alt="Cover Photo"
-						className="w-full h-56 object-cover"
-						onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x200/cccccc/333333?text=Cover+Photo+Error' }}
+						alt="Cover"
+						className="w-full h-full object-cover"
 					/>
 				) : (
-					<div className="w-full h-56 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-						<p>No cover photo</p>
+					<div className="w-full h-full flex items-center justify-center text-white">
+						{viewMode === "view" ? (
+							<span className="text-white/70">No cover photo</span>
+						) : (
+							<>
+								<label
+									htmlFor="coverPhoto"
+									className="cursor-pointer flex items-center space-x-2 bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition"
+								>
+									<i className="fas fa-image"></i>
+									<span>Add Cover Photo</span>
+									<input
+										type="file"
+										id="coverPhoto"
+										name="coverPhoto"
+										accept="image/jpeg,image/png,image/webp"
+										onChange={(e) => handleFileChange(e, "coverPhoto")}
+										className="hidden"
+									/>
+								</label>
+							</>
+						)}
 					</div>
 				)}
-				{viewMode === 'edit' && (
-					<>
+
+				{viewMode === "edit" && currentProfileState.coverPhoto && (
+					<div className="absolute bottom-4 right-4 flex space-x-2">
 						<label
 							htmlFor="coverPhoto"
-							className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white text-lg font-medium rounded-t-lg cursor-pointer opacity-0 hover:opacity-100 transition"
+							className="cursor-pointer bg-white text-gray-700 px-3 py-1 rounded-md hover:bg-gray-100 transition shadow-md flex items-center space-x-1"
 						>
-							<i className="fas fa-camera text-2xl mr-2"></i>
-							<span>Change Cover</span>
+							<i className="fas fa-camera"></i>
+							<span>Change</span>
 							<input
 								type="file"
 								id="coverPhoto"
 								name="coverPhoto"
 								accept="image/jpeg,image/png,image/webp"
-								onChange={(e) => handleFileChange(e, 'coverPhoto')}
+								onChange={(e) => handleFileChange(e, "coverPhoto")}
 								className="hidden"
 							/>
 						</label>
-						{currentProfileState.coverPhoto && (
-							<button
-								type="button"
-								onClick={handleRemoveCoverPhoto}
-								className="absolute top-3 right-3 bg-[#1877f2] dark:bg-blue-700 text-white text-sm font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition"
-								title="Remove Cover Photo"
-							>
-								<i className="fas fa-trash-alt"></i>
-							</button>
-						)}
-					</>
+						<button
+							onClick={handleRemoveCoverPhoto}
+							className="bg-white text-red-500 px-3 py-1 rounded-md hover:bg-gray-100 transition shadow-md flex items-center space-x-1"
+						>
+							<i className="fas fa-trash"></i>
+							<span>Remove</span>
+						</button>
+					</div>
 				)}
 			</div>
+
 			{/* Profile Picture and Basic Info */}
 			<div className="relative px-4 pb-6 flex flex-col items-center profile-main-info">
-				{/* Avatar positioned with negative margin */}
 				<div className="-mt-16 mb-2">
 					<div className="w-32 h-32 rounded-full border-4 border-white shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center relative">
 						{currentProfileState.profilePicture ? (
-							<div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
-								<img
-									src={currentProfileState.profilePicture}
-									alt="Profile Picture"
-									className="w-full h-full object-cover object-center"
-									style={{
-										aspectRatio: "1 / 1",
-										display: "block",
-										width: "100%",
-										height: "100%",
-										borderRadius: "9999px",
-									}}
-									onError={(e) => {
-										e.target.onerror = null;
-										e.target.src = `https://placehold.co/128x128/A78BFA/ffffff?text=${currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}`;
-									}}
-								/>
-							</div>
+							<img
+								src={currentProfileState.profilePicture}
+								alt="Profile"
+								className="w-full h-full object-cover"
+							/>
 						) : (
-							<div className="w-full h-full bg-indigo-400 dark:bg-indigo-600 flex items-center justify-center rounded-full">
-								<span className="text-white text-5xl font-bold">
-									{currentProfileState.name ? currentProfileState.name[0].toUpperCase() : 'U'}
-								</span>
+							<div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-5xl">
+								<i className="fas fa-user"></i>
 							</div>
 						)}
 						{viewMode === 'edit' && (
@@ -103,37 +125,43 @@ export default function EditProfileHeader({
 										id="profilePicture"
 										name="profilePicture"
 										accept="image/jpeg,image/png,image/webp"
-										onChange={(e) => handleFileChange(e, 'profilePicture')}
+										onChange={handleProfileImageChange}
 										className="hidden"
 									/>
 								</label>
+								{currentProfileState.profilePicture && (
+									<button
+										onClick={handleRemoveProfilePicture}
+										className="absolute bottom-0 transform translate-y-8 opacity-0 group-hover:opacity-100 group-hover:translate-y-6 transition-all duration-200 bg-white text-red-500 px-2 py-1 text-xs rounded shadow"
+									>
+										Remove
+									</button>
+								)}
 							</>
 						)}
 					</div>
 				</div>
-				<div className="mt-4 text-center w-full flex flex-col items-center">
-					<h1 className="text-2xl font-bold">{currentProfileState.name}</h1>
-					<p className="text-md">{currentProfileState.headline}</p>
-					<p className="text-sm flex items-center justify-center mt-1">
-						<i className="fas fa-map-marker-alt text-xs mr-1 mt-px"></i>
-						{currentProfileState.location}
+
+				<div className="text-center">
+					<h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+						{currentProfileState.name || "Your Name"}
+					</h1>
+					<p className="text-gray-600 dark:text-gray-300 mt-1">
+						{currentProfileState.headline || "Your Headline"}
 					</p>
-					{viewMode === 'view' && currentProfileState.summary && (
-						<div className="my-4 px-3 py-1 rounded-full inline-block">
-							<p className="text-sm">{currentProfileState.summary}</p>
-						</div>
-					)}
-					{viewMode === 'view' && typeof enterEditMode === "function" && (
-						<button
-							type="button"
-							onClick={enterEditMode}
-							className="profile-edit-btn bg-[#1877f2] dark:bg-blue-700 text-white font-semibold py-1 px-3 rounded-full shadow-sm hover:bg-[#166fe5] transition flex items-center space-x-2"
-						>
-							<i className="fas fa-pencil-alt text-sm"></i>
-							<span>Edit Profile</span>
-						</button>
-					)}
+					<p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+						{currentProfileState.location || "Your Location"}
+					</p>
 				</div>
+
+				{viewMode === "view" && isOwnProfile ? (
+					<button
+						onClick={enterEditMode}
+						className="mt-5 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-150 ease-in-out"
+					>
+						Edit Profile
+					</button>
+				) : null}
 			</div>
 		</div>
 	);

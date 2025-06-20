@@ -1,8 +1,8 @@
 // src/app/api/posts/route.js
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "next-auth"; // Import from next-auth directly
+import authOptions from "@/lib/auth"; // Import as default export from lib/auth
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -27,6 +27,7 @@ export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
+      console.log("Unauthorized POST request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
         { status: 401 }
@@ -119,18 +120,44 @@ export async function POST(request) {
       },
     });
 
-    // If there are tagged friends, create TaggedFriend records
+    // If there are tagged friends, create TaggedFriend records and notifications
     if (taggedFriends.length > 0) {
-      await prisma.$transaction(
-        taggedFriends.map((userId) =>
-          prisma.taggedFriend.create({
-            data: {
-              postId: post.id,
-              userId,
-            },
-          })
-        )
-      );
+      // Create transaction for both TaggedFriend records and notifications
+      await prisma.$transaction(async (tx) => {
+        // First create the TaggedFriend records
+        const tagRecords = await Promise.all(
+          taggedFriends.map((userId) =>
+            tx.taggedFriend.create({
+              data: {
+                postId: post.id,
+                userId,
+              },
+            })
+          )
+        );
+
+        // Get author info for notification message
+        const author = await tx.user.findUnique({
+          where: { id: session.user.id },
+          select: { name: true },
+        });
+
+        // Then create a notification for each tagged user
+        await Promise.all(
+          taggedFriends.map((userId) =>
+            tx.notification.create({
+              data: {
+                type: "POST_TAG",
+                recipientId: userId,
+                senderId: session.user.id,
+                targetId: post.id,
+                message: `${author?.name || "Someone"} tagged you in a post.`,
+                read: false,
+              },
+            })
+          )
+        );
+      });
     }
 
     // Fetch the post again to include the taggedFriends relation
@@ -247,11 +274,15 @@ export async function GET(request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
+      console.log("Unauthorized request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
         { status: 401 }
       );
     }
+
+    // Log the user for debugging
+    console.log("Authenticated user:", session.user.id, session.user.email);
 
     const userId = session.user.id;
 
@@ -429,6 +460,7 @@ export async function PATCH(request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
+      console.log("Unauthorized PATCH request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
         { status: 401 }

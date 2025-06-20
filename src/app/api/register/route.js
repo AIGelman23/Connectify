@@ -4,14 +4,12 @@
 // It receives email and password, hashes the password, and creates a new user in the database.
 
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import prisma from "@/lib/prisma";
 
 export async function POST(request) {
   try {
-    const { email, password, name } = await request.json(); // Destructure name as well
+    const { name, email, password } = await request.json(); // Destructure name as well
 
     // Input validation (basic)
     if (!email || !password || !name) {

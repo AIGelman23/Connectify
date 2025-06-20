@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Comment, Reply } from './Comment';
+import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component 
 
 export default function PostCard({ post, sessionUserId, setPostError, openReplyModal }) {
 	const { data: session } = useSession();
@@ -12,6 +13,9 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 	const [editLoading, setEditLoading] = useState(false);
 	const [editError, setEditError] = useState("");
 	const [notificationsOff, setNotificationsOff] = useState(false);
+	const [commentInputText, setCommentInputText] = useState('');
+	const commentInputRef = useRef(null);
+	const commentContainerRef = useRef(null);
 	const queryClient = useQueryClient();
 	const videoRef = useRef(null);
 
@@ -143,16 +147,15 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 
 	const handleAddComment = useCallback((e) => {
 		e.preventDefault();
-		const commentContent = e.target.elements.commentInput.value;
 		if (!sessionUserId) {
 			setPostError("You must be logged in to comment on a post.");
 			return;
 		}
-		if (commentContent.trim()) {
-			addComment({ postId: post.id, commentContent });
-			e.target.elements.commentInput.value = ''; // Clear input
+		if (commentInputText.trim()) {
+			addComment({ postId: post.id, commentContent: commentInputText });
+			setCommentInputText(''); // Clear input
 		}
-	}, [post.id, sessionUserId, addComment, setPostError]);
+	}, [post.id, sessionUserId, addComment, setPostError, commentInputText]);
 
 
 	const handleDeleteComment = useCallback((commentId, postId) => {
@@ -230,6 +233,15 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			return date.toLocaleDateString();
 		}
 		return "";
+	};
+
+	// Add the missing handleAddEmoji function
+	const handleAddEmoji = (emoji) => {
+		setCommentInputText(prev => prev + emoji);
+		// Focus back on the comment input after adding emoji
+		if (commentInputRef.current) {
+			setTimeout(() => commentInputRef.current.focus(), 0);
+		}
 	};
 
 	return (
@@ -430,21 +442,30 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 						alt="Your avatar"
 						className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200"
 					/>
-					<div className="flex-1 relative">
+					<div className="flex-1 relative" ref={commentContainerRef}>
 						<input
+							ref={commentInputRef}
 							type="text"
 							name="commentInput"
+							value={commentInputText}
+							onChange={(e) => setCommentInputText(e.target.value)}
 							placeholder="Write a comment..."
-							className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
+							className="w-full pl-4 pr-16 py-2 border border-gray-200 rounded-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
 						/>
-						<button
-							type="submit"
-							className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800 transition duration-150 ease-in-out p-1 rounded-full"
-							aria-label="Post comment"
-						>
-							{/* Send SVG */}
-							<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M2.94 17.94a1.5 1.5 0 0 0 1.6.33l13-5.5a1.5 1.5 0 0 0 0-2.74l-13-5.5A1.5 1.5 0 0 0 2 6.5v7a1.5 1.5 0 0 0 .94 1.44zM4 7.38l11.67 4.94L4 17.26V7.38z" /></svg>
-						</button>
+						<div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
+							<EmojiSelector
+								onEmojiSelect={handleAddEmoji}
+								parentRef={commentContainerRef}
+							/>
+							<button
+								type="submit"
+								className="text-blue-600 hover:text-blue-800 transition duration-150 ease-in-out p-1 rounded-full ml-1"
+								aria-label="Post comment"
+							>
+								{/* Send SVG */}
+								<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M2.94 17.94a1.5 1.5 0 0 0 1.6.33l13-5.5a1.5 1.5 0 0 0 0-2.74l-13-5.5A1.5 1.5 0 0 0 2 6.5v7a1.5 1.5 0 0 0 .94 1.44zM4 7.38l11.67 4.94L4 17.26V7.38z" /></svg>
+							</button>
+						</div>
 					</div>
 				</form>
 				{/* Show top 2 comments, sorted by likesCount then createdAt desc */}

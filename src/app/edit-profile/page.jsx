@@ -88,7 +88,8 @@ export default function EditProfilePage() {
 		if (status === "authenticated") {
 			const fetchProfile = async () => {
 				try {
-					const res = await fetch('/api/edit-profile');
+					setLoading(true);
+					const res = await fetch("/api/edit-profile");
 					if (res.ok) {
 						let data;
 						try {
@@ -100,36 +101,44 @@ export default function EditProfilePage() {
 							throw new Error(`Failed to parse backend response as JSON: ${jsonParseError.message}. Raw response: "${rawResponseText.substring(0, 200)}..."`);
 						}
 
+						// Debug log - ADD THIS
+						console.log("Profile data received from API:", data);
+						if (data.profile) {
+							console.log("Profile picture URL:", data.profile.profilePictureUrl);
+							console.log("Cover photo URL:", data.profile.coverPhotoUrl);
+						}
+
+						// Map the API response fields to the expected state fields
 						setProfileData(prev => ({
 							...prev,
-							name: data.profile.name || session.user.name || '',
-							email: data.profile.email || session.user.email || '',
-							headline: data.profile.headline || '',
-							summary: data.profile.summary || '',
-							location: data.profile.location || '',
-							profilePicture: data.profile.profilePictureUrl || session.user.image || '',
-							coverPhoto: data.profile.coverPhotoUrl || '',
-							resume: data.profile.resumeUrl || '',
+							name: data.profile.name || session?.user?.name || "",
+							email: data.profile.email || session?.user?.email || "",
+							headline: data.profile.headline || "",
+							summary: data.profile.bio || "", // Map bio field to summary
+							location: data.profile.location || "",
+							// Crucial fixes - MODIFY THESE TWO LINES
+							profilePicture: data.profile.profilePictureUrl || session?.user?.image || "",
+							coverPhoto: data.profile.coverPhotoUrl || "",
+							resume: data.profile.resumeUrl || "",
 							isProfileComplete: data.profile.isProfileComplete || false,
-							experience: Array.isArray(data.profile.experience) ? data.profile.experience : [],
-							education: Array.isArray(data.profile.education) ? data.profile.education : [],
-							skills: Array.isArray(data.profile.skills) ? data.profile.skills : [],
-							// Ensure acceptedFriends is initialized from backend data if available
-							acceptedFriends: Array.isArray(data.profile.acceptedFriends) ? data.profile.acceptedFriends : [],
+							experience: Array.isArray(data.profile.experiences) // Note: experiences (plural) from API
+								? data.profile.experiences
+								: [],
+							education: Array.isArray(data.profile.education)
+								? data.profile.education
+								: [],
+							skills: Array.isArray(data.profile.skills)
+								? data.profile.skills
+								: [],
 						}));
-						console.log("EditProfilePage: session.user.image AFTER initial fetch:", session?.user?.image);
 					} else {
-						let errorData = { message: `Failed to fetch profile: ${res.statusText}` };
-						try {
-							const text = await res.text();
-							errorData = JSON.parse(text);
-						} catch (jsonParseError) {
-							errorData.message = errorData.message + (text ? ` Raw: "${text.substring(0, 100)}..."` : '');
-						}
-						throw new Error(errorData.message || `Failed to fetch profile: ${res.statusText}`);
+						const errorData = await res.json();
+						console.error("Failed to fetch profile:", errorData);
+						setFormErrors(prev => ({ ...prev, submit: errorData.message || "Failed to load profile." }));
 					}
 				} catch (err) {
-					setFormErrors(prev => ({ ...prev, fetch: err.message || "Failed to load profile data." }));
+					console.error("Network error fetching profile:", err);
+					setFormErrors(prev => ({ ...prev, submit: "Network error. Please try again." }));
 				} finally {
 					setLoading(false);
 				}
@@ -185,19 +194,35 @@ export default function EditProfilePage() {
 		}
 	}, [draftProfileData]);
 
-	// Handler for file input changes, updates draftProfileData and file states (already good)
+	// Handler for file input changes, updates draftProfileData and file states
 	const handleFileChange = useCallback((e, fileType) => {
 		if (e.target.files && e.target.files[0]) {
 			const file = e.target.files[0];
+			console.log(`File selected for ${fileType}:`, file.name);
+
 			if (fileType === 'profilePicture') {
 				setProfilePictureFile(file);
-				setDraftProfileData(prev => ({ ...prev, profilePicture: URL.createObjectURL(file) }));
+				setDraftProfileData(prev => {
+					if (!prev) return prev; // Guard against null draft data
+
+					// Create object URL for preview
+					const objectUrl = URL.createObjectURL(file);
+					console.log(`Created object URL for preview: ${objectUrl}`);
+					return { ...prev, profilePicture: objectUrl };
+				});
+				// Do NOT update the session here - this was causing the view mode change
 			} else if (fileType === 'coverPhoto') {
 				setCoverPhotoFile(file);
-				setDraftProfileData(prev => ({ ...prev, coverPhoto: URL.createObjectURL(file) }));
+				setDraftProfileData(prev => {
+					if (!prev) return prev;
+					return { ...prev, coverPhoto: URL.createObjectURL(file) };
+				});
 			} else if (fileType === 'resume') {
 				setResumeFile(file);
-				setDraftProfileData(prev => ({ ...prev, resume: file.name }));
+				setDraftProfileData(prev => {
+					if (!prev) return prev;
+					return { ...prev, resume: file.name };
+				});
 			}
 		}
 	}, []);
@@ -330,7 +355,7 @@ export default function EditProfilePage() {
 			const formData = new FormData();
 			formData.append('name', draftProfileData.name);
 			formData.append('headline', draftProfileData.headline);
-			formData.append('summary', draftProfileData.summary);
+			formData.append('bio', draftProfileData.summary); // Map summary to bio for submission
 			formData.append('location', draftProfileData.location);
 			formData.append('isProfileComplete', true);
 
@@ -340,9 +365,8 @@ export default function EditProfilePage() {
 
 			// Stringify arrays before appending to FormData
 			formData.append('skills', JSON.stringify(draftProfileData.skills.map(s => s.name)));
-			formData.append('experience', JSON.stringify(draftProfileData.experience));
+			formData.append('experiences', JSON.stringify(draftProfileData.experience)); // Note: experiences (plural)
 			formData.append('education', JSON.stringify(draftProfileData.education));
-
 
 			const res = await fetch('/api/edit-profile', {
 				method: 'PUT',
@@ -353,23 +377,27 @@ export default function EditProfilePage() {
 				const data = await res.json();
 				console.log("Profile saved successfully. Backend response profile:", JSON.stringify(data.profile, null, 2));
 
-				setShowSuccessMessage(true);
-				setTimeout(() => setShowSuccessMessage(false), 3000);
-
+				// Map API response fields to state fields
 				setProfileData(prev => ({
 					...prev,
 					name: data.profile.name || prev.name,
 					email: data.profile.email || prev.email,
 					headline: data.profile.headline || prev.headline,
-					summary: data.profile.summary || prev.summary,
+					summary: data.profile.bio || prev.summary, // Map bio to summary
 					location: data.profile.location || prev.location,
 					profilePicture: data.profile.profilePictureUrl || prev.profilePicture,
 					coverPhoto: data.profile.coverPhotoUrl || prev.coverPhoto,
 					resume: data.profile.resumeUrl || prev.resume,
 					isProfileComplete: data.profile.isProfileComplete,
-					experience: Array.isArray(data.profile.experience) ? data.profile.experience : [],
-					education: Array.isArray(data.profile.education) ? data.profile.education : [],
-					skills: Array.isArray(data.profile.skills) ? data.profile.skills : [],
+					experience: Array.isArray(data.profile.experiences) // Note: experiences (plural)
+						? data.profile.experiences
+						: [],
+					education: Array.isArray(data.profile.education)
+						? data.profile.education
+						: [],
+					skills: Array.isArray(data.profile.skills)
+						? data.profile.skills
+						: [],
 				}));
 
 				console.log("EditProfilePage: Calling full session update.");

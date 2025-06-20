@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
 
 // Modern Facebook-style Media Modal
 function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUrl, file, onRemove }) {
@@ -203,11 +204,16 @@ export default function CreatePostCard() {
 	const [isEditing, setIsEditing] = useState(false);
 	const [showGiphyModal, setShowGiphyModal] = useState(false);
 
+	// Add missing refs
+	const textInputRef = useRef(null);
+	const inputContainerRef = useRef(null);
+
 	// Tag friends state
 	const [taggedFriends, setTaggedFriends] = useState([]);
 	const [friends, setFriends] = useState([]);
 	const [showTagDropdown, setShowTagDropdown] = useState(false);
 	const [tagSearch, setTagSearch] = useState("");
+	const tagSearchRef = useRef(null);
 
 	// Debug: log whenever selectedFile changes
 	useEffect(() => {
@@ -260,6 +266,7 @@ export default function CreatePostCard() {
 			let fileType = null;
 			const start = Date.now(); // Start timing
 
+			// Extract the IDs of tagged friends
 			const tagIds = taggedFriends.map(f => f.id);
 
 			if (selectedFile && selectedFile.type === "image/gif" && selectedFile.url) {
@@ -269,7 +276,7 @@ export default function CreatePostCard() {
 					imageUrl: uploadedUrl,
 					fileType,
 					content: postText,
-					taggedFriends: tagIds,
+					taggedFriends: tagIds, // Add tagged friends to payload
 				};
 				console.log("DEBUG: handlePost GIF payload:", payload);
 				await defaultOnCreatePost(payload);
@@ -299,12 +306,15 @@ export default function CreatePostCard() {
 					[fileType === "video" ? "videoUrl" : "imageUrl"]: uploadedUrl,
 					fileType,
 					content: postText,
-					taggedFriends: tagIds,
+					taggedFriends: tagIds, // Add tagged friends to payload
 				};
 				console.log("DEBUG: handlePost image/video payload:", payload);
 				await defaultOnCreatePost(payload);
 			} else {
-				const payload = { content: postText, taggedFriends: tagIds };
+				const payload = {
+					content: postText,
+					taggedFriends: tagIds // Add tagged friends to payload
+				};
 				console.log("DEBUG: handlePost text-only payload:", payload);
 				await defaultOnCreatePost(payload);
 			}
@@ -315,7 +325,7 @@ export default function CreatePostCard() {
 			setSelectedFile(null);
 			setFilePreviewUrl(null);
 			setPostText("");
-			setTaggedFriends([]);
+			setTaggedFriends([]); // Clear tagged friends after posting
 		} catch (error) {
 			console.error("Post error:", error);
 			alert(error.message || "Failed to create post.");
@@ -324,52 +334,47 @@ export default function CreatePostCard() {
 		}
 	};
 
-	// Fetch friends only when tag dropdown is opened
+	// Fetch friends when tag dropdown is opened
 	useEffect(() => {
 		if (!session?.user?.id || !showTagDropdown) return;
-		(async () => {
+
+		const fetchFriends = async () => {
 			try {
-				// Try REST endpoint first for reliability
-				const restRes = await fetch(`/api/friends?userId=${session.user.id}`);
-				const restData = await restRes.json();
-				let friendsList = restData.friends || [];
+				// Fetch connected users from the connections API
+				const res = await fetch('/api/connections');
+				if (!res.ok) throw new Error('Failed to fetch connections');
 
-				// Fallback to GraphQL if REST fails or returns empty
-				if ((!friendsList || friendsList.length === 0) && restRes.ok) {
-					const res = await fetch("/api/graphql", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							query: `
-								query GetFriends($currentUserId: ID!) {
-									myConnections(currentUserId: $currentUserId) {
-										id
-										name
-										imageUrl
-										profile { profilePictureUrl }
-									}
-								}
-							`,
-							variables: { currentUserId: session.user.id }
-						}),
-					});
-					if (res.ok) {
-						const text = await res.text();
-						try {
-							const result = JSON.parse(text);
-							friendsList = result?.data?.myConnections || [];
-						} catch {
-							// ignore
-						}
-					}
+				const data = await res.json();
+				// Use the accepted connections from the API response
+				if (data.connections && Array.isArray(data.connections.accepted)) {
+					setFriends(data.connections.accepted);
+				} else {
+					setFriends([]);
 				}
-
-				setFriends(friendsList);
-			} catch {
+			} catch (error) {
+				console.error('Error fetching friends:', error);
 				setFriends([]);
 			}
-		})();
+		};
+
+		fetchFriends();
 	}, [session?.user?.id, showTagDropdown]);
+
+	// Click outside handler for tag dropdown
+	useEffect(() => {
+		if (!showTagDropdown) return;
+
+		const handleClickOutside = (event) => {
+			if (tagSearchRef.current && !tagSearchRef.current.contains(event.target)) {
+				setShowTagDropdown(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, [showTagDropdown]);
 
 	const handleAddTag = (friend) => {
 		if (!taggedFriends.some(f => f.id === friend.id)) {
@@ -381,6 +386,46 @@ export default function CreatePostCard() {
 
 	const handleRemoveTag = (friendId) => {
 		setTaggedFriends(taggedFriends.filter(f => f.id !== friendId));
+	};
+
+	const handleToggleTagDropdown = (e) => {
+		e.preventDefault(); // Prevent form submission
+		setShowTagDropdown(!showTagDropdown);
+		if (!showTagDropdown) {
+			// Focus search input when opening dropdown
+			setTimeout(() => {
+				if (tagSearchRef.current) tagSearchRef.current.focus();
+			}, 10);
+		}
+	};
+
+	const handleAddEmoji = (emoji) => {
+		setPostText(prev => prev + emoji);
+		if (!isEditing) {
+			setIsEditing(true);
+		}
+		// Refocus the input after adding emoji
+		if (textInputRef.current) {
+			setTimeout(() => textInputRef.current.focus(), 0);
+		}
+	};
+
+	// Keep focus in the textarea when clicking inside our container
+	const handleInputBlur = (e) => {
+		// Check if the related target (element receiving focus) is inside our container
+		if (inputContainerRef.current && inputContainerRef.current.contains(e.relatedTarget)) {
+			// If the blur is happening because we're clicking inside our container,
+			// prevent the blur behavior by refocusing the input
+			if (textInputRef.current) {
+				setTimeout(() => textInputRef.current.focus(), 0);
+			}
+			return;
+		}
+
+		// Only hide editor if there's no text and not clicking within our container
+		if (!postText) {
+			setIsEditing(false);
+		}
 	};
 
 	return (
@@ -415,60 +460,68 @@ export default function CreatePostCard() {
 						<button
 							type="button"
 							className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full flex items-center text-sm hover:bg-blue-100 hover:text-blue-700"
-							onClick={() => setShowTagDropdown(!showTagDropdown)}
+							onClick={handleToggleTagDropdown}
 						>
 							<i className="fas fa-user-tag mr-1"></i>
 							Tag friends
 						</button>
 					</div>
+
+					{/* Tag friends dropdown */}
 					{showTagDropdown && (
-						<div className="relative z-50">
+						<div className="relative z-50" ref={tagSearchRef}>
 							<input
 								type="text"
 								placeholder="Search friends..."
 								value={tagSearch}
 								onChange={e => setTagSearch(e.target.value)}
-								className="w-full px-3 py-2 border border-gray-300 rounded mb-2"
+								className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								autoFocus
 							/>
 							<div className="absolute bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-full">
-								{friends
-									.filter(f =>
-										(f.name || "")
-											.toLowerCase()
-											.includes(tagSearch.toLowerCase()) &&
-										!taggedFriends.some(tf => tf.id === f.id)
-									)
-									.map(friend => (
-										<div
-											key={friend.id}
-											className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-											onClick={() => handleAddTag(friend)}
-										>
-											<span>
-												<img
-													src={
-														friend.profile?.profilePictureUrl ||
-														friend.imageUrl ||
-														`https://placehold.co/32x32/1877F2/ffffff?text=${friend.name ? friend.name[0].toUpperCase() : 'U'}`
-													}
-													alt={friend.name}
-													className="inline-block w-6 h-6 rounded-full object-cover mr-2"
-												/>
-												{friend.name}
-											</span>
-										</div>
-									))}
-								{friends.filter(f =>
-									(f.name || "")
-										.toLowerCase()
-										.includes(tagSearch.toLowerCase()) &&
-									!taggedFriends.some(tf => tf.id === f.id)
-								).length === 0 && (
-										<div className="px-3 py-2 text-gray-400">No friends found</div>
-									)}
+								{friends.length === 0 ? (
+									<div className="px-3 py-4 text-center text-gray-500">
+										{friends.length === 0 ? 'Loading friends...' : 'No matching friends found.'}
+									</div>
+								) : (
+									<>
+										{friends
+											.filter(f =>
+												(f.name || "").toLowerCase().includes(tagSearch.toLowerCase()) &&
+												!taggedFriends.some(tf => tf.id === f.id)
+											)
+											.map(friend => (
+												<div
+													key={friend.id}
+													className="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center"
+													onClick={() => handleAddTag(friend)}
+												>
+													<img
+														src={
+															friend.imageUrl ||
+															`https://placehold.co/32x32/1877F2/ffffff?text=${friend.name ? friend.name[0].toUpperCase() : 'U'}`
+														}
+														alt={friend.name}
+														className="w-6 h-6 rounded-full object-cover mr-2"
+													/>
+													<span>{friend.name}</span>
+												</div>
+											))}
+
+										{friends.filter(f =>
+											(f.name || "").toLowerCase().includes(tagSearch.toLowerCase()) &&
+											!taggedFriends.some(tf => tf.id === f.id)
+										).length === 0 && (
+												<div className="px-3 py-2 text-gray-400">
+													{tagSearch ? 'No friends found matching your search' : 'No friends available to tag'}
+												</div>
+											)}
+									</>
+								)}
 							</div>
 						</div>
 					)}
+
 					{!isEditing ? (
 						<button
 							className="flex-1 text-left bg-gray-100 hover:bg-gray-200 focus:bg-gray-200 rounded-full px-5 py-3 text-gray-700 text-base font-normal transition outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500 placeholder-gray-500 whitespace-pre-line break-words w-full"
@@ -479,16 +532,25 @@ export default function CreatePostCard() {
 							{postText ? postText : `What's on your mind, ${session?.user?.name?.split(' ')[0] || ''}?`}
 						</button>
 					) : (
-						<textarea
-							autoFocus
-							placeholder={`What's on your mind, ${session?.user?.name?.split(' ')[0] || ''}?`}
-							rows={3}
-							value={postText}
-							onChange={e => setPostText(e.target.value)}
-							onBlur={() => { if (!postText) setIsEditing(false); }}
-							className="flex-1 w-full px-5 py-3 bg-gray-100 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 text-base text-gray-700 whitespace-pre-line break-words transition min-h-[44px] resize-none"
-							style={{ minHeight: 44 }}
-						/>
+						<div className="w-full relative" ref={inputContainerRef}>
+							<textarea
+								ref={textInputRef}
+								autoFocus
+								placeholder={`What's on your mind, ${session?.user?.name?.split(' ')[0] || ''}?`}
+								rows={3}
+								value={postText}
+								onChange={e => setPostText(e.target.value)}
+								onBlur={handleInputBlur}
+								className="flex-1 w-full px-5 py-3 bg-gray-100 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 text-base text-gray-700 whitespace-pre-line break-words transition min-h-[44px] resize-none"
+								style={{ minHeight: 44 }}
+							/>
+							<div className="absolute right-3 bottom-2" tabIndex={-1}>
+								<EmojiSelector
+									onEmojiSelect={handleAddEmoji}
+									parentRef={inputContainerRef}
+								/>
+							</div>
+						</div>
 					)}
 				</div>
 			</div>

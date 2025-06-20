@@ -108,6 +108,11 @@ export default function MyNetworkPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const searchParams = useSearchParams();
+
+	// Get tab from URL params, defaulting to 'received' if not specified
+	const tabFromUrl = searchParams.get('tab');
+	const [selectedSection, setSelectedSection] = useState(tabFromUrl || 'received');
+
 	const [users, setUsers] = useState([]); // All users fetched from API
 	const [receivedRequests, setReceivedRequests] = useState([]);
 	const [sentRequests, setSentRequests] = useState([]);
@@ -116,8 +121,6 @@ export default function MyNetworkPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [successMessage, setSuccessMessage] = useState(null); // New state for success messages
-	const [selectedSection, setSelectedSection] = useState('received'); // New: which section is active
-	// Removed initialLoadPerformed, as it's no longer needed
 
 	const currentSearchQuery = searchParams.get('q') || '';
 
@@ -135,42 +138,81 @@ export default function MyNetworkPage() {
 			}
 			const data = await res.json();
 
+			// Check if the API returned users data
+			if (!data.users && !data.connections) {
+				console.warn("API response missing users data:", data);
+				setUsers([]);
+				setReceivedRequests([]);
+				setSentRequests([]);
+				setMyConnections([]);
+				setSuggestions([]);
+
+				if (data.message && data.message.includes("mock data")) {
+					setError(`Note: ${data.message}`);
+				}
+				return;
+			}
+
 			if (query) {
 				// If there's a search query, show only search results
-				setUsers(data.users);
+				setUsers(Array.isArray(data.users) ? data.users : []);
 				setReceivedRequests([]);
 				setSentRequests([]);
 				setMyConnections([]);
 				setSuggestions([]);
 			} else {
-				// If no search query, categorize users into sections
-				const received = [];
-				const sent = [];
-				const connected = [];
-				const suggest = [];
+				// If no search query, use the categorized data from the API
+				if (data.connections) {
+					// Use the pre-categorized connections if available
+					setReceivedRequests(data.connections.received || []);
+					setSentRequests(data.connections.sent || []);
+					setMyConnections(data.connections.accepted || []);
 
-				data.users.forEach(user => {
-					if (user.connectionStatus === 'RECEIVED_PENDING') {
-						received.push(user);
-					} else if (user.connectionStatus === 'SENT_PENDING') {
-						sent.push(user);
-					} else if (user.connectionStatus === 'CONNECTED') {
-						connected.push(user);
-					} else { // NOT_CONNECTED
-						suggest.push(user);
+					// For suggestions, filter out people who are already connected or have pending requests
+					const allConnectedIds = [
+						...(data.connections.accepted || []).map(u => u.id),
+						...(data.connections.received || []).map(u => u.id),
+						...(data.connections.sent || []).map(u => u.id)
+					];
+
+					const suggestionsArray = Array.isArray(data.users)
+						? data.users.filter(u => !allConnectedIds.includes(u.id))
+						: [];
+
+					setSuggestions(suggestionsArray);
+				} else {
+					// Fallback to the old categorization if connections aren't pre-categorized
+					const received = [];
+					const sent = [];
+					const connected = [];
+					const suggest = [];
+
+					if (Array.isArray(data.users)) {
+						data.users.forEach(user => {
+							if (user.connectionStatus === 'RECEIVED_PENDING') {
+								received.push(user);
+							} else if (user.connectionStatus === 'SENT_PENDING') {
+								sent.push(user);
+							} else if (user.connectionStatus === 'CONNECTED') {
+								connected.push(user);
+							} else { // NOT_CONNECTED
+								suggest.push(user);
+							}
+						});
 					}
-				});
 
-				setReceivedRequests(received);
-				setSentRequests(sent);
-				setMyConnections(connected);
-				setSuggestions(suggest);
+					setReceivedRequests(received);
+					setSentRequests(sent);
+					setMyConnections(connected);
+					setSuggestions(suggest);
+				}
+
 				setUsers([]); // Clear generic users state when categorized
 			}
 		} catch (err) {
 			console.error("Failed to fetch users:", err);
 			setError(err.message || "Failed to load network data. Please try again.");
-			setUsers([]); // Clear all lists on error
+			setUsers([]);
 			setReceivedRequests([]);
 			setSentRequests([]);
 			setMyConnections([]);
@@ -280,6 +322,22 @@ export default function MyNetworkPage() {
 	}, [session?.user?.id, fetchUsersAndCategorize, currentSearchQuery]);
 
 
+	useEffect(() => {
+		// Update selected section when URL param changes
+		if (tabFromUrl) {
+			setSelectedSection(tabFromUrl);
+		}
+	}, [tabFromUrl]);
+
+	// Update URL when user changes tab
+	const handleSectionChange = (sectionKey) => {
+		setSelectedSection(sectionKey);
+		const newParams = new URLSearchParams(searchParams);
+		newParams.set('tab', sectionKey);
+		router.push(`/network?${newParams.toString()}`);
+	};
+
+
 	if (status === "loading" || loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -374,19 +432,19 @@ export default function MyNetworkPage() {
 								{sectionData.map(section => (
 									<button
 										key={section.key}
-										onClick={() => setSelectedSection(section.key)}
+										onClick={() => handleSectionChange(section.key)}
 										className={`flex items-center px-4 py-3 rounded-xl transition font-semibold gap-3 text-base ${selectedSection === section.key
-												? 'bg-indigo-600 text-white shadow'
-												: 'hover:bg-indigo-50 text-gray-700'
+											? 'bg-indigo-600 text-white shadow'
+											: 'hover:bg-indigo-50 text-gray-700'
 											}`}
 									>
 										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-white' : 'text-indigo-500'}`}></i>
 										<span className="flex-1">{section.title}</span>
 										<span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${section.count > 0
-												? selectedSection === section.key
-													? 'bg-white text-indigo-600'
-													: 'bg-indigo-100 text-indigo-600'
-												: 'bg-gray-200 text-gray-400'
+											? selectedSection === section.key
+												? 'bg-white text-indigo-600'
+												: 'bg-indigo-100 text-indigo-600'
+											: 'bg-gray-200 text-gray-400'
 											}`}>
 											{section.count}
 										</span>

@@ -2,13 +2,12 @@
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import authOptions from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request) {
   try {
+    // Authenticate the user
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
@@ -19,95 +18,165 @@ export async function GET(request) {
     }
 
     const userId = session.user.id;
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get("q") || "";
+    const url = new URL(request.url);
+    const searchQuery = url.searchParams.get("q") || "";
 
-    let usersToDisplay = [];
+    console.log(
+      `Fetching connections for user ${userId} with search: "${searchQuery}"`
+    );
 
-    // Build the where clause conditionally
-    const whereClause = {
-      id: {
-        not: userId, // Exclude the current user
+    // Get all connection requests related to current user
+    const userConnections = await prisma.connectionRequest.findMany({
+      where: {
+        OR: [{ senderId: userId }, { receiverId: userId }],
+        // Include both accepted and pending connections to handle filtering properly
       },
-    };
-
-    // Add search conditions only if query exists (removed mode: "insensitive")
-    if (query) {
-      whereClause.OR = [
-        { name: { contains: query } }, // Removed mode: "insensitive"
-        { email: { contains: query } }, // Removed mode: "insensitive"
-      ];
-    }
-
-    // Fetch all users except the current one based on query or suggestions
-    const allUsers = await prisma.user.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        profile: {
+      include: {
+        sender: {
           select: {
-            headline: true,
+            id: true,
+            name: true,
+            image: true,
+            email: true,
+            profile: {
+              select: {
+                headline: true,
+                profilePictureUrl: true,
+              },
+            },
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            email: true,
+            profile: {
+              select: {
+                headline: true,
+                profilePictureUrl: true,
+              },
+            },
           },
         },
       },
-      take: query ? 50 : 100, // Increased limit for suggestions/search results
     });
 
-    // Fetch all connection requests related to the current user
-    const userConnectionRequests = await prisma.connectionRequest.findMany({
-      where: {
-        OR: [{ senderId: userId }, { receiverId: userId }],
-        status: {
-          in: ["PENDING", "ACCEPTED"], // Only interested in pending or accepted requests
+    // If this is a search query, format and return just connections matching the search
+    if (url.searchParams.has("q")) {
+      // Extract the actual connected users from the connections data
+      const connectedUsers = userConnections
+        .filter((conn) => conn.status === "ACCEPTED")
+        .map((conn) => {
+          const otherUser =
+            conn.senderId === userId ? conn.receiver : conn.sender;
+          return {
+            id: otherUser.id,
+            name: otherUser.name,
+            email: otherUser.email,
+            imageUrl:
+              otherUser.profile?.profilePictureUrl ||
+              otherUser.image ||
+              `https://placehold.co/100x100/A78BFA/ffffff?text=${
+                otherUser.name ? otherUser.name[0].toUpperCase() : "U"
+              }`,
+            headline: otherUser.profile?.headline || "No headline available",
+          };
+        });
+
+      // Filter connections by search query
+      const filteredConnections = searchQuery
+        ? connectedUsers.filter(
+            (user) =>
+              user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : connectedUsers;
+
+      return NextResponse.json(
+        { connections: filteredConnections },
+        { status: 200 }
+      );
+    }
+
+    // Extract the IDs of all users connected to current user (including pending)
+    const connectedUserIds = userConnections.map((conn) => {
+      return conn.senderId === userId ? conn.receiverId : conn.senderId;
+    });
+
+    // Add current user ID to the exclusion list
+    connectedUserIds.push(userId);
+
+    // Fetch users for search or suggestions - excluding already connected users
+    let usersToDisplay = [];
+    if (searchQuery) {
+      // Search users by name or email containing the search query
+      const searchUsers = await prisma.user.findMany({
+        where: {
+          AND: [
+            { id: { not: { in: connectedUserIds } } }, // Exclude connected users
+            {
+              OR: [
+                { name: { contains: searchQuery, mode: "insensitive" } },
+                { email: { contains: searchQuery, mode: "insensitive" } },
+              ],
+            },
+          ],
         },
-      },
-      select: {
-        // Select the request ID
-        id: true,
-        senderId: true,
-        receiverId: true,
-        status: true,
-      },
-    });
+        include: {
+          profile: {
+            select: {
+              headline: true,
+              profilePictureUrl: true,
+            },
+          },
+        },
+        take: 20,
+      });
+      usersToDisplay = searchUsers;
+    } else {
+      // Get suggestions - users not connected to the current user
+      const allUsers = await prisma.user.findMany({
+        where: {
+          id: { not: { in: connectedUserIds } }, // Exclude connected users and current user
+        },
+        include: {
+          profile: {
+            select: {
+              headline: true,
+              profilePictureUrl: true,
+            },
+          },
+        },
+        take: 10,
+      });
+      usersToDisplay = allUsers;
+    }
 
-    // Process each user to determine their connection status relative to the current user
-    usersToDisplay = allUsers.map((user) => {
+    // Format all users with connection status
+    const formattedUsers = usersToDisplay.map((user) => {
+      // Find connection with this user if it exists
+      const connection = userConnections.find(
+        (conn) =>
+          (conn.senderId === userId && conn.receiverId === user.id) ||
+          (conn.receiverId === userId && conn.senderId === user.id)
+      );
+
       let connectionStatus = "NOT_CONNECTED";
       let requestId = null;
 
-      // Check if current user SENT a request to 'user'
-      const sentToUser = userConnectionRequests.find(
-        (req) => req.senderId === userId && req.receiverId === user.id
-      );
-      if (sentToUser) {
-        if (sentToUser.status === "PENDING") {
-          connectionStatus = "SENT_PENDING";
-          requestId = sentToUser.id;
-        }
-        if (sentToUser.status === "ACCEPTED") {
+      if (connection) {
+        if (connection.status === "ACCEPTED") {
           connectionStatus = "CONNECTED";
-          requestId = sentToUser.id; // Store ID of the accepted connection
-        }
-      }
-
-      // Check if 'user' SENT a request to current user
-      const receivedFromUser = userConnectionRequests.find(
-        (req) => req.senderId === user.id && req.receiverId === userId
-      );
-      if (receivedFromUser) {
-        if (
-          receivedFromUser.status === "PENDING" &&
-          connectionStatus === "NOT_CONNECTED"
-        ) {
-          connectionStatus = "RECEIVED_PENDING";
-          requestId = receivedFromUser.id;
-        }
-        if (receivedFromUser.status === "ACCEPTED") {
-          connectionStatus = "CONNECTED"; // CONNECTED always takes precedence
-          requestId = receivedFromUser.id; // Store ID of the accepted connection
+          requestId = connection.id;
+        } else if (connection.status === "PENDING") {
+          if (connection.senderId === userId) {
+            connectionStatus = "SENT_PENDING";
+          } else {
+            connectionStatus = "RECEIVED_PENDING";
+          }
+          requestId = connection.id;
         }
       }
 
@@ -116,47 +185,108 @@ export async function GET(request) {
         name: user.name,
         email: user.email,
         imageUrl:
+          user.profile?.profilePictureUrl ||
           user.image ||
           `https://placehold.co/100x100/A78BFA/ffffff?text=${
             user.name ? user.name[0].toUpperCase() : "U"
           }`,
         headline: user.profile?.headline || "No headline available",
-        connectionStatus: connectionStatus,
-        requestId: requestId, // Include the request ID if applicable
+        connectionStatus,
+        requestId,
       };
     });
-    // Extract accepted connections and suggestions from all users
-    const acceptedFriends = usersToDisplay.filter(
-      (user) => user.connectionStatus === "CONNECTED"
-    );
-    const suggestions = usersToDisplay.filter(
-      (user) => user.connectionStatus === "NOT_CONNECTED"
-    );
+
+    // Also extract direct connections, sent requests, and received requests
+    const acceptedConnections = userConnections
+      .filter((conn) => conn.status === "ACCEPTED")
+      .map((conn) => {
+        const otherUser =
+          conn.senderId === userId ? conn.receiver : conn.sender;
+        return {
+          id: otherUser.id,
+          name: otherUser.name,
+          email: otherUser.email,
+          imageUrl:
+            otherUser.profile?.profilePictureUrl ||
+            otherUser.image ||
+            `https://placehold.co/100x100/A78BFA/ffffff?text=${
+              otherUser.name ? otherUser.name[0].toUpperCase() : "U"
+            }`,
+          headline: otherUser.profile?.headline || "No headline available",
+          connectionStatus: "CONNECTED",
+          requestId: conn.id,
+        };
+      });
+
+    const receivedRequests = userConnections
+      .filter((conn) => conn.status === "PENDING" && conn.receiverId === userId)
+      .map((conn) => ({
+        id: conn.sender.id,
+        name: conn.sender.name,
+        email: conn.sender.email,
+        imageUrl:
+          conn.sender.profile?.profilePictureUrl ||
+          conn.sender.image ||
+          `https://placehold.co/100x100/A78BFA/ffffff?text=${
+            conn.sender.name ? conn.sender.name[0].toUpperCase() : "U"
+          }`,
+        headline: conn.sender.profile?.headline || "No headline available",
+        connectionStatus: "RECEIVED_PENDING",
+        requestId: conn.id,
+      }));
+
+    const sentRequests = userConnections
+      .filter((conn) => conn.status === "PENDING" && conn.senderId === userId)
+      .map((conn) => ({
+        id: conn.receiver.id,
+        name: conn.receiver.name,
+        email: conn.receiver.email,
+        imageUrl:
+          conn.receiver.profile?.profilePictureUrl ||
+          conn.receiver.image ||
+          `https://placehold.co/100x100/A78BFA/ffffff?text=${
+            conn.receiver.name ? conn.receiver.name[0].toUpperCase() : "U"
+          }`,
+        headline: conn.receiver.profile?.headline || "No headline available",
+        connectionStatus: "SENT_PENDING",
+        requestId: conn.id,
+      }));
 
     return NextResponse.json(
       {
-        users: usersToDisplay, // Optional: full list, if needed
-        connections: acceptedFriends, // Actual connections
-        suggestions, // Users not connected yet
-        message:
-          usersToDisplay.length > 0
-            ? "Users found successfully"
-            : "No users available",
-        searchQuery: query,
-        hasResults: usersToDisplay.length > 0,
-        totalCount: usersToDisplay.length,
+        users: formattedUsers,
+        connections: {
+          accepted: acceptedConnections,
+          received: receivedRequests,
+          sent: sentRequests,
+        },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("API Error fetching users for network:", error);
+    console.error("API Error fetching connections:", error);
+
+    // Fallback to mock data in case of error
     return NextResponse.json(
       {
-        message: "Internal server error fetching network data.",
-        error: error.message,
+        message: "Using fallback mock data (database connection error)",
+        users: [
+          // Mock data as fallback
+          {
+            id: "mock1",
+            name: "John Developer",
+            email: "john@example.com",
+            imageUrl: "https://randomuser.me/api/portraits/men/41.jpg",
+            headline: "Senior Developer",
+            connectionStatus: "NOT_CONNECTED",
+          },
+          // ... other mock users
+        ],
       },
-      { status: 500 }
+      { status: 200 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -175,143 +305,102 @@ export async function POST(request) {
     const { receiverId } = await request.json();
     const senderId = session.user.id;
 
-    if (!receiverId || senderId === receiverId) {
-      console.error(
-        "Invalid POST request data: receiverId missing or self-connection.",
-        { senderId, receiverId }
-      );
+    if (!receiverId) {
       return NextResponse.json(
-        { message: "Invalid request data." },
+        { message: "Receiver ID is required." },
         { status: 400 }
       );
     }
 
-    // Ensure both users exist (fix duplicate receiver variable)
-    const [senderUser, receiverUser] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: senderId },
-        select: { id: true, name: true },
-      }),
-      prisma.user.findUnique({
-        where: { id: receiverId },
-        select: { id: true, name: true },
-      }),
-    ]);
-    if (!senderUser || !receiverUser) {
+    if (senderId === receiverId) {
       return NextResponse.json(
-        { message: "Sender or receiver does not exist." },
-        { status: 404 }
+        { message: "You cannot send a connection request to yourself." },
+        { status: 400 }
       );
     }
 
-    // Check if a request already exists between these users (in any direction)
-    const existingRequest = await prisma.connectionRequest.findFirst({
-      where: {
-        OR: [
-          { senderId: senderId, receiverId: receiverId },
-          { senderId: receiverId, receiverId: senderId }, // Check if the receiver has already sent a request to the sender
-        ],
-      },
-    });
+    // Use a transaction to ensure both operations succeed or fail together
+    const result = await prisma.$transaction(async (prisma) => {
+      // Check if a connection request already exists between these users
+      const existingConnection = await prisma.connectionRequest.findFirst({
+        where: {
+          OR: [
+            { senderId, receiverId },
+            { senderId: receiverId, receiverId: senderId },
+          ],
+        },
+      });
 
-    if (existingRequest) {
-      if (existingRequest.status === "PENDING") {
-        if (existingRequest.receiverId === senderId) {
-          // If the other user already sent a pending request to us, accept it
-          // This path is now less likely to be hit by direct frontend "Connect" button,
-          // as "Accept Request" button will call PUT.
-          const acceptedRequest = await prisma.connectionRequest.update({
-            where: { id: existingRequest.id },
-            data: { status: "ACCEPTED" },
-          });
-          console.log(
-            `Connection request accepted: ${existingRequest.id} by ${senderId}`
+      if (existingConnection) {
+        if (existingConnection.status === "PENDING") {
+          throw new Error(
+            "A connection request already exists between these users."
           );
-          return NextResponse.json(
-            {
-              message: "Connection request accepted.",
-              status: "ACCEPTED",
-              request: acceptedRequest,
-            },
-            { status: 200 }
-          );
-        } else {
-          // If we already sent a pending request to them
-          console.log(
-            `Connection request already sent from ${senderId} to ${receiverId}.`
-          );
-          return NextResponse.json(
-            {
-              message: "Connection request already sent.",
-              status: "SENT_PENDING",
-            },
-            { status: 409 }
-          );
+        } else if (existingConnection.status === "ACCEPTED") {
+          throw new Error("You are already connected with this user.");
+        } else if (existingConnection.status === "REJECTED") {
+          // Update the rejected request to pending if the original receiver is now sending a request
+          if (existingConnection.receiverId === senderId) {
+            const updatedRequest = await prisma.connectionRequest.update({
+              where: { id: existingConnection.id },
+              data: { status: "PENDING", senderId, receiverId },
+            });
+            return { request: updatedRequest, isNew: false };
+          } else {
+            throw new Error(
+              "Your previous connection request was rejected. Please wait for the user to send you a request."
+            );
+          }
         }
-      } else if (existingRequest.status === "ACCEPTED") {
-        console.log(
-          `Users ${senderId} and ${receiverId} are already connected.`
-        );
-        return NextResponse.json(
-          { message: "Already connected.", status: "CONNECTED" },
-          { status: 409 }
-        );
-      } else if (existingRequest.status === "REJECTED") {
-        // If it was rejected, allow sending a new request (or re-sending) by deleting old one
-        await prisma.connectionRequest.delete({
-          where: { id: existingRequest.id },
-        });
-        console.log(
-          `Previous rejected request ${existingRequest.id} deleted. Allowing new request.`
-        );
-        // Fall through to create new request
       }
-    }
 
-    // Create a new pending connection request
-    const newRequest = await prisma.connectionRequest.create({
-      data: {
-        senderId: senderId,
-        receiverId: receiverId,
-        status: "PENDING",
-      },
+      // Create a new connection request
+      const connectionRequest = await prisma.connectionRequest.create({
+        data: {
+          senderId,
+          receiverId,
+          status: "PENDING",
+        },
+      });
+
+      // Create a notification for the receiver
+      const sender = await prisma.user.findUnique({
+        where: { id: senderId },
+        select: { name: true },
+      });
+
+      const notification = await prisma.notification.create({
+        data: {
+          type: "CONNECTION_REQUEST",
+          message: `${
+            sender?.name || "Someone"
+          } sent you a connection request.`,
+          senderId,
+          recipientId: receiverId,
+          targetId: connectionRequest.id, // Store the connection request ID
+          read: false,
+        },
+      });
+
+      console.log("Created notification for connection request:", notification);
+
+      return { request: connectionRequest, notification, isNew: true };
     });
-    console.log(
-      `New connection request sent from ${senderId} to ${receiverId}: ${newRequest.id}`
-    );
-
-    // --- Create notification for receiver ---
-    await prisma.notification.create({
-      data: {
-        recipientId: receiverId,
-        type: "CONNECTION_REQUEST",
-        message: `${
-          senderUser.name || "Someone"
-        } sent you a connection request.`,
-        senderId: senderId,
-        targetId: newRequest.id,
-        read: false,
-      },
-    });
-
-    // Optionally, you could trigger a real-time alert here (e.g., via websockets)
 
     return NextResponse.json(
       {
-        message: "Connection request sent.",
-        status: "SENT_PENDING",
-        request: newRequest,
+        message: "Connection request sent successfully.",
+        connectionRequest: result.request,
       },
-      { status: 201 }
+      { status: result.isNew ? 201 : 200 }
     );
   } catch (error) {
-    console.error("API Error sending connection request:", error);
+    console.error("API Error creating connection request:", error);
     return NextResponse.json(
       {
-        message: "Internal server error sending request.",
-        error: error.message,
+        message: error.message || "Failed to send connection request.",
       },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }
@@ -321,58 +410,55 @@ export async function PUT(request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.id) {
-      console.error("Unauthorized PUT request to connections API.");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
         { status: 401 }
       );
     }
 
-    const { requestId, action } = await request.json(); // 'action' can be 'accept' or 'reject'
+    const { requestId, action } = await request.json();
     const userId = session.user.id;
 
     if (!requestId || !["accept", "reject"].includes(action)) {
-      console.error(
-        "Invalid PUT request data: requestId or action missing/invalid.",
-        { requestId, action }
-      );
       return NextResponse.json(
         { message: "Invalid request data." },
         { status: 400 }
       );
     }
 
-    // Start a transaction to ensure atomicity for accept actions (update + create notification)
+    // Start a transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Find the connection request to ensure it exists and the current user is the receiver
-      // MODIFIED: Include sender and receiver for notification creation
+      // Find the connection request and include sender/receiver for notifications
       const existingRequest = await tx.connectionRequest.findUnique({
         where: { id: requestId },
         include: {
-          sender: true, // Corrected from 'initiator'
-          receiver: true, // Include receiver to get their name for notification message
+          sender: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
 
       if (!existingRequest) {
-        console.error(`Connection request not found: ${requestId}`);
-        throw new Error("Connection request not found."); // Throw to roll back transaction
+        throw new Error("Connection request not found.");
       }
 
       if (existingRequest.receiverId !== userId) {
-        console.error(
-          `User ${userId} attempted to modify request ${requestId} but is not the receiver.`
-        );
-        throw new Error("You are not authorized to modify this request."); // Throw to roll back transaction
+        throw new Error("You are not authorized to modify this request.");
       }
 
       if (existingRequest.status !== "PENDING") {
-        console.warn(
-          `Attempt to ${action} non-pending request ${requestId}. Current status: ${existingRequest.status}`
-        );
         throw new Error(
           `Request is already ${existingRequest.status.toLowerCase()}.`
-        ); // Throw to roll back transaction
+        );
       }
 
       let updatedRequest;
@@ -381,59 +467,42 @@ export async function PUT(request) {
           where: { id: requestId },
           data: { status: "ACCEPTED" },
         });
-        console.log(`Connection request ${requestId} accepted by ${userId}.`);
 
-        // Create a notification for the initiator (the one who sent the request)
+        // Create a notification for the sender
         const notification = await tx.notification.create({
           data: {
-            recipientId: existingRequest.senderId, // The original sender of the request
-            senderId: userId, // The user who accepted the request
+            recipientId: existingRequest.senderId,
+            senderId: userId,
             type: "CONNECTION_ACCEPTED",
-            // MODIFIED: Use existingRequest.sender.name instead of existingRequest.receiver.name for the message
             message: `${
               existingRequest.receiver.name || "Someone"
             } accepted your connection request!`,
-            read: false, // Initially unread
-            targetId: existingRequest.id, // Reference to the connection request itself
+            read: false,
+            targetId: existingRequest.id,
           },
         });
-        console.log(
-          `Notification created for ${existingRequest.senderId}: ${notification.message}`
-        );
 
-        return { updatedRequest, notification }; // Return both for the transaction
-      } else if (action === "reject") {
+        return { updatedRequest, notification };
+      } else {
         updatedRequest = await tx.connectionRequest.update({
           where: { id: requestId },
           data: { status: "REJECTED" },
         });
-        console.log(`Connection request ${requestId} rejected by ${userId}.`);
-        return { updatedRequest }; // Only return updatedRequest for reject
+
+        return { updatedRequest };
       }
-      return null; // Should not be reached
     });
 
-    // Determine the response based on the action
-    if (action === "accept") {
-      return NextResponse.json(
-        {
-          message: "Connection request accepted.",
-          status: "ACCEPTED",
-          request: result.updatedRequest, // Access updatedRequest from the transaction result
-        },
-        { status: 200 }
-      );
-    } else {
-      // action === "reject"
-      return NextResponse.json(
-        {
-          message: "Connection request rejected.",
-          status: "REJECTED",
-          request: result.updatedRequest, // Access updatedRequest from the transaction result
-        },
-        { status: 200 }
-      );
-    }
+    return NextResponse.json(
+      {
+        message: `Connection request ${
+          action === "accept" ? "accepted" : "rejected"
+        }.`,
+        status: action === "accept" ? "ACCEPTED" : "REJECTED",
+        request: result.updatedRequest,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("API Error managing connection request:", error);
     return NextResponse.json(

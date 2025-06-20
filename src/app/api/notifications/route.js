@@ -2,7 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import authOptions from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -31,6 +31,11 @@ export async function GET(request) {
             id: true,
             name: true,
             image: true,
+            profile: {
+              select: {
+                profilePictureUrl: true,
+              },
+            },
           },
         },
       },
@@ -40,8 +45,11 @@ export async function GET(request) {
       take: 50,
     });
 
-    // --- DEBUG: Log notifications to verify they are being fetched ---
-    console.log("Fetched notifications for user:", userId, notifications);
+    console.log(
+      "Fetched notifications for user:",
+      userId,
+      notifications.length
+    );
 
     // Ensure notifications are returned in the expected format
     const formattedNotifications = notifications.map((notif) => {
@@ -51,6 +59,7 @@ export async function GET(request) {
           id: notif.sender.id,
           name: notif.sender.name,
           imageUrl:
+            notif.sender.profile?.profilePictureUrl ||
             notif.sender.image ||
             `https://placehold.co/40x40/ADD8E6/000000?text=${
               notif.sender.name ? notif.sender.name[0].toUpperCase() : "U"
@@ -65,7 +74,7 @@ export async function GET(request) {
         read: notif.read,
         createdAt: notif.createdAt,
         user: userDetails,
-        targetId: notif.targetId,
+        targetId: notif.targetId, // important for connection requests
         senderId: notif.senderId,
       };
     });
@@ -83,21 +92,22 @@ export async function GET(request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const notifIdStr = searchParams.get("id");
-    if (!notifIdStr) {
+    const notifId = searchParams.get("id");
+    if (!notifId) {
       return NextResponse.json(
         { message: "Notification id is required." },
         { status: 400 }
       );
     }
-    // Use notifIdStr directly as a string, do not cast to Number
-    const notifId = notifIdStr; // Ensure the id is a string as expected by Prisma
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
       return NextResponse.json(
@@ -105,9 +115,11 @@ export async function DELETE(request) {
         { status: 401 }
       );
     }
+
     await prisma.notification.delete({
       where: { id: notifId },
     });
+
     return NextResponse.json(
       { message: "Notification cleared." },
       { status: 200 }
@@ -121,22 +133,26 @@ export async function DELETE(request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-// NEW: PATCH endpoint to mark all notifications as read
 export async function PATCH(request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+
     const userId = session.user.id;
+
     // Update all unread notifications for this user
     await prisma.notification.updateMany({
       where: { recipientId: userId, read: false },
       data: { read: true },
     });
+
     return NextResponse.json(
       { message: "All notifications marked as read" },
       { status: 200 }
@@ -150,5 +166,7 @@ export async function PATCH(request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

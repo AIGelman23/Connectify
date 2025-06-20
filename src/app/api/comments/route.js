@@ -1,57 +1,23 @@
 // src/app/api/comments/route.js
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { PrismaClient } from "@prisma/client";
+// import { getServerSession } from "next-auth"; // <--- Keep this commented
+// import authOptions from "@/lib/auth";       // <--- Keep this commented
+// import prisma from "@/lib/prisma";           // <--- COMMENT OUT THIS IMPORT LINE!
 
-const prisma = new PrismaClient();
-
-export async function POST(request) {
+export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id) {
-      return NextResponse.json(
-        { message: "Unauthorized. Please log in." },
-        { status: 401 }
-      );
-    }
-
-    const { postId, content } = await request.json();
-    if (!postId || !content || content.trim() === "") {
-      return NextResponse.json(
-        { message: "Post ID and non-empty comment content are required." },
-        { status: 400 }
-      );
-    }
-
-    // Create a comment on the given post
-    const comment = await prisma.comment.create({
-      data: {
-        content,
-        authorId: session.user.id,
-        postId,
-      },
-    });
-
-    // Increment the commentsCount of the associated post.
-    await prisma.post.update({
-      where: { id: postId },
-      data: { commentsCount: { increment: 1 } },
-    });
-
+    // Keep all internal logic commented out
     return NextResponse.json(
-      { message: "Comment added successfully.", comment },
-      { status: 201 }
+      { message: "Comments GET handler (testing prisma import)." },
+      { status: 200 }
     );
   } catch (error) {
-    console.error("API Error adding comment:", error);
+    console.error("API Error fetching comments:", error);
     return NextResponse.json(
-      {
-        message: "Internal server error adding comment.",
-        error: error.message,
-      },
+      { message: "Internal server error.", error: error.message },
       { status: 500 }
     );
   }
 }
+// ... (POST and other handlers are still fully commented out inside) ...

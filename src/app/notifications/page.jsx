@@ -167,6 +167,8 @@ export default function NotificationsPage() {
                       <>{notification.user?.name || 'Someone'} sent you a connection request.</>
                     ) : notification.type === 'CONNECTION_ACCEPTED' ? (
                       <>{notification.user?.name || 'Someone'} accepted your connection request.</>
+                    ) : notification.type === 'POST_TAG' ? (
+                      <>{notification.user?.name || 'Someone'} tagged you in a post.</>
                     ) : notification.type === 'JOB_APPLICATION_VIEWED' ? (
                       <>Your application for {notification.job?.title} at {notification.job?.company} has been viewed.</>
                     ) : notification.type === 'POST_LIKE' ? (

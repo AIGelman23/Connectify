@@ -1,35 +1,25 @@
 // src/app/api/users/search/route.js
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Adjust path as necessary
-import { PrismaClient } from "@prisma/client";
+// import { getServerSession } from "next-auth";
+// import authOptions from "@/lib/auth";
+// import prisma from "@/lib/prisma";
 
-const prisma = new PrismaClient();
-
-/**
- * GET /api/users/search
- * Fetches users based on a search query.
- * Requires authentication.
- *
- * Query Parameters:
- * - q: The search term (e.g., part of a name or email).
- */
 export async function GET(request) {
   try {
     // 1. Authenticate the user session
-    const session = await getServerSession(authOptions);
+    // const session = await getServerSession(authOptions);
 
-    if (!session || !session.user?.id) {
-      console.warn("Unauthorized attempt to access /api/users/search");
-      return NextResponse.json(
-        { message: "Unauthorized. Please log in." },
-        { status: 401 }
-      );
-    }
+    // if (!session || !session.user?.id) {
+    //   console.warn("Unauthorized attempt to access /api/users/search");
+    //   return NextResponse.json(
+    //     { message: "Unauthorized. Please log in." },
+    //     { status: 401 }
+    //   );
+    // }
 
-    const userId = session.user.id; // The ID of the currently authenticated user
-    console.log(`DEBUG: Search request from user: ${userId}`);
+    // const userId = session.user.id; // The ID of the currently authenticated user
+    // console.log(`DEBUG: Search request from user: ${userId}`);
 
     // 2. Extract the search query parameter 'q'
     const { searchParams } = new URL(request.url);

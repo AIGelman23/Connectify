@@ -1,81 +1,9 @@
-// import { useState } from "react";
-
-// const Comment = ({ comment, sessionUserId, postId, onInlineReply = () => {} }) => {
-//   const [showReplyInput, setShowReplyInput] = useState(false);
-//   const [replyContent, setReplyContent] = useState("");
-
-//   const handlePostReply = async () => {
-//     if (replyContent.trim()) {
-//       await onInlineReply(comment.id, replyContent);
-//       setReplyContent("");
-//       setShowReplyInput(false);
-//     }
-//   };
-
-//   return (
-//     <div className="bg-gray-50 p-2 rounded my-2">
-//       {/* Comment Header */}
-//       <div className="flex items-center space-x-2">
-//         <img
-//           src={comment.user.imageUrl || "https://placehold.co/32x32"}
-//           alt={comment.user.name}
-//           className="w-6 h-6 rounded-full"
-//         />
-//         <span className="text-sm font-semibold">{comment.user.name}</span>
-//         <span className="text-xs text-gray-500">{comment.timestamp}</span>
-//       </div>
-//       {/* Comment Content */}
-//       <p className="text-sm text-gray-800 mt-1">{comment.content}</p>
-//       {/* Reply Toggle */}
-//       <button
-//         onClick={() => setShowReplyInput((prev) => !prev)}
-//         className="text-xs text-blue-600 mt-1"
-//       >
-//         Reply
-//       </button>
-//       {/* Reply Input */}
-//       {showReplyInput && (
-//         <div className="mt-2">
-//           <input
-//             type="text"
-//             placeholder="Write a reply..."
-//             value={replyContent}
-//             onChange={(e) => setReplyContent(e.target.value)}
-//             className="w-full p-1 border border-gray-300 rounded"
-//           />
-//           <button
-//             onClick={handlePostReply}
-//             className="text-xs bg-blue-600 text-white px-2 py-1 rounded mt-1"
-//           >
-//             Post Reply
-//           </button>
-//         </div>
-//       )}
-//       {/* Nested Replies */}
-//       {comment.replies && comment.replies.length > 0 && (
-//         <div className="ml-4 mt-2">
-//           {comment.replies.map((reply) => (
-//             <Comment
-//               key={reply.id}
-//               comment={reply}
-//               sessionUserId={sessionUserId}
-//               postId={postId}
-//               onInlineReply={onInlineReply}
-//             />
-//           ))}
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default Comment;
-
 // src/components/CommentComponents.jsx
 "use client";
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { formatTimestamp } from '../lib/utils'; // Assuming you move formatTimestamp here
+import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
 
 export const Reply = ({ reply, sessionUserId, onDeleteReply, postId }) => {
 	const isAuthor = reply.user.id === sessionUserId;
@@ -112,6 +40,27 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId }) => {
 
 export const Comment = ({ comment, onReply, sessionUserId, onDeleteComment, postId }) => {
 	const isAuthor = comment.user.id === sessionUserId;
+	const [showReplyInput, setShowReplyInput] = useState(false);
+	const [replyText, setReplyText] = useState('');
+	const replyInputRef = useRef(null);
+	const replyContainerRef = useRef(null);
+
+	const handleAddEmoji = (emoji) => {
+		setReplyText(prev => prev + emoji);
+		// Focus the reply input after adding an emoji
+		if (replyInputRef.current) {
+			setTimeout(() => replyInputRef.current.focus(), 0);
+		}
+	};
+
+	const handlePostReply = async () => {
+		if (replyText.trim()) {
+			await onReply(comment.id, replyText);
+			setReplyText("");
+			setShowReplyInput(false);
+		}
+	};
+
 	return (
 		<div className="flex items-start space-x-3 mb-4">
 			<img
@@ -130,7 +79,7 @@ export const Comment = ({ comment, onReply, sessionUserId, onDeleteComment, post
 				</div>
 				<div className="flex items-center space-x-3 mt-1 pl-2">
 					<button
-						onClick={() => onReply(comment.id)}
+						onClick={() => setShowReplyInput((prev) => !prev)}
 						className="text-xs font-medium text-indigo-600 hover:underline"
 					>
 						Reply
@@ -144,6 +93,30 @@ export const Comment = ({ comment, onReply, sessionUserId, onDeleteComment, post
 						</button>
 					)}
 				</div>
+				{showReplyInput && (
+					<form onSubmit={handlePostReply} className="mt-2 ml-8 flex relative" ref={replyContainerRef}>
+						<input
+							ref={replyInputRef}
+							type="text"
+							value={replyText}
+							onChange={(e) => setReplyText(e.target.value)}
+							placeholder="Write a reply..."
+							className="flex-grow p-2 pr-8 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
+						/>
+						<div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
+							<EmojiSelector
+								onEmojiSelect={handleAddEmoji}
+								parentRef={replyContainerRef}
+							/>
+							<button
+								type="submit"
+								className="ml-1 text-blue-600 hover:text-blue-800"
+							>
+								<i className="fas fa-paper-plane"></i>
+							</button>
+						</div>
+					</form>
+				)}
 				{comment.replies && comment.replies.length > 0 && (
 					<div className="ml-8 mt-3 space-y-3 border-l-2 border-gray-200 pl-4">
 						{comment.replies.map(reply => (

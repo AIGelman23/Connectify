@@ -1,7 +1,5 @@
 // src/resolvers.js
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient(); // Initialize Prisma Client here or pass it via context
+import prisma from "./lib/prisma.js";
 
 export const resolvers = {
   Query: {
