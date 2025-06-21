@@ -1,4 +1,4 @@
-// src/app/auth/signup/page.jsx
+// src/components/LoginPage.jsx
 "use client"; // This component runs on the client side
 
 import { useState } from 'react';
@@ -8,10 +8,9 @@ import Link from 'next/link';
 import ConnectifyLogo from '@/components/ConnectifyLogo';
 import AnimatedBackground from '@/components/AnimatedBackground';
 
-export default function SignUpPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,65 +21,21 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }), // Include name in the request
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // If the response status is not 2xx, it's an error
-        setError(data.message || 'Registration failed.');
-        setLoading(false);
-        return;
-      }
-
-      // If registration is successful
-      console.log('Registration successful:', data.message);
-
-      // Automatically sign the user in after successful registration
-      const signInResult = await signIn('credentials', {
+      const result = await signIn('credentials', {
         email,
         password,
         redirect: false, // Prevents immediate redirect, allows custom handling
       });
 
-      if (signInResult?.error) {
-        setError(signInResult.error);
-        console.error('Auto sign-in failed:', signInResult.error);
+      if (result?.error) {
+        setError(result.error);
         setLoading(false);
       } else {
-        // Successfully registered AND signed in
-        // Now, fetch the user's profile to check if it's complete
-        try {
-          const profileRes = await fetch('/api/profile'); // Make sure this points to the correct API endpoint
-          if (profileRes.ok) {
-            const profileData = await profileRes.json();
-            if (profileData.profile && profileData.profile.isProfileComplete) {
-              // Profile is complete, redirect to dashboard
-              router.push('/dashboard');
-            } else {
-              // Profile is not complete (e.g., brand new user), redirect to profile setup
-              router.push('/edit-profile');
-            }
-          } else {
-            // If fetching profile fails (e.g., 404), assume it's incomplete or needs creation
-            console.warn('Failed to fetch profile after signup, redirecting to profile setup.');
-            router.push('/edit-profile');
-          }
-        } catch (profileFetchError) {
-          console.error('Error fetching profile after signup:', profileFetchError);
-          // Fallback redirect to profile page if profile fetch fails
-          router.push('/edit-profile'); // UPDATED: Redirect to the dedicated edit profile page
-        }
+        // Successfully logged in
+        router.push('/dashboard');
       }
-
     } catch (err) {
-      console.error('An unexpected error occurred during signup:', err);
+      console.error('An unexpected error occurred during login:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -93,13 +48,13 @@ export default function SignUpPage() {
       <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
-            {/* Logo at the top of the sign-up box */}
+            {/* Logo at the top of the login box */}
             <div className="flex justify-center mb-6">
               <ConnectifyLogo width={300} height={120} />
             </div>
 
             <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">
-              Create your account
+              Welcome back
             </h2>
 
             {error && (
@@ -109,28 +64,6 @@ export default function SignUpPage() {
             )}
 
             <form className="mb-4 space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    autoComplete="name"
-                    inputMode="text"
-                    required
-                    spellCheck={false}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base"
-                    placeholder="John Doe"
-                    style={{ WebkitAppearance: 'none' }}
-                  />
-                </div>
-              </div>
-
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Email address
@@ -162,7 +95,7 @@ export default function SignUpPage() {
                     id="password"
                     name="password"
                     type="password"
-                    autoComplete="new-password"
+                    autoComplete="current-password"
                     inputMode="text"
                     required
                     value={password}
@@ -184,10 +117,11 @@ export default function SignUpPage() {
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent',
                     letterSpacing: '0.03em',
+                    appearance: 'none',
                     WebkitAppearance: 'none'
                   }}
                 >
-                  {loading ? 'Registering...' : 'Sign up'}
+                  {loading ? 'Logging in...' : 'Login'}
                 </button>
               </div>
             </form>
@@ -205,27 +139,48 @@ export default function SignUpPage() {
               <div className="mt-6 grid grid-cols-3 gap-3">
                 <button
                   onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  className="w-full inline-flex justify-center py-2 px-4 border-none font-bold rounded-md text-white bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 shadow-md hover:from-blue-700 hover:via-blue-600 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-200"
+                  style={{
+                    minHeight: 44,
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    letterSpacing: '0.03em',
+                    WebkitAppearance: 'none'
+                  }}
                 >
-                  <span className="sr-only">Sign up with Google</span>
+                  <span className="sr-only">Sign in with Google</span>
                   <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                   </svg>
                 </button>
                 <button
                   onClick={() => signIn('apple', { callbackUrl: '/dashboard' })}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  className="w-full inline-flex justify-center py-2 px-4 border-none font-bold rounded-md text-white bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 shadow-md hover:from-blue-700 hover:via-blue-600 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-200 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400"
+                  style={{
+                    minHeight: 44,
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    letterSpacing: '0.03em',
+                    WebkitAppearance: 'none'
+                  }}
                 >
-                  <span className="sr-only">Sign up with Apple</span>
+                  <span className="sr-only">Sign in with Apple</span>
                   <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z" />
                   </svg>
                 </button>
                 <button
                   onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
-                  className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  className="w-full inline-flex justify-center py-2 px-4 border-none font-bold rounded-md text-white bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 shadow-md hover:from-blue-700 hover:via-blue-600 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-200"
+                  style={{
+                    minHeight: 44,
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    letterSpacing: '0.03em',
+                    WebkitAppearance: 'none'
+                  }}
                 >
-                  <span className="sr-only">Sign up with Microsoft</span>
+                  <span className="sr-only">Sign in with Microsoft</span>
                   <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 23 23">
                     <path d="M0 0h10.931v10.931H0V0zm12.069 0H23v10.931H12.069V0zM0 12.069h10.931V23H0V12.069zm12.069 0H23V23H12.069V12.069z" />
                   </svg>
@@ -235,13 +190,13 @@ export default function SignUpPage() {
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Already have an account?{" "}
+                Don't have an account?{" "}
                 <Link
-                  href="/auth/login"
+                  href="/auth/signup"
                   className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 hover:from-blue-700 hover:via-blue-600 hover:to-blue-500 transition-all duration-200"
                   style={{ letterSpacing: '0.03em' }}
                 >
-                  Sign in
+                  Sign up
                 </Link>
               </p>
             </div>
