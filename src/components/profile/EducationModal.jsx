@@ -95,7 +95,7 @@ export default function EducationModal({ isOpen, onClose, onSave, educationToEdi
 
 	return (
 		<div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+			<div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
 				<h3 className="text-2xl font-bold mb-4 border-b pb-2">
 					{educationToEdit?.id ? 'Edit Education' : 'Add Education'}
 				</h3>

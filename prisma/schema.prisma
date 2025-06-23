@@ -48,6 +48,8 @@ model User {
   createdAt                  DateTime            @default(now())
   resetToken                 String?
   resetTokenExpiry           DateTime?
+  resetPasswordToken         String?
+  resetPasswordExpires       DateTime?
   receivedConnectionRequests ConnectionRequest[] @relation("ReceivedConnectionRequests")
   sentConnectionRequests     ConnectionRequest[] @relation("SentConnectionRequests")
   sentMessages               Message[]
@@ -58,6 +60,8 @@ model User {
   posts                      Post[]
   profile                    Profile?
   conversationsJoined        Conversation[]      @relation("ConversationParticipants")
+  securityAnswers            UserSecurityAnswer[]
+  passwordResets             PasswordReset[]     // <--- Add this line
 }
 
 model Skill {
@@ -178,4 +182,30 @@ model Notification {
   recipient   User     @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model SecurityQuestion {
+  id      String   @id @default(uuid())
+  question String  @unique
+  answers UserSecurityAnswer[]
+}
+
+model UserSecurityAnswer {
+  id                  String   @id @default(uuid())
+  userId              String
+  securityQuestionId  String
+  answerHash          String
+  user                User     @relation(fields: [userId], references: [id])
+  securityQuestion    SecurityQuestion @relation(fields: [securityQuestionId], references: [id])
+
+  @@unique([userId, securityQuestionId])
 }

@@ -143,10 +143,10 @@ export default function EditProfileHeader({
 				</div>
 
 				<div className="text-center">
-					<h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+					<h1 className="text-2xl font-bold">
 						{currentProfileState.name || "Your Name"}
 					</h1>
-					<p className="text-gray-600 dark:text-gray-300 mt-1">
+					<p className="mt-1">
 						{currentProfileState.headline || "Your Headline"}
 					</p>
 					<p className="text-gray-500 dark:text-gray-400 text-sm mt-1">

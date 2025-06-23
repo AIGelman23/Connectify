@@ -45,6 +45,12 @@ const authOptions = {
             return null;
           }
 
+          // Defensive: check for empty password
+          if (!credentials.password || credentials.password.length < 6) {
+            console.log("Password is empty or too short");
+            return null;
+          }
+
           // Debug log
           console.log(`Found user: ${user.email}, comparing passwords...`);
 

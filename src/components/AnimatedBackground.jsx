@@ -19,7 +19,7 @@ const AnimatedBackground = ({ className = "" }) => {
     window.addEventListener('resize', handleResize);
     handleResize();
 
-    // Brand colors from ConnectifyLogo
+    // Brand colors from ConnectifAILogo
     const brandColors = {
       primary: '#0ea5e9',
       secondary: '#3b82f6',

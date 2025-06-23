@@ -24,7 +24,7 @@ function AppearanceSection({ theme, handleToggle, status }) {
 					Appearance
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400">
-					Customize how Connectify looks and feels to you
+					Customize how ConnectifAI looks and feels to you
 				</p>
 			</div>
 

@@ -218,11 +218,11 @@ html.dark {
   /* green-900 */
 
   /* Orange Light Theme */
-  --navbar-bg: #ffedd5;
+  --navbar-bg: #ffffff;
   /* orange-100 */
   --navbar-text: #7c2d12;
   /* orange-900 */
-  --section-bg: #fff7ed;
+  --section-bg: #ffffff;
   /* orange-50 */
   --section-text: #7c2d12;
   /* orange-900 */
@@ -247,11 +247,6 @@ html.dark {
 .navbar-theme-green {
   background-color: #dcfce7 !important;
   color: #14532d !important;
-}
-
-.navbar-theme-orange {
-  background-color: #ffedd5 !important;
-  color: #7c2d12 !important;
 }
 
 /* Section theme utility classes */
@@ -312,8 +307,8 @@ nav.sidebar {
 nav,
 .navbar,
 nav[role="navigation"] {
-  background-color: var(--navbar-bg) !important;
-  color: var(--navbar-text) !important;
+  background-color: #ffffff;
+  color: var(--navbar-text);
   /* border-bottom: 1px solid var(--border); */
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
@@ -487,7 +482,7 @@ nav[role="navigation"] {
   transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
 }
 
-.dark .profile-edit-sticky-bottom {
+.dark .profile-edit-bottom {
   background-color: #100c0c5c;
   color: var(--section-text);
   transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
@@ -690,6 +685,40 @@ select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Force white background and black text on auth input fields */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  background-color: white !important;
+  color: #111827 !important; /* gray-900 */
+}
+
+/* Specific override for auth pages */
+.auth-input {
+  background-color: white !important;
+  color: #111827 !important;
+}
+
+/* Override any dark mode or theme styles on inputs */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(
+    [type="button"]
+  ) {
+  background-color: white !important;
+  color: #111827 !important;
+}
+
+/* Ensure placeholder text remains visible */
+input::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+  opacity: 1 !important;
+}
+
+/* Override any focus states that might change colors */
+input:focus {
+  background-color: white !important;
+  color: #111827 !important;
 }
 
 /* Enhanced card styling */

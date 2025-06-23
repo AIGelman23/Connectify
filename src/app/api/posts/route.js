@@ -3,9 +3,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth"; // Import from next-auth directly
 import authOptions from "@/lib/auth"; // Import as default export from lib/auth
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "@/lib/prisma"; // Import Prisma client from lib/prisma
 
 // Utility function for timestamp formatting
 function formatTimestamp(timestamp) {

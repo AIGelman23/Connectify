@@ -219,7 +219,7 @@ export default function HomePage() {
 					</h2>
 					<p className="text-gray-600 mb-6">
 						{profile
-							? "Please complete your professional profile to unlock the full Connectify experience."
+							? "Please complete your professional profile to unlock the full ConnectifAI experience."
 							: "It looks like you haven't set up your professional profile yet. Please create one to get started."}
 					</p>
 					<button
@@ -251,7 +251,7 @@ export default function HomePage() {
 
 			{/* Reply Modal */}
 			{replyModalVisible && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+				<div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
 					<div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
 						<h3 className="text-lg font-bold mb-4">Reply to Comment</h3>
 						<textarea

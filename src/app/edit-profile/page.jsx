@@ -438,6 +438,10 @@ export default function EditProfilePage() {
 
 	// Logic for entering edit mode (already good)
 	const enterEditMode = useCallback(() => {
+		if (loading || !profileData || !profileData.name) {
+			// Prevent entering edit mode until data is loaded and profileData is populated
+			return;
+		}
 		console.log("Entering edit mode. Current profileData BEFORE setting draft:", profileData);
 		setDraftProfileData({
 			...profileData,
@@ -454,7 +458,7 @@ export default function EditProfilePage() {
 		setFormErrors({});
 		setViewMode('edit');
 		console.log("viewMode set to 'edit'.");
-	}, [profileData]);
+	}, [profileData, loading]);
 
 	// Logic for canceling edit mode (already good)
 	const cancelEditMode = useCallback(() => {
@@ -684,154 +688,44 @@ export default function EditProfilePage() {
 	console.log("currentProfileState.education:", currentProfileState.education);
 	console.log("currentProfileState.skills:", currentProfileState.skills);
 	return (
-		<div className="min-h-screen font-sans antialiased text-gray-900">
-			{/* Navbar for navigation */}
-			<Navbar session={session} router={router} />
-			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-				<EditProfileHeader
-					currentProfileState={currentProfileState}
-					viewMode={viewMode}
-					handleFileChange={handleFileChange}
-					handleRemoveProfilePicture={handleRemoveProfilePicture}
-					handleRemoveCoverPhoto={handleRemoveCoverPhoto}
-					enterEditMode={enterEditMode}
-				/>
-				{/* Friends List Section on Profile Page */}
-				{status === "loading" && <p>Loading friends...</p>}
-				{status === "unauthenticated" && <p>Please log in to see your friends.</p>}
-				{status === "authenticated" && (
-					<>
-						{/* Pass the memoized friendsList */}
-						<FriendsListContainer />
-					</>
-				)}
-				{viewMode === 'view' ? (
-					<>
-						{/* Render sections in view mode */}
-						<EditProfileExperience
+		<>
+			<div className="min-h-screen font-sans antialiased text-gray-900 bg-transparent">
+				{/* Navbar for navigation */}
+				<Navbar session={session} router={router} />
+				<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+					<div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm p-0 sm:p-0"> {/* Add theme container */}
+						<EditProfileHeader
 							currentProfileState={currentProfileState}
-							// No openExperienceModal in view mode if it's just for display
-							handleDeleteExperience={handleDeleteExperience} // Still needed if user can delete in view mode
-							formErrors={formErrors}
-							isEditable={false}
+							viewMode={viewMode}
+							handleFileChange={handleFileChange}
+							handleRemoveProfilePicture={handleRemoveProfilePicture}
+							handleRemoveCoverPhoto={handleRemoveCoverPhoto}
+							enterEditMode={enterEditMode}
 						/>
-						<EditProfileEducation
-							currentProfileState={currentProfileState}
-							// No openEducationModal in view mode if it's just for display
-							handleDeleteEducation={handleDeleteEducation} // Still needed if user can delete in view mode
-							formErrors={formErrors}
-							isEditable={false}
-						/>
-						<EditProfileSkills
-							currentProfileState={currentProfileState}
-							skillInput={skillInput}
-							setSkillInput={setSkillInput}
-							handleAddSkill={handleAddSkill}
-							handleDeleteSkill={handleDeleteSkill}
-							formErrors={formErrors}
-							MAX_SKILL_LENGTH={MAX_SKILL_LENGTH}
-							isEditable={false}
-						/>
-					</>
-				) : (
-					// --- Edit Mode Display (wrapped in a form) ---
-					<form onSubmit={handleSubmit} className="space-y-6">
-						<div className="profile-edit-mode-container p-8 rounded-md shadow">
-							{/* Basic Info Edit (already good, styles are applied via className) */}
-							<section className="mb-8">
-								<h2 className="text-2xl font-semibold mb-6">Edit Your Basic Info</h2>
-								<div className="grid grid-cols-1 gap-4">
-									<div>
-										<label htmlFor="name" className="block text-sm font-semibold text-gray-700">Name</label>
-										<input
-											type="text"
-											id="name"
-											name="name"
-											value={currentProfileState.name}
-											onChange={handleChange}
-											className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-										/>
-										{formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
-									</div>
-									<div>
-										<label htmlFor="headline" className="block text-sm font-semibold text-gray-700">Headline</label>
-										<input
-											type="text"
-											id="headline"
-											name="headline"
-											value={currentProfileState.headline}
-											onChange={handleChange}
-											maxLength={MAX_HEADLINE_LENGTH}
-											className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-										/>
-										{formErrors.headline && <p className="text-red-500 text-xs mt-1">{formErrors.headline}</p>}
-									</div>
-									<div>
-										<label htmlFor="summary" className="block text-sm font-semibold text-gray-700">Summary</label>
-										<textarea
-											id="summary"
-											name="summary"
-											value={currentProfileState.summary}
-											onChange={handleChange}
-											rows="4"
-											maxLength={MAX_SUMMARY_LENGTH}
-											className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
-										></textarea>
-										{formErrors.summary && <p className="text-red-500 text-xs mt-1">{formErrors.summary}</p>}
-									</div>
-									<div>
-										<label htmlFor="location" className="block text-sm font-semibold text-gray-700">Location</label>
-										<input
-											type="text"
-											id="location"
-											name="location"
-											value={currentProfileState.location}
-											onChange={handleChange}
-											maxLength={MAX_LOCATION_LENGTH}
-											className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-										/>
-										{formErrors.location && <p className="text-red-500 text-xs mt-1">{formErrors.location}</p>}
-									</div>
-								</div>
-							</section>
-
-							{/* Experience Edit */}
-							<section className="mb-8">
-								<h2 className="text-2xl font-semibold mb-4">Edit Your Experience</h2>
+						{/* Friends List Section on Profile Page */}
+						{status === "loading" && <p>Loading friends...</p>}
+						{status === "unauthenticated" && <p>Please log in to see your friends.</p>}
+						{status === "authenticated" && (
+							<>
+								{/* Pass the memoized friendsList */}
+								<FriendsListContainer />
+							</>
+						)}
+						{viewMode === 'view' ? (
+							<>
+								{/* Render sections in view mode */}
 								<EditProfileExperience
 									currentProfileState={currentProfileState}
-									openExperienceModal={openExperienceModal}
 									handleDeleteExperience={handleDeleteExperience}
 									formErrors={formErrors}
-									isEditable={true}
-									// Pass modal-related state to the component for conditional rendering of its button
-									isExperienceModalOpen={isExperienceModalOpen}
-									closeExperienceModal={closeExperienceModal}
-									handleSaveExperience={handleSaveExperience}
-									editingExperience={editingExperience} // Pass the editing item
+									isEditable={false}
 								/>
-							</section>
-
-							{/* Education Edit */}
-							<section className="mb-8">
-								<h2 className="text-2xl font-semibold mb-4">Edit Your Education</h2>
 								<EditProfileEducation
 									currentProfileState={currentProfileState}
-									openEducationModal={openEducationModal}
 									handleDeleteEducation={handleDeleteEducation}
 									formErrors={formErrors}
-									isEditable={true}
-									// Pass modal-related state to the component for conditional rendering of its button
-									isEducationModalOpen={isEducationModalOpen}
-									closeEducationModal={closeEducationModal}
-									handleSaveEducation={handleSaveEducation}
-									editingEducation={editingEducation} // Pass the editing item
+									isEditable={false}
 								/>
-							</section>
-
-							{/* Skills Edit */}
-							<section className="mb-8">
-								<h2 className="text-2xl font-semibold mb-4">Edit Your Skills</h2>
 								<EditProfileSkills
 									currentProfileState={currentProfileState}
 									skillInput={skillInput}
@@ -840,63 +734,187 @@ export default function EditProfilePage() {
 									handleDeleteSkill={handleDeleteSkill}
 									formErrors={formErrors}
 									MAX_SKILL_LENGTH={MAX_SKILL_LENGTH}
-									isEditable={true}
+									isEditable={false}
 								/>
-							</section>
-						</div>
-						{/* Sticky container with Cancel and Save Profile buttons */}
-						<div className="profile-edit-sticky-bottom sticky bottom-0 bg-[#f0f2f5] py-4 shadow-md">
-							<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-end items-center space-x-4">
-								<button
-									type="button"
-									onClick={cancelEditMode}
-									className="bg-gray-200 text-gray-700 font-bold py-2.5 px-6 rounded-full shadow hover:bg-gray-300 transition duration-200 ease-in-out"
-								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									className="bg-[#1877f2] text-white font-bold py-2.5 px-6 rounded-full shadow-lg hover:bg-[#166fe5] transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#1877f2] focus:ring-opacity-50"
-									disabled={loading}
-								>
-									{loading ? 'Saving...' : 'Save Profile'}
-								</button>
-							</div>
-						</div>
-					</form>
-				)}
+							</>
+						) : (
+							// --- Edit Mode Display (wrapped in a form) ---
+							<form onSubmit={handleSubmit} className="space-y-6">
+								<div className="profile-edit-mode-container p-8 rounded-md shadow bg-white bg-opacity-95"> {/* Add theme here */}
+									{/* Basic Info Edit (already good, styles are applied via className) */}
+									<section className="mb-8">
+										<h2 className="text-2xl font-semibold mb-6">Edit Your Basic Info</h2>
+										<div className="grid grid-cols-1 gap-4">
+											<div>
+												<label htmlFor="name" className="block text-sm font-semibold text-gray-700">Name</label>
+												<input
+													type="text"
+													id="name"
+													name="name"
+													value={currentProfileState.name}
+													onChange={handleChange}
+													className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+												/>
+												{formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
+											</div>
+											<div>
+												<label htmlFor="headline" className="block text-sm font-semibold text-gray-700">Headline</label>
+												<input
+													type="text"
+													id="headline"
+													name="headline"
+													value={currentProfileState.headline}
+													onChange={handleChange}
+													maxLength={MAX_HEADLINE_LENGTH}
+													className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+												/>
+												{formErrors.headline && <p className="text-red-500 text-xs mt-1">{formErrors.headline}</p>}
+											</div>
+											<div>
+												<label htmlFor="summary" className="block text-sm font-semibold text-gray-700">Summary</label>
+												<textarea
+													id="summary"
+													name="summary"
+													value={currentProfileState.summary}
+													onChange={handleChange}
+													rows="4"
+													maxLength={MAX_SUMMARY_LENGTH}
+													className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+												></textarea>
+												{formErrors.summary && <p className="text-red-500 text-xs mt-1">{formErrors.summary}</p>}
+											</div>
+											<div>
+												<label htmlFor="location" className="block text-sm font-semibold text-gray-700">Location</label>
+												<input
+													type="text"
+													id="location"
+													name="location"
+													value={currentProfileState.location}
+													onChange={handleChange}
+													maxLength={MAX_LOCATION_LENGTH}
+													className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+												/>
+												{formErrors.location && <p className="text-red-500 text-xs mt-1">{formErrors.location}</p>}
+											</div>
+										</div>
+									</section>
 
-				{/* --- Modals (Apply the key prop here) --- */}
-				{isExperienceModalOpen && (
-					<ExperienceModal
-						// Key changes when `editingExperience` changes (i.e., new/different item being edited)
-						key={editingExperience ? editingExperience.id : 'new-experience-modal'}
-						isOpen={isExperienceModalOpen}
-						onClose={closeExperienceModal}
-						experienceToEdit={editingExperience} // Renamed prop for consistency with EducationModal
-						onSave={handleSaveExperience}
-					/>
-				)}
+									{/* Experience Edit */}
+									<section className="mb-8">
+										<h2 className="text-2xl font-semibold mb-4">Edit Your Experience</h2>
+										<EditProfileExperience
+											currentProfileState={currentProfileState}
+											openExperienceModal={openExperienceModal}
+											handleDeleteExperience={handleDeleteExperience}
+											formErrors={formErrors}
+											isEditable={true}
+											// Pass modal-related state to the component for conditional rendering of its button
+											isExperienceModalOpen={isExperienceModalOpen}
+											closeExperienceModal={closeExperienceModal}
+											handleSaveExperience={handleSaveExperience}
+											editingExperience={editingExperience} // Pass the editing item
+											addButtonClassName="font-bold py-2 px-4 rounded-full shadow text-white bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 hover:from-blue-500 hover:via-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-200"
+										/>
+									</section>
 
-				{isEducationModalOpen && (
-					<EducationModal
-						// Key changes when `editingEducation` changes (i.e., new/different item being edited)
-						key={editingEducation ? editingEducation.id : 'new-education-modal'}
-						isOpen={isEducationModalOpen}
-						onClose={closeEducationModal}
-						educationToEdit={editingEducation}
-						onSave={handleSaveEducation}
-					/>
-				)}
+									{/* Education Edit */}
+									<section className="mb-8">
+										<h2 className="text-2xl font-semibold mb-4">Edit Your Education</h2>
+										<EditProfileEducation
+											currentProfileState={currentProfileState}
+											openEducationModal={openEducationModal}
+											handleDeleteEducation={handleDeleteEducation}
+											formErrors={formErrors}
+											isEditable={true}
+											// Pass modal-related state to the component for conditional rendering of its button
+											isEducationModalOpen={isEducationModalOpen}
+											closeEducationModal={closeEducationModal}
+											handleSaveEducation={handleSaveEducation}
+											editingEducation={editingEducation} // Pass the editing item
+											addButtonClassName="font-bold py-2 px-4 rounded-full shadow text-white bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 hover:from-blue-500 hover:via-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all duration-200"
+										/>
+									</section>
+
+									{/* Skills Edit */}
+									<section className="mb-8">
+										<h2 className="text-2xl font-semibold mb-4">Edit Your Skills</h2>
+										<EditProfileSkills
+											currentProfileState={currentProfileState}
+											skillInput={skillInput}
+											setSkillInput={setSkillInput}
+											handleAddSkill={handleAddSkill}
+											handleDeleteSkill={handleDeleteSkill}
+											formErrors={formErrors}
+											MAX_SKILL_LENGTH={MAX_SKILL_LENGTH}
+											isEditable={true}
+										/>
+									</section>
+								</div>
+								{/* Sticky container with Cancel and Save Profile buttons */}
+								<div className="profile-edit-bottom bottom-0 bg-white/80 dark:bg-gray-900/80 py-4 shadow-md backdrop-blur-md transition-colors duration-200">
+									<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-end items-center space-x-4">
+										<button
+											type="button"
+											onClick={cancelEditMode}
+											className="font-bold py-2.5 px-6 rounded-full shadow-lg text-white bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 hover:from-blue-500 hover:via-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+											style={{
+												minHeight: 44,
+												letterSpacing: '0.03em',
+												WebkitTapHighlightColor: 'transparent',
+												WebkitAppearance: 'none'
+											}}
+										>
+											Cancel
+										</button>
+										<button
+											type="submit"
+											className="font-bold py-2.5 px-6 rounded-full shadow-lg text-white bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 hover:from-blue-700 hover:via-blue-600 hover:to-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+											disabled={loading}
+											style={{
+												minHeight: 44,
+												letterSpacing: '0.03em',
+												WebkitTapHighlightColor: 'transparent',
+												WebkitAppearance: 'none'
+											}}
+										>
+											{loading ? 'Saving...' : 'Save Profile'}
+										</button>
+									</div>
+								</div>
+							</form>
+						)}
+
+						{/* --- Modals (Apply the key prop here) --- */}
+						{isExperienceModalOpen && (
+							<ExperienceModal
+								key={editingExperience ? editingExperience.id : 'new-experience-modal'}
+								isOpen={isExperienceModalOpen}
+								onClose={closeExperienceModal}
+								experienceToEdit={editingExperience}
+								onSave={handleSaveExperience}
+							/>
+						)}
+
+						{isEducationModalOpen && (
+							<EducationModal
+								key={editingEducation ? editingEducation.id : 'new-education-modal'}
+								isOpen={isEducationModalOpen}
+								onClose={closeEducationModal}
+								educationToEdit={editingEducation}
+								onSave={handleSaveEducation}
+							/>
+						)}
+					</div>
+				</div>
+
+				{/* Resume Preview Modal (already good) */}
+				<ResumePreviewModal
+					isOpen={isResumePreviewOpen}
+					onClose={closeResumePreview}
+					resumeUrl={currentResumeUrl}
+				/>
 			</div>
-
-			{/* Resume Preview Modal (already good) */}
-			<ResumePreviewModal
-				isOpen={isResumePreviewOpen}
-				onClose={closeResumePreview}
-				resumeUrl={currentResumeUrl}
-			/>
-		</div>
+		</>
 	);
 }
 

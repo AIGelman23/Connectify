@@ -316,7 +316,7 @@ export default function Navbar({ session, router }) {
 								<div className="navbar-logo-circle w-8 h-8 rounded-full flex items-center justify-center mr-2">
 									<span className="navbar-logo-text font-bold text-lg">C</span>
 								</div>
-								<span className="navbar-logo-title text-xl font-bold hidden sm:block">Connectify</span>
+								<span className="navbar-logo-title text-xl font-bold hidden sm:block">ConnectifAI</span>
 							</button>
 							<div className="navbar-search hidden md:block w-[200px] mx-2">
 								<div className="relative" ref={searchDropdownRef}>
@@ -426,7 +426,11 @@ export default function Navbar({ session, router }) {
 										<div className="profile-dropdown-header p-4 border-b">
 											<div className="profile-dropdown-user flex items-center space-x-3">
 												<img
-													src={session?.user?.image || `https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
+													src={
+														session?.user?.profilePictureUrl ||
+														session?.user?.image ||
+														`https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
+													}
 													alt="Profile"
 													className="profile-dropdown-avatar w-12 h-12 rounded-full object-cover"
 												/>
@@ -480,7 +484,7 @@ export default function Navbar({ session, router }) {
 						</div>
 						<input
 							type="text"
-							placeholder="Search Connectify"
+							placeholder="Search ConnectifAI"
 							className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-full bg-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white sm:text-sm"
 						/>
 					</div>
@@ -842,7 +846,11 @@ function MobileMenu({ isOpen, onClose, session, router, handleSignOut, notificat
 				<div className="p-4">
 					<div className="flex items-center space-x-3 mb-6">
 						<img
-							src={session?.user?.image || `https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
+							src={
+								session?.user?.profilePictureUrl ||
+								session?.user?.image ||
+								`https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
+							}
 							alt="User Avatar"
 							className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
 						/>

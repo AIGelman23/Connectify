@@ -80,9 +80,9 @@ export default function LoginPage() {
                     spellCheck={false}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
                     placeholder="you@example.com"
-                    style={{ WebkitAppearance: 'none' }}
+                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                 </div>
               </div>
@@ -101,9 +101,9 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10 bg-white text-gray-900"
                     placeholder="••••••••"
-                    style={{ WebkitAppearance: 'none' }}
+                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                   <button
                     type="button"

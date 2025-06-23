@@ -2,18 +2,10 @@
 import "./globals.css";
 import "@fortawesome/fontawesome-free/css/all.css";
 
-// --- FIX IS HERE: Changed to named import for Providers ---
-// Assuming providers.jsx is in src/app/ and not src/components/
 import { Providers } from "../components/Providers";
-import { ApolloClient, InMemoryCache, ApolloProvider } from "@apollo/client";
-
-const client = new ApolloClient({
-  uri: "http://localhost:4000/graphql", // Replace with your GraphQL server URL
-  cache: new InMemoryCache(),
-});
 
 export const metadata = {
-  title: "Connectify App",
+  title: "ConnectifAI App",
   description: "Your professional social network",
 };
 

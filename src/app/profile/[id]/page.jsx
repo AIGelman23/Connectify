@@ -162,14 +162,6 @@ export default function ProfilePage() {
 					formErrors={{}}
 					isEditable={false}
 				/>
-
-				{/* User's Posts - Only show if it's the user's own profile */}
-				{isOwnProfile && (
-					<div className="mt-8">
-						<h2 className="text-2xl font-bold mb-4">Posts</h2>
-						<Posts userId={id} />
-					</div>
-				)}
 			</div>
 		</div>
 	);

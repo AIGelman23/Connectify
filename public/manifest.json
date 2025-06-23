@@ -1,6 +1,6 @@
 {
-  "name": "Connectify",
-  "short_name": "Connectify",
+  "name": "ConnectifAI",
+  "short_name": "ConnectifAI",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",

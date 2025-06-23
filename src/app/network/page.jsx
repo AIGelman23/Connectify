@@ -6,95 +6,95 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 
-// Modern UserCard with improved visuals
+// Modern UserCard with Facebook-like visuals
 const UserCard = ({ user, type, onConnect, onAcceptOrReject }) => {
 	return (
-		<div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 flex flex-col items-center transition hover:shadow-xl hover:-translate-y-1 duration-150">
+		<div className="bg-white rounded-xl shadow border border-gray-200 p-4 flex flex-row items-center gap-4 w-full max-w-full mx-auto hover:shadow-lg transition">
 			<img
 				src={user.imageUrl}
 				alt={user.name}
-				className="w-16 h-16 rounded-full object-cover border-4 border-indigo-100 shadow mb-3"
+				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200"
 			/>
-			<div className="flex flex-col items-center flex-1 w-full">
-				<h3 className="text-lg font-semibold text-gray-900 truncate w-full text-center">{user.name}</h3>
-				<p className="text-sm text-gray-500 truncate w-full text-center">{user.headline}</p>
-			</div>
-			<div className="flex flex-row gap-2 mt-4 w-full justify-center">
-				{type === 'searchResult' && user.connectionStatus === 'CONNECTED' && (
-					<span className="px-4 py-1.5 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
-						<i className="fas fa-check-circle"></i> Connected
-					</span>
-				)}
-				{type === 'searchResult' && user.connectionStatus === 'SENT_PENDING' && (
-					<span className="px-4 py-1.5 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
-						<i className="fas fa-clock"></i> Pending
-					</span>
-				)}
-				{type === 'searchResult' && user.connectionStatus === 'RECEIVED_PENDING' && (
-					<button onClick={() => onAcceptOrReject(user.requestId, 'accept')}
-						className="px-4 py-1.5 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs">
-						Accept Request
-					</button>
-				)}
-				{type === 'searchResult' && user.connectionStatus === 'NOT_CONNECTED' && (
-					<button onClick={() => onConnect(user.id)}
-						className="px-4 py-1.5 bg-indigo-600 text-white font-medium rounded-full hover:bg-indigo-700 transition text-xs">
-						Connect
-					</button>
-				)}
-
-				{type === 'receivedRequest' && (
-					<>
-						<button
-							onClick={() => onAcceptOrReject(user.requestId, 'accept')}
-							className="px-4 py-1.5 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs"
-						>
+			<div className="flex-1 min-w-0">
+				<h3 className="text-base font-semibold text-gray-900 truncate">{user.name}</h3>
+				<p className="text-xs text-gray-500 truncate">{user.headline}</p>
+				<div className="flex flex-row gap-2 mt-2">
+					{type === 'searchResult' && user.connectionStatus === 'CONNECTED' && (
+						<span className="px-3 py-1 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
+							<i className="fas fa-check-circle"></i> Connected
+						</span>
+					)}
+					{type === 'searchResult' && user.connectionStatus === 'SENT_PENDING' && (
+						<span className="px-3 py-1 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
+							<i className="fas fa-clock"></i> Pending
+						</span>
+					)}
+					{type === 'searchResult' && user.connectionStatus === 'RECEIVED_PENDING' && (
+						<button onClick={() => onAcceptOrReject(user.requestId, 'accept')}
+							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs">
 							Accept
 						</button>
-						<button
-							onClick={() => onAcceptOrReject(user.requestId, 'reject')}
-							className="px-4 py-1.5 bg-gray-200 text-gray-700 font-medium rounded-full hover:bg-gray-300 transition text-xs"
-						>
-							Ignore
+					)}
+					{type === 'searchResult' && user.connectionStatus === 'NOT_CONNECTED' && (
+						<button onClick={() => onConnect(user.id)}
+							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs">
+							Add Friend
 						</button>
-					</>
-				)}
+					)}
 
-				{type === 'sentRequest' && (
-					<span className="px-4 py-1.5 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
-						<i className="fas fa-clock"></i> Pending
-					</span>
-				)}
+					{type === 'receivedRequest' && (
+						<>
+							<button
+								onClick={() => onAcceptOrReject(user.requestId, 'accept')}
+								className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs"
+							>
+								Confirm
+							</button>
+							<button
+								onClick={() => onAcceptOrReject(user.requestId, 'reject')}
+								className="px-3 py-1 bg-gray-200 text-gray-700 font-medium rounded-full hover:bg-gray-300 transition text-xs"
+							>
+								Delete
+							</button>
+						</>
+					)}
 
-				{type === 'myConnection' && (
-					<span className="px-4 py-1.5 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
-						<i className="fas fa-check-circle"></i> Connected
-					</span>
-				)}
+					{type === 'sentRequest' && (
+						<span className="px-3 py-1 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
+							<i className="fas fa-clock"></i> Pending
+						</span>
+					)}
 
-				{type === 'suggestion' && (
-					<button
-						onClick={() => onConnect(user.id)}
-						className="px-4 py-1.5 bg-indigo-600 text-white font-medium rounded-full hover:bg-indigo-700 transition text-xs"
-					>
-						Connect
-					</button>
-				)}
+					{type === 'myConnection' && (
+						<span className="px-3 py-1 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
+							<i className="fas fa-check-circle"></i> Friends
+						</span>
+					)}
+
+					{type === 'suggestion' && (
+						<button
+							onClick={() => onConnect(user.id)}
+							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs"
+						>
+							Add Friend
+						</button>
+					)}
+				</div>
 			</div>
 		</div>
 	);
 };
 
-// Helper component for rendering sections
+// Facebook-like Section: Card with header and grid of UserCards
 const Section = ({ title, users, type, onConnect, onAcceptOrReject }) => {
-	if (users.length === 0) return null; // Don't render section if no users
-
+	if (users.length === 0) return null;
 	return (
-		<div className="mb-8 p-6 bg-white shadow-xl rounded-2xl border border-gray-200"> {/* Added padding and background for sections */}
-			<h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">
-				{title} ({users.length})
-			</h2>
-			<div className="space-y-4">
+		<div className="mb-8 bg-white rounded-xl shadow border border-gray-200">
+			<div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+				<span className="text-lg font-semibold text-gray-800">{title}</span>
+				<span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">{users.length}</span>
+			</div>
+			<div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
 				{users.map((user) => (
 					<UserCard key={user.id} user={user} type={type} onConnect={onConnect} onAcceptOrReject={onAcceptOrReject} />
 				))}
@@ -340,8 +340,8 @@ export default function MyNetworkPage() {
 
 	if (status === "loading" || loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-				<div className="flex items-center space-x-2 text-indigo-600">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#F5F6FA] to-[#E5E6F0] p-4">
+				<div className="flex items-center space-x-2 text-[#6C47FF]">
 					<svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
 						<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
 						<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -395,12 +395,10 @@ export default function MyNetworkPage() {
 	return (
 		<>
 			<NavBar session={session} router={router} />
-			<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 pt-4">
-				<div className="max-w-7xl mx-auto">
-					<h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-8 text-center">
-						<span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-							My Network
-						</span>
+			<div className="min-h-screen bg-gray-100 px-2 sm:px-6 lg:px-12 pt-4 pb-safe">
+				<div className="max-w-5xl mx-auto">
+					<h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700 mb-6 text-center tracking-tight">
+						My Network
 					</h1>
 
 					{/* Error Message Display */}
@@ -415,35 +413,34 @@ export default function MyNetworkPage() {
 
 					{/* Success Message Display */}
 					{successMessage && (
-						<div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-6 text-sm flex items-center shadow-sm animate-fade-in-down">
-							<svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+						<div className="bg-[#E6FFF6] border border-[#00D084] text-[#00D084] px-4 py-3 rounded-lg relative mb-6 text-sm flex items-center shadow-sm animate-fade-in-down">
+							<svg className="h-5 w-5 text-[#00D084] mr-2" fill="currentColor" viewBox="0 0 20 20">
 								<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
 							</svg>
 							<span className="block">{successMessage}</span>
 						</div>
 					)}
 
-
-					{/* Modern Facebook-like Layout */}
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-						{/* Left Pane: Section Navigation */}
-						<aside className="col-span-1">
-							<div className="sticky top-24 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 flex flex-col space-y-1">
+					<div className="flex flex-col md:flex-row gap-8">
+						{/* Sidebar: Always visible, Facebook-like left nav */}
+						<aside className="w-full md:w-64 flex-shrink-0 mb-4 md:mb-0">
+							<div className="bg-white rounded-xl shadow border border-gray-200 p-4 flex flex-col space-y-1 w-full">
 								{sectionData.map(section => (
 									<button
 										key={section.key}
 										onClick={() => handleSectionChange(section.key)}
-										className={`flex items-center px-4 py-3 rounded-xl transition font-semibold gap-3 text-base ${selectedSection === section.key
-											? 'bg-indigo-600 text-white shadow'
-											: 'hover:bg-indigo-50 text-gray-700'
+										className={`flex items-center px-4 py-3 rounded-lg transition font-semibold gap-3 text-base w-full
+											${selectedSection === section.key
+												? 'bg-blue-50 text-blue-700 border border-blue-200'
+												: 'hover:bg-gray-100 text-gray-700'
 											}`}
 									>
-										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-white' : 'text-indigo-500'}`}></i>
-										<span className="flex-1">{section.title}</span>
+										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-blue-600' : 'text-blue-400'}`}></i>
+										<span className="flex-1 break-words text-left">{section.title}</span>
 										<span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${section.count > 0
 											? selectedSection === section.key
-												? 'bg-white text-indigo-600'
-												: 'bg-indigo-100 text-indigo-600'
+												? 'bg-blue-600 text-white'
+												: 'bg-blue-100 text-blue-600'
 											: 'bg-gray-200 text-gray-400'
 											}`}>
 											{section.count}
@@ -453,19 +450,21 @@ export default function MyNetworkPage() {
 							</div>
 						</aside>
 
-						{/* Right Pane: User Cards Grid */}
-						<main className="col-span-1 md:col-span-3">
+						{/* Main content */}
+						<main className="flex-1">
 							{currentSearchQuery ? (
 								<>
-									<h2 className="text-xl font-semibold text-gray-700 mb-6 border-b pb-2">
-										<span className="font-bold text-indigo-600">{users.length}</span> results found for "{currentSearchQuery}"
-									</h2>
+									<div className="mb-6 bg-white rounded-xl shadow border border-gray-200 px-6 py-4 flex items-center gap-2">
+										<h2 className="text-lg font-semibold text-blue-700">
+											{users.length} results found for "{currentSearchQuery}"
+										</h2>
+									</div>
 									{users.length === 0 && !loading && !error ? (
-										<div className="text-center py-10 bg-white shadow-xl rounded-2xl border border-gray-100">
-											<p className="text-gray-600 text-lg">No users found matching "{currentSearchQuery}".</p>
+										<div className="text-center py-8 bg-white shadow rounded-xl border border-gray-200">
+											<p className="text-blue-600 text-base">No users found matching "{currentSearchQuery}".</p>
 										</div>
 									) : (
-										<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 											{users.map((user) => (
 												<UserCard key={user.id} user={user} type="searchResult" onConnect={handleConnect} onAcceptOrReject={handleAcceptOrRejectRequest} />
 											))}
@@ -475,8 +474,8 @@ export default function MyNetworkPage() {
 							) : (
 								<>
 									{sectionData.find(s => s.key === selectedSection)?.users.length === 0 && (
-										<div className="text-center py-10 bg-white shadow-xl rounded-2xl border border-gray-100">
-											<p className="text-gray-600 text-lg">
+										<div className="text-center py-8 bg-white shadow rounded-xl border border-gray-200">
+											<p className="text-blue-600 text-base">
 												{selectedSection === 'received' && "No received requests."}
 												{selectedSection === 'sent' && "No sent requests."}
 												{selectedSection === 'connections' && "You have no connections yet."}
@@ -484,17 +483,13 @@ export default function MyNetworkPage() {
 											</p>
 										</div>
 									)}
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
-										{sectionData.find(s => s.key === selectedSection)?.users.map((user) => (
-											<UserCard
-												key={user.id}
-												user={user}
-												type={sectionData.find(s => s.key === selectedSection)?.type}
-												onConnect={handleConnect}
-												onAcceptOrReject={handleAcceptOrRejectRequest}
-											/>
-										))}
-									</div>
+									<Section
+										title={sectionData.find(s => s.key === selectedSection)?.title}
+										users={sectionData.find(s => s.key === selectedSection)?.users || []}
+										type={sectionData.find(s => s.key === selectedSection)?.type}
+										onConnect={handleConnect}
+										onAcceptOrReject={handleAcceptOrRejectRequest}
+									/>
 								</>
 							)}
 						</main>

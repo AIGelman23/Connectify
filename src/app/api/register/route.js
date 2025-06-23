@@ -9,7 +9,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(request) {
   try {
-    const { name, email, password } = await request.json(); // Destructure name as well
+    const { name, email, password, securityAnswers } = await request.json(); // Destructure name as well
 
     // Input validation (basic)
     if (!email || !password || !name) {
@@ -63,6 +63,21 @@ export async function POST(request) {
         profile: true, // Include the newly created profile in the response
       },
     });
+
+    // Store security answers
+    if (Array.isArray(securityAnswers)) {
+      for (const ans of securityAnswers) {
+        if (ans.questionId && ans.answer) {
+          await prisma.userSecurityAnswer.create({
+            data: {
+              userId: newUser.id,
+              securityQuestionId: ans.questionId,
+              answerHash: await bcrypt.hash(ans.answer, 10),
+            },
+          });
+        }
+      }
+    }
 
     // Respond with success
     // Do not send the hashedPassword back in the response for security reasons.
