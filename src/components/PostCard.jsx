@@ -111,6 +111,34 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 		},
 	});
 
+	// Reply to Comment Mutation
+	const { mutateAsync: replyToComment } = useMutation({
+		mutationFn: async ({ postId, commentId, commentContent, parentId }) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					postId,
+					action: 'reply_comment',
+					commentId,
+					commentContent,
+					parentId, // For nested replies (reply to a reply)
+				}),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to reply.");
+			}
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+		onError: (err) => {
+			setPostError(err.message || "Failed to reply. Please try again.");
+		},
+	});
+
 	// Delete Comment/Reply Mutation
 	const { mutate: deleteCommentOrReply } = useMutation({
 		mutationFn: async ({ commentId, postId }) => {
@@ -137,6 +165,31 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 		},
 	});
 
+	// Like/Unlike Comment/Reply Mutation
+	const { mutate: likeCommentOrReply } = useMutation({
+		mutationFn: async ({ commentId, isLiking }) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: isLiking ? 'like_comment' : 'unlike_comment',
+					commentId: commentId,
+				}),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to update like.");
+			}
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+		onError: (err) => {
+			setPostError(err.message || "Failed to update like. Please try again.");
+		},
+	});
+
 	const handleLike = useCallback(() => {
 		if (!sessionUserId) {
 			setPostError("You must be logged in to like a post.");
@@ -157,6 +210,20 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 		}
 	}, [post.id, sessionUserId, addComment, setPostError, commentInputText]);
 
+	const handleReply = useCallback(async (commentId, replyText, parentId = null) => {
+		if (!sessionUserId) {
+			setPostError("You must be logged in to reply.");
+			return;
+		}
+		if (replyText.trim()) {
+			await replyToComment({
+				postId: post.id,
+				commentId,
+				commentContent: replyText,
+				parentId, // For nested replies (reply to a reply)
+			});
+		}
+	}, [post.id, sessionUserId, replyToComment, setPostError]);
 
 	const handleDeleteComment = useCallback((commentId, postId) => {
 		if (!sessionUserId) {
@@ -167,6 +234,14 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			deleteCommentOrReply({ commentId, postId });
 		}
 	}, [sessionUserId, deleteCommentOrReply, setPostError]);
+
+	const handleLikeComment = useCallback((commentId, isLiking) => {
+		if (!sessionUserId) {
+			setPostError("You must be logged in to like.");
+			return;
+		}
+		likeCommentOrReply({ commentId, isLiking });
+	}, [sessionUserId, likeCommentOrReply, setPostError]);
 
 	const toggleCommentSection = () => {
 		setActiveCommentForPost(prevId => (prevId === post.id ? null : post.id));
@@ -468,56 +543,55 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 						</div>
 					</div>
 				</form>
-				{/* Show top 2 comments, sorted by likesCount then createdAt desc */}
+				{/* Comments Section */}
 				{post.comments && post.comments.length > 0 && (
 					<div className="space-y-2">
-						{post.comments
-							.slice()
-							.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
-							.slice(0, 2)
-							.map(comment => (
-								<Comment
-									key={comment.id}
-									comment={comment}
-									onReply={openReplyModal}
-									sessionUserId={sessionUserId}
-									onDeleteComment={handleDeleteComment}
-									postId={post.id}
-								/>
-							))}
+						{activeCommentForPost === post.id ? (
+							/* Show ALL comments when expanded */
+							post.comments
+								.slice()
+								.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
+								.map(comment => (
+									<Comment
+										key={comment.id}
+										comment={comment}
+										onReply={handleReply}
+										onLike={handleLikeComment}
+										sessionUserId={sessionUserId}
+										onDeleteComment={handleDeleteComment}
+										postId={post.id}
+									/>
+								))
+						) : (
+							/* Show only top 2 comments when collapsed */
+							post.comments
+								.slice()
+								.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
+								.slice(0, 2)
+								.map(comment => (
+									<Comment
+										key={comment.id}
+										comment={comment}
+										onReply={handleReply}
+										onLike={handleLikeComment}
+										sessionUserId={sessionUserId}
+										onDeleteComment={handleDeleteComment}
+										postId={post.id}
+									/>
+								))
+						)}
 						{post.comments.length > 2 && (
 							<button
 								className="mt-2 text-blue-600 hover:underline text-sm font-medium"
 								onClick={toggleCommentSection}
 							>
-								View more comments
+								{activeCommentForPost === post.id ? 'Hide comments' : 'View more comments'}
 							</button>
 						)}
 					</div>
 				)}
-				{activeCommentForPost === post.id && (
-					<div className="pt-2">
-						{/* List of all comments */}
-						{post.comments && post.comments.length > 0 ? (
-							<div className="space-y-2">
-								{post.comments
-									.slice()
-									.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
-									.map(comment => (
-										<Comment
-											key={comment.id}
-											comment={comment}
-											onReply={openReplyModal}
-											sessionUserId={sessionUserId}
-											onDeleteComment={handleDeleteComment}
-											postId={post.id}
-										/>
-									))}
-							</div>
-						) : (
-							<p className="text-gray-500 dark:text-slate-400 text-sm text-center">No comments yet. Be the first to comment!</p>
-						)}
-					</div>
+				{(!post.comments || post.comments.length === 0) && activeCommentForPost === post.id && (
+					<p className="text-gray-500 dark:text-slate-400 text-sm text-center pt-2">No comments yet. Be the first to comment!</p>
 				)}
 			</div>
 		</div>

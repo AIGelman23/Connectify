@@ -1,6 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 
 export default function EditProfileHeader({
@@ -10,9 +9,8 @@ export default function EditProfileHeader({
 	handleRemoveProfilePicture,
 	handleRemoveCoverPhoto,
 	enterEditMode,
-	isOwnProfile = true, // Add new prop with default value true for backward compatibility
+	isOwnProfile = true,
 }) {
-	const { update } = useSession();
 
 	// Debug logging to track state
 	useEffect(() => {
@@ -94,7 +92,7 @@ export default function EditProfileHeader({
 			{/* Profile Picture and Basic Info */}
 			<div className="relative px-4 pb-6 flex flex-col items-center profile-main-info">
 				<div className="-mt-16 mb-2">
-					<div className="w-32 h-32 rounded-full border-4 border-white shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center relative">
+					<div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center relative">
 						{currentProfileState.profilePicture ? (
 							<img
 								src={currentProfileState.profilePicture}

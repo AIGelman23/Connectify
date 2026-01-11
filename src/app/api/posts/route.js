@@ -79,13 +79,6 @@ async function getNestedReplies(commentId) {
     orderBy: { createdAt: "asc" },
   });
 
-  // DEBUG: Log all replies fetched for this comment
-  console.log("All replies for comment", commentId, allReplies.map(r => ({
-    id: r.id,
-    parentId: r.parentId,
-    content: r.content
-  })));
-
   // Build a map of replies by id
   const replyMap = new Map();
   allReplies.forEach((reply) => {
@@ -117,9 +110,6 @@ async function getNestedReplies(commentId) {
       topLevelReplies.push(reply);
     }
   });
-
-  // DEBUG: Log the nested structure for this comment
-  console.log("Nested replies for comment", commentId, JSON.stringify(topLevelReplies, null, 2));
 
   return topLevelReplies;
 }
@@ -210,11 +200,11 @@ export async function POST(request) {
           },
         },
         comments: {
+          where: {
+            parentCommentId: null, // Only top-level comments
+          },
           include: {
             author: true,
-            replies: {
-              include: { author: true },
-            },
           },
         },
         // Remove taggedFriends from here, as they don't exist yet
@@ -279,11 +269,12 @@ export async function POST(request) {
           },
         },
         comments: {
+          where: {
+            parentCommentId: null, // Only top-level comments
+          },
           include: {
             author: true,
-            replies: {
-              include: { author: true },
-            },
+            // Note: replies are fetched via getNestedReplies() using the Reply model
           },
         },
         taggedFriends: {
@@ -438,18 +429,7 @@ export async function GET(request) {
                 image: true,
               },
             },
-            replies: {
-              include: {
-                author: {
-                  select: {
-                    id: true,
-                    name: true,
-                    image: true,
-                  },
-                },
-              },
-              orderBy: { createdAt: "asc" },
-            },
+            // Note: replies are fetched via getNestedReplies() using the Reply model
           },
           orderBy: { createdAt: "asc" },
         },
@@ -560,7 +540,7 @@ export async function PATCH(request) {
     }
 
     const requestBody = await request.json();
-    const { postId, commentId, action, content } = requestBody;
+    const { postId, commentId, action, content, parentId } = requestBody;
 
     let commentContent;
 
@@ -687,14 +667,117 @@ export async function PATCH(request) {
           { status: 400 }
         );
       }
-      updatedEntity = await prisma.comment.update({
+
+      // Try to find as Comment first
+      const comment = await prisma.comment.findUnique({
+        where: { id: commentId },
+      });
+
+      if (comment) {
+        updatedEntity = await prisma.comment.update({
+          where: { id: commentId },
+          data: { likesCount: { increment: 1 } },
+          select: { likesCount: true },
+        });
+        return NextResponse.json(
+          {
+            message: "Comment liked successfully.",
+            likesCount: updatedEntity.likesCount,
+          },
+          { status: 200 }
+        );
+      }
+
+      // If not a Comment, try as a Reply
+      const reply = await prisma.reply.findUnique({
+        where: { id: commentId },
+      });
+
+      if (!reply) {
+        return NextResponse.json(
+          { message: "Comment or reply not found." },
+          { status: 404 }
+        );
+      }
+
+      updatedEntity = await prisma.reply.update({
         where: { id: commentId },
         data: { likesCount: { increment: 1 } },
         select: { likesCount: true },
       });
+
       return NextResponse.json(
         {
-          message: "Comment liked successfully.",
+          message: "Reply liked successfully.",
+          likesCount: updatedEntity.likesCount,
+        },
+        { status: 200 }
+      );
+    } else if (action === "unlike_comment") {
+      if (!commentId) {
+        return NextResponse.json(
+          { message: "Comment ID is required for unliking." },
+          { status: 400 }
+        );
+      }
+
+      // Try to find as Comment first
+      const comment = await prisma.comment.findUnique({
+        where: { id: commentId },
+      });
+
+      if (comment) {
+        updatedEntity = await prisma.comment.update({
+          where: { id: commentId },
+          data: { likesCount: { decrement: 1 } },
+          select: { likesCount: true },
+        });
+        // Ensure likesCount doesn't go below 0
+        if (updatedEntity.likesCount < 0) {
+          await prisma.comment.update({
+            where: { id: commentId },
+            data: { likesCount: 0 },
+          });
+          updatedEntity.likesCount = 0;
+        }
+        return NextResponse.json(
+          {
+            message: "Comment unliked successfully.",
+            likesCount: updatedEntity.likesCount,
+          },
+          { status: 200 }
+        );
+      }
+
+      // If not a Comment, try as a Reply
+      const reply = await prisma.reply.findUnique({
+        where: { id: commentId },
+      });
+
+      if (!reply) {
+        return NextResponse.json(
+          { message: "Comment or reply not found." },
+          { status: 404 }
+        );
+      }
+
+      updatedEntity = await prisma.reply.update({
+        where: { id: commentId },
+        data: { likesCount: { decrement: 1 } },
+        select: { likesCount: true },
+      });
+      // Ensure likesCount doesn't go below 0
+      if (updatedEntity.likesCount < 0) {
+        await prisma.reply.update({
+          where: { id: commentId },
+          data: { likesCount: 0 },
+        });
+        updatedEntity.likesCount = 0;
+      }
+
+      return NextResponse.json(
+        {
+          message: "Reply unliked successfully.",
           likesCount: updatedEntity.likesCount,
         },
         { status: 200 }
@@ -710,46 +793,100 @@ export async function PATCH(request) {
         );
       }
 
+      // First try to find as a Comment
       const commentToDelete = await prisma.comment.findUnique({
+        where: { id: commentId },
+        include: { replyThreads: true },
+      });
+
+      if (commentToDelete) {
+        // It's a Comment - check authorization
+        if (commentToDelete.authorId !== userId) {
+          return NextResponse.json(
+            { message: "You are not authorized to delete this comment." },
+            { status: 403 }
+          );
+        }
+
+        // Count replies to decrement
+        let commentsDeletedCount = 1;
+        if (commentToDelete.replyThreads && commentToDelete.replyThreads.length > 0) {
+          // Count all nested replies recursively
+          const countNestedReplies = async (replies) => {
+            let count = replies.length;
+            for (const reply of replies) {
+              const nestedReplies = await prisma.reply.findMany({
+                where: { parentId: reply.id },
+              });
+              count += await countNestedReplies(nestedReplies);
+            }
+            return count;
+          };
+          commentsDeletedCount += await countNestedReplies(commentToDelete.replyThreads);
+        }
+
+        await prisma.comment.delete({
+          where: { id: commentId },
+        });
+
+        await prisma.post.update({
+          where: { id: commentToDelete.postId },
+          data: { commentsCount: { decrement: commentsDeletedCount } },
+        });
+
+        return NextResponse.json(
+          { message: "Comment deleted successfully." },
+          { status: 200 }
+        );
+      }
+
+      // If not a Comment, try to find as a Reply
+      const replyToDelete = await prisma.reply.findUnique({
         where: { id: commentId },
         include: { replies: true },
       });
 
-      if (!commentToDelete) {
+      if (!replyToDelete) {
         return NextResponse.json(
-          { message: "Comment not found." },
+          { message: "Comment or reply not found." },
           { status: 404 }
         );
       }
 
-      if (commentToDelete.authorId !== userId) {
+      if (replyToDelete.authorId !== userId) {
         return NextResponse.json(
-          { message: "You are not authorized to delete this comment." },
+          { message: "You are not authorized to delete this reply." },
           { status: 403 }
         );
       }
 
-      let commentsDeletedCount = 1;
-
-      if (
-        commentToDelete.parentCommentId === null &&
-        commentToDelete.replies &&
-        commentToDelete.replies.length > 0
-      ) {
-        commentsDeletedCount += commentToDelete.replies.length;
+      // Count nested replies
+      let repliesDeletedCount = 1;
+      const countNestedReplies = async (replies) => {
+        let count = replies.length;
+        for (const reply of replies) {
+          const nestedReplies = await prisma.reply.findMany({
+            where: { parentId: reply.id },
+          });
+          count += await countNestedReplies(nestedReplies);
+        }
+        return count;
+      };
+      if (replyToDelete.replies && replyToDelete.replies.length > 0) {
+        repliesDeletedCount += await countNestedReplies(replyToDelete.replies);
       }
 
-      await prisma.comment.delete({
+      await prisma.reply.delete({
         where: { id: commentId },
       });
 
       await prisma.post.update({
-        where: { id: commentToDelete.postId },
-        data: { commentsCount: { decrement: commentsDeletedCount } },
+        where: { id: postId },
+        data: { commentsCount: { decrement: repliesDeletedCount } },
       });
 
       return NextResponse.json(
-        { message: "Comment deleted successfully." },
+        { message: "Reply deleted successfully." },
         { status: 200 }
       );
     } else if (action === "reply_comment") {
@@ -783,12 +920,46 @@ export async function PATCH(request) {
         );
       }
 
-      const newReply = await prisma.comment.create({
+      // If parentId is provided, this is a nested reply (reply to a reply)
+      let notifyUserId = parentComment.authorId;
+
+      if (parentId) {
+        // Verify the parent reply exists and belongs to this comment
+        const parentReply = await prisma.reply.findFirst({
+          where: {
+            id: parentId,
+            commentId: commentId,
+          },
+          select: { authorId: true },
+        });
+
+        if (!parentReply) {
+          return NextResponse.json(
+            { message: "Parent reply not found or doesn't belong to this comment." },
+            { status: 404 }
+          );
+        }
+
+        // Notify the parent reply author instead of the comment author
+        notifyUserId = parentReply.authorId;
+      }
+
+      // Create reply using the Reply model (not Comment) for consistency
+      const newReply = await prisma.reply.create({
         data: {
           content: commentContent,
           authorId: userId,
-          postId: postId,
-          parentCommentId: commentId,
+          commentId: commentId,
+          ...(parentId ? { parentId: parentId } : {}), // Add parentId for nested replies
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
         },
       });
 
@@ -798,15 +969,15 @@ export async function PATCH(request) {
       });
 
       // --- Notification logic for replies ---
-      // Notify the parent comment author if not self
-      if (parentComment.authorId && parentComment.authorId !== userId) {
+      // Notify the parent comment/reply author if not self
+      if (notifyUserId && notifyUserId !== userId) {
         await prisma.notification.create({
           data: {
-            recipientId: parentComment.authorId,
+            recipientId: notifyUserId,
             type: "POST_COMMENT",
             message: `${
               session.user.name || "Someone"
-            } replied to your comment.`,
+            } replied to your ${parentId ? 'reply' : 'comment'}.`,
             senderId: userId,
             targetId: postId,
             read: false,
@@ -814,8 +985,27 @@ export async function PATCH(request) {
         });
       }
 
+      // Format the reply to match frontend expectations
+      const formattedReply = {
+        id: newReply.id,
+        content: newReply.content,
+        createdAt: newReply.createdAt,
+        likes: 0,
+        parentId: newReply.parentId,
+        user: {
+          id: newReply.author.id,
+          name: newReply.author.name,
+          imageUrl:
+            newReply.author.image ||
+            `https://placehold.co/32x32/3B82F6/FFFFFF?text=${
+              newReply.author.name ? newReply.author.name[0].toUpperCase() : "U"
+            }`,
+        },
+        replies: [],
+      };
+
       return NextResponse.json(
-        { message: "Reply added successfully.", reply: newReply },
+        { message: "Reply added successfully.", reply: formattedReply },
         { status: 201 }
       );
     } else if (action === "delete_post") {

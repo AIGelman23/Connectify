@@ -53,13 +53,14 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 							},
 							timestamp: formatTimestamp(comment.createdAt),
 							replies: (comment.replies || []).map(reply => {
-								const replyAuthor = reply.author || {};
+								// API already formats replies with 'user' object, but handle 'author' as fallback
+								const replyUser = reply.user || reply.author || {};
 								return {
 									...reply,
 									user: {
-										id: replyAuthor.id || 'unknown',
-										name: replyAuthor.name || 'Unknown User',
-										imageUrl: replyAuthor.image || `https://placehold.co/24x24/A78BFA/ffffff?text=${replyAuthor.name ? replyAuthor.name[0].toUpperCase() : 'U'}`,
+										id: replyUser.id || 'unknown',
+										name: replyUser.name || 'Unknown User',
+										imageUrl: replyUser.imageUrl || replyUser.image || `https://placehold.co/24x24/A78BFA/ffffff?text=${replyUser.name ? replyUser.name[0].toUpperCase() : 'U'}`,
 									},
 									timestamp: formatTimestamp(reply.createdAt),
 								};

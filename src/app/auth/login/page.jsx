@@ -65,21 +65,6 @@ export default function LoginPage() {
     }
   };
 
-  // Add theme sync so Tailwind 'dark:' classes reflect system preference
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = (isDark) => document.documentElement.classList.toggle('dark', !!isDark);
-    apply(mq ? mq.matches : false);
-    const handler = (e) => apply(e.matches);
-    if (mq?.addEventListener) mq.addEventListener('change', handler);
-    else if (mq?.addListener) mq.addListener(handler);
-    return () => {
-      if (mq?.removeEventListener) mq.removeEventListener('change', handler);
-      else if (mq?.removeListener) mq.removeListener(handler);
-    };
-  }, []);
-
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">

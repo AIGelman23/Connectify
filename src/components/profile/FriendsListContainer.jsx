@@ -75,8 +75,8 @@ export default function FriendsListContainer() {
 	const formErrors = {};
 
 	return (
-		<div className="bg-white rounded-lg shadow p-4 mb-6">
-			<h2 className="text-xl font-bold mb-4">Connections</h2>
+		<div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 mb-6">
+			<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-slate-100">Connections</h2>
 
 			{filteredFriends.length > 0 ? (
 				<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
@@ -88,20 +88,23 @@ export default function FriendsListContainer() {
 								title={`View ${friend.name}'s profile`}
 							>
 								<img
-									src={friend.imageUrl}
+									src={
+										friend.imageUrl ||
+										`https://placehold.co/80x80/4F46E5/ffffff?text=${friend.name ? friend.name[0].toUpperCase() : 'U'}`
+									}
 									alt={friend.name}
 									className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
 								/>
 								<div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-white"></div>
 							</div>
-							<span className="text-xs text-center text-gray-700 mt-1 truncate w-full">
+							<span className="text-xs text-center text-gray-700 dark:text-slate-300 mt-1 truncate w-full">
 								{friend.name}
 							</span>
 						</div>
 					))}
 				</div>
 			) : (
-				<p className="text-gray-500 text-center">No connections yet</p>
+				<p className="text-gray-500 dark:text-slate-400 text-center">No connections yet</p>
 			)}
 
 			{filteredFriends.length > 0 && (

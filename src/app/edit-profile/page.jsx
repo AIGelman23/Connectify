@@ -402,7 +402,16 @@ export default function EditProfilePage() {
 				}));
 
 				console.log("EditProfilePage: Calling full session update.");
-				await update(); // Force a full session refresh to update NextAuth.js session
+				await update({
+					...(session || {}),
+					user: {
+						...(session?.user || {}),
+						name: data.profile.name,
+						image: data.profile.profilePictureUrl || finalProfilePictureUrl,
+						picture: data.profile.profilePictureUrl || finalProfilePictureUrl,
+					}
+				});
+				router.refresh();
 
 				if (!profileData.isProfileComplete) {
 					router.push('/dashboard');
@@ -429,6 +438,7 @@ export default function EditProfilePage() {
 		validateForm,
 		router,
 		update,
+		session,
 		profileData.isProfileComplete,
 		profileData.resume,
 		profileData.profilePicture,
@@ -693,7 +703,7 @@ export default function EditProfilePage() {
 				{/* Navbar for navigation */}
 				<Navbar session={session} router={router} />
 				<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-					<div className="bg-white bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm p-0 sm:p-0"> {/* Add theme container */}
+					<div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 rounded-lg shadow-lg backdrop-blur-sm p-0 sm:p-0"> {/* Add theme container */}
 						<EditProfileHeader
 							currentProfileState={currentProfileState}
 							viewMode={viewMode}
@@ -740,7 +750,7 @@ export default function EditProfilePage() {
 						) : (
 							// --- Edit Mode Display (wrapped in a form) ---
 							<form onSubmit={handleSubmit} className="space-y-6">
-								<div className="profile-edit-mode-container p-8 rounded-md shadow bg-white bg-opacity-95"> {/* Add theme here */}
+								<div className="profile-edit-mode-container p-8 rounded-md shadow bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95"> {/* Add theme here */}
 									{/* Basic Info Edit (already good, styles are applied via className) */}
 									<section className="mb-8">
 										<h2 className="text-2xl font-semibold mb-6">Edit Your Basic Info</h2>

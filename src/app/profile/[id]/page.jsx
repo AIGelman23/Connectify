@@ -113,7 +113,7 @@ export default function ProfilePage() {
 		headline: profile.headline || "",
 		summary: profile.bio || "", // Map bio field to summary
 		location: profile.location || "",
-		profilePicture: profile.profilePictureUrl || session?.user?.image || "",
+		profilePicture: profile.profilePictureUrl || "",
 		coverPhoto: profile.coverPhotoUrl || "",
 		resume: profile.resumeUrl || "",
 		isProfileComplete: profile.isProfileComplete || false,

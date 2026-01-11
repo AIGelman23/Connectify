@@ -172,16 +172,17 @@ model Comment {
 }
 
 model Reply {
-  id        String   @id @default(uuid())
-  content   String
-  authorId  String
-  commentId String? // If this reply is to a comment
-  parentId  String? // If this reply is to another reply
-  createdAt DateTime @default(now())
-  author    User     @relation("UserReplies", fields: [authorId], references: [id], onDelete: Cascade) // <--- Add relation name
-  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  parent    Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
-  replies   Reply[]  @relation("ReplyToReply") // Nested replies
+  id         String   @id @default(uuid())
+  content    String
+  authorId   String
+  commentId  String? // If this reply is to a comment
+  parentId   String? // If this reply is to another reply
+  likesCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  author     User     @relation("UserReplies", fields: [authorId], references: [id], onDelete: Cascade)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  parent     Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
+  replies    Reply[]  @relation("ReplyToReply") // Nested replies
 
   @@index([commentId])
   @@index([parentId])
