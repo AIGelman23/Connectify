@@ -616,6 +616,8 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 										notification={notif}
 										onClearNotification={onClearNotification}
 										formatTimeAgo={formatTimeAgo}
+										router={router}
+										onClose={onClose}
 									/>
 								))}
 							</div>
@@ -632,6 +634,8 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 										notification={notif}
 										onClearNotification={onClearNotification}
 										formatTimeAgo={formatTimeAgo}
+										router={router}
+										onClose={onClose}
 									/>
 								))}
 							</div>
@@ -648,6 +652,8 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 										notification={notif}
 										onClearNotification={onClearNotification}
 										formatTimeAgo={formatTimeAgo}
+										router={router}
+										onClose={onClose}
 									/>
 								))}
 							</div>
@@ -664,6 +670,8 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 										notification={notif}
 										onClearNotification={onClearNotification}
 										formatTimeAgo={formatTimeAgo}
+										router={router}
+										onClose={onClose}
 									/>
 								))}
 							</div>
@@ -688,11 +696,36 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 }
 
 // --- NotificationItem Component ---
-function NotificationItem({ notification, onClearNotification, formatTimeAgo }) {
+function NotificationItem({ notification, onClearNotification, formatTimeAgo, router, onClose }) {
 	if (!notification) return null;
 
+	// Handle click to navigate to the relevant content
+	const handleNotificationClick = () => {
+		// Don't navigate for connection requests (they have action buttons)
+		if (notification.type === "CONNECTION_REQUEST") return;
+
+		// Navigate based on notification type
+		if (notification.targetId) {
+			// For post-related notifications (POST_COMMENT, POST_TAG, POST_LIKE, etc.)
+			// Navigate to dashboard with a query param to highlight/scroll to the post
+			if (notification.type === "POST_COMMENT" || notification.type === "POST_TAG" || notification.type === "POST_LIKE") {
+				onClose();
+				router.push(`/dashboard?postId=${notification.targetId}`);
+			}
+		} else if (notification.senderId) {
+			// For notifications without targetId but with senderId, navigate to sender's profile
+			onClose();
+			router.push(`/profile/${notification.senderId}`);
+		}
+	};
+
+	const isClickable = notification.type !== "CONNECTION_REQUEST" && (notification.targetId || notification.senderId);
+
 	return (
-		<div className={`flex flex-col px-4 py-3 hover:bg-gray-50 ${notification.read ? '' : 'bg-blue-50'}`}>
+		<div
+			className={`flex flex-col px-4 py-3 hover:bg-gray-50 ${notification.read ? '' : 'bg-blue-50'} ${isClickable ? 'cursor-pointer' : ''}`}
+			onClick={isClickable ? handleNotificationClick : undefined}
+		>
 			<div className="flex justify-between items-start">
 				<div className="flex-1">
 					<p className={`text-sm ${notification.read ? "text-gray-600" : "text-gray-800 font-semibold"}`}>

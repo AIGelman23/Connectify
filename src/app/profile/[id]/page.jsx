@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Navbar from '../../../components/NavBar';
 import EditProfileHeader from "../../../components/profile/EditProfileHeader";
@@ -15,11 +15,16 @@ import ConnectifyLogo from "../../../components/ConnectifyLogo";
 export default function ProfilePage() {
 	const { id } = useParams();
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { data: session, status } = useSession();
 	const [profile, setProfile] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [isOwnProfile, setIsOwnProfile] = useState(false);
+	const [activeTab, setActiveTab] = useState('profile');
+	const [isFollowing, setIsFollowing] = useState(false);
+	const [followersCount, setFollowersCount] = useState(0);
+	const [followingCount, setFollowingCount] = useState(0);
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -51,6 +56,9 @@ export default function ProfilePage() {
 
 				const data = await res.json();
 				setProfile(data.profile);
+				setIsFollowing(data.isFollowing || false);
+				setFollowersCount(data.followersCount || 0);
+				setFollowingCount(data.followingCount || 0);
 			} catch (err) {
 				console.error("Failed to fetch profile:", err);
 				setError(err.message || "Failed to load profile");
@@ -61,6 +69,31 @@ export default function ProfilePage() {
 
 		fetchProfile();
 	}, [id, status, router, session]);
+
+	// Handle tab change from URL
+	useEffect(() => {
+		const tab = searchParams.get('tab');
+		if (tab && ['profile', 'posts', 'saved'].includes(tab)) {
+			setActiveTab(tab);
+		}
+	}, [searchParams]);
+
+	const handleFollowToggle = async () => {
+		try {
+			const res = await fetch(`/api/users/${id}/follow`, {
+				method: isFollowing ? 'DELETE' : 'POST',
+			});
+
+			if (!res.ok) {
+				throw new Error("Failed to update follow status");
+			}
+
+			setIsFollowing(!isFollowing);
+			setFollowersCount((prev) => isFollowing ? Math.max(0, prev - 1) : prev + 1);
+		} catch (err) {
+			console.error("Error toggling follow:", err);
+		}
+	};
 
 	if (loading) {
 		return (
@@ -90,20 +123,7 @@ export default function ProfilePage() {
 	}
 
 	if (!profile) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
-				<div className="p-8 rounded-lg shadow-md bg-white dark:bg-slate-800 max-w-md text-center">
-					<h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-4">Profile Not Found</h2>
-					<p className="text-gray-600 dark:text-slate-400">The profile you're looking for doesn't exist or you don't have permission to view it.</p>
-					<button
-						onClick={() => router.push('/dashboard')}
-						className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
-					>
-						Go to Dashboard
-					</button>
-				</div>
-			</div>
-		);
+		return null;
 	}
 
 	// Prepare the profile data for the components
@@ -139,29 +159,70 @@ export default function ProfilePage() {
 						}
 					}}
 					isOwnProfile={isOwnProfile} // Pass flag to hide edit button for other users' profiles
+					isFollowing={isFollowing}
+					onFollowToggle={handleFollowToggle}
+					followersCount={followersCount}
+					followingCount={followingCount}
 				/>
 
 				{/* Friends List Section */}
-				<FriendsListContainer userId={id} isOwnProfile={isOwnProfile} />
+				<FriendsListContainer />
+
+				{/* Tabs */}
+				<div className="flex border-b border-gray-200 dark:border-slate-700 mb-6 overflow-x-auto">
+					<button
+						className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'profile' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+						onClick={() => setActiveTab('profile')}
+					>
+						Profile
+					</button>
+					<button
+						className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'posts' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+						onClick={() => setActiveTab('posts')}
+					>
+						Posts
+					</button>
+					{/* Only show Saved tab on own profile */}
+					{isOwnProfile && (
+						<button
+							className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'saved' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+							onClick={() => setActiveTab('saved')}
+						>
+							Saved
+						</button>
+					)}
+				</div>
 
 				{/* Profile sections in view mode */}
-				<EditProfileExperience
-					currentProfileState={formattedProfile}
-					formErrors={{}}
-					isEditable={false}
-				/>
+				{activeTab === 'profile' && (
+					<>
+						<EditProfileExperience
+							currentProfileState={formattedProfile}
+							formErrors={{}}
+							isEditable={false}
+						/>
 
-				<EditProfileEducation
-					currentProfileState={formattedProfile}
-					formErrors={{}}
-					isEditable={false}
-				/>
+						<EditProfileEducation
+							currentProfileState={formattedProfile}
+							formErrors={{}}
+							isEditable={false}
+						/>
 
-				<EditProfileSkills
-					currentProfileState={formattedProfile}
-					formErrors={{}}
-					isEditable={false}
-				/>
+						<EditProfileSkills
+							currentProfileState={formattedProfile}
+							formErrors={{}}
+							isEditable={false}
+						/>
+					</>
+				)}
+
+				{activeTab === 'posts' && (
+					<Posts userId={id} />
+				)}
+
+				{activeTab === 'saved' && isOwnProfile && (
+					<Posts userId={id} type="saved" />
+				)}
 			</div>
 		</div>
 	);

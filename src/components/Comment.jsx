@@ -1,9 +1,12 @@
 // src/components/CommentComponents.jsx
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { formatTimestamp } from '../lib/utils'; // Assuming you move formatTimestamp here
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
+
+const MAX_REPLY_LENGTH = 280;
 
 export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, onLike, commentId, depth = 1 }) => {
 	const isAuthor = reply.user.id === sessionUserId;
@@ -24,6 +27,13 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 	const hasNestedReplies = reply.replies && reply.replies.length > 0;
 	const canNestDeeper = depth < MAX_DEPTH;
 
+	const handleKeyDown = (e) => {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			handlePostReply(e);
+		}
+	};
+
 	// Format "Liked by X and Y others" text
 	const getLikedByText = () => {
 		const names = reply.likerNames || [];
@@ -36,6 +46,28 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 		}
 		return null;
 	};
+
+	// Close reply input when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (replyContainerRef.current && !replyContainerRef.current.contains(event.target)) {
+				setShowReplyInput(false);
+			}
+		};
+
+		if (showReplyInput) {
+			document.addEventListener('mousedown', handleClickOutside);
+		}
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, [showReplyInput]);
+
+	// Auto-resize textarea
+	useEffect(() => {
+		if (showReplyInput && replyInputRef.current) {
+			replyInputRef.current.style.height = 'auto';
+			replyInputRef.current.style.height = `${replyInputRef.current.scrollHeight}px`;
+		}
+	}, [showReplyInput, replyText]);
 
 	const handleLike = async () => {
 		if (isLiking) return;
@@ -90,15 +122,17 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 
 	return (
 		<div className="flex items-start space-x-2">
-			<img
-				src={reply.user.imageUrl}
-				alt={`${reply.user.name}'s avatar`}
-				className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-slate-600 flex-shrink-0"
-			/>
+			<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0">
+				<img
+					src={reply.user.imageUrl}
+					alt={`${reply.user.name}'s avatar`}
+					className="w-6 h-6 rounded-full object-cover border border-gray-200 dark:border-slate-600 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all duration-200"
+				/>
+			</Link>
 			<div className="flex-1 min-w-0">
-				<div className="bg-gray-50 dark:bg-slate-700 rounded-xl px-3 py-1.5">
+				<div className="bg-gray-50 dark:bg-slate-700 rounded-xl px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors duration-200">
 					<div className="flex items-baseline space-x-2 flex-wrap">
-						<span className="font-semibold text-gray-800 dark:text-slate-100 text-xs">{reply.user.name}</span>
+						<Link href={`/profile/${reply.user.id}`} className="font-semibold text-gray-800 dark:text-slate-100 text-xs hover:text-blue-600 hover:underline">{reply.user.name}</Link>
 						<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(reply.createdAt)}</span>
 						{isAuthor && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-medium">Author</span>}
 					</div>
@@ -120,9 +154,8 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 					<button
 						onClick={handleLike}
 						disabled={isLiking}
-						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${
-							isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
-						} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
+						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
+							} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
 					>
 						{isLiking ? (
 							<i className="fas fa-spinner fa-spin"></i>
@@ -156,16 +189,21 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 				</div>
 				{showReplyInput && (
 					<form onSubmit={handlePostReply} className="mt-2 flex relative animate-fade-in" ref={replyContainerRef}>
-						<input
+						<textarea
 							ref={replyInputRef}
-							type="text"
 							value={replyText}
 							onChange={(e) => setReplyText(e.target.value)}
-							placeholder={`Reply to ${reply.user.name}... (Press Enter to send)`}
-							className="flex-grow p-2 pr-16 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+							onKeyDown={handleKeyDown}
+							maxLength={MAX_REPLY_LENGTH}
+							placeholder={`Reply to ${reply.user.name}...`}
+							className="flex-grow p-2 pr-28 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 resize-none overflow-hidden min-h-[40px]"
+							rows={1}
 							autoFocus
 						/>
-						<div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
+						<div className="absolute right-2 bottom-2 flex items-center space-x-1">
+							<span className={`text-xs ${replyText.length >= MAX_REPLY_LENGTH ? 'text-red-600 font-bold' : (replyText.length > MAX_REPLY_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400')}`}>
+								{replyText.length}/{MAX_REPLY_LENGTH}
+							</span>
 							<EmojiSelector
 								onEmojiSelect={handleAddEmoji}
 								parentRef={replyContainerRef}
@@ -173,7 +211,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 							<button
 								type="submit"
 								disabled={isSubmitting}
-								className={`ml-1 text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+								className={`text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
 							>
 								{isSubmitting ? (
 									<i className="fas fa-spinner fa-spin"></i>
@@ -181,7 +219,19 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 									<i className="fas fa-paper-plane"></i>
 								)}
 							</button>
+							<button
+								type="button"
+								onClick={() => setShowReplyInput(false)}
+								className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+							>
+								<i className="fas fa-times"></i>
+							</button>
 						</div>
+						{replyText.length >= MAX_REPLY_LENGTH && (
+							<div className="absolute top-full right-0 mt-1 text-red-600 text-xs font-medium bg-red-50 px-2 py-1 rounded shadow-sm z-10 border border-red-100">
+								Character limit reached!
+							</div>
+						)}
 					</form>
 				)}
 				{hasNestedReplies && (
@@ -244,6 +294,13 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 	const MAX_CONTENT_LENGTH = 200;
 	const shouldTruncate = comment.content && comment.content.length > MAX_CONTENT_LENGTH;
 
+	const handleKeyDown = (e) => {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			handlePostReply(e);
+		}
+	};
+
 	// Format "Liked by X and Y others" text
 	const getLikedByText = () => {
 		const names = comment.likerNames || [];
@@ -256,6 +313,28 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 		}
 		return null;
 	};
+
+	// Close reply input when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (replyContainerRef.current && !replyContainerRef.current.contains(event.target)) {
+				setShowReplyInput(false);
+			}
+		};
+
+		if (showReplyInput) {
+			document.addEventListener('mousedown', handleClickOutside);
+		}
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, [showReplyInput]);
+
+	// Auto-resize textarea
+	useEffect(() => {
+		if (showReplyInput && replyInputRef.current) {
+			replyInputRef.current.style.height = 'auto';
+			replyInputRef.current.style.height = `${replyInputRef.current.scrollHeight}px`;
+		}
+	}, [showReplyInput, replyText]);
 
 	// Count total replies including nested ones
 	const countAllReplies = (replies) => {
@@ -308,15 +387,17 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 
 	return (
 		<div className="flex items-start space-x-3 mb-4">
-			<img
-				src={comment.user.imageUrl}
-				alt={`${comment.user.name}'s avatar`}
-				className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-slate-600 flex-shrink-0"
-			/>
+			<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
+				<img
+					src={comment.user.imageUrl}
+					alt={`${comment.user.name}'s avatar`}
+					className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-slate-600 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all duration-200"
+				/>
+			</Link>
 			<div className="flex-1 min-w-0">
-				<div className="bg-gray-100 dark:bg-slate-700 rounded-xl px-4 py-2">
+				<div className="bg-gray-100 dark:bg-slate-700 rounded-xl px-4 py-2 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors duration-200">
 					<div className="flex items-baseline space-x-2 flex-wrap">
-						<span className="font-semibold text-gray-800 dark:text-slate-100 text-sm">{comment.user.name}</span>
+						<Link href={`/profile/${comment.user.id}`} className="font-semibold text-gray-800 dark:text-slate-100 text-sm hover:text-blue-600 hover:underline">{comment.user.name}</Link>
 						<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(comment.createdAt)}</span>
 						{isAuthor && <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Author</span>}
 					</div>
@@ -338,9 +419,8 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 					<button
 						onClick={handleLike}
 						disabled={isLiking}
-						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${
-							isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
-						} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
+						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
+							} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
 					>
 						{isLiking ? (
 							<i className="fas fa-spinner fa-spin"></i>
@@ -371,16 +451,21 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 				</div>
 				{showReplyInput && (
 					<form onSubmit={handlePostReply} className="mt-2 ml-6 flex relative animate-fade-in" ref={replyContainerRef}>
-						<input
+						<textarea
 							ref={replyInputRef}
-							type="text"
 							value={replyText}
 							onChange={(e) => setReplyText(e.target.value)}
-							placeholder="Write a reply... (Press Enter to send)"
-							className="flex-grow p-2 pr-16 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+							onKeyDown={handleKeyDown}
+							maxLength={MAX_REPLY_LENGTH}
+							placeholder="Write a reply..."
+							className="flex-grow p-2 pr-28 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 resize-none overflow-hidden min-h-[40px]"
+							rows={1}
 							autoFocus
 						/>
-						<div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
+						<div className="absolute right-2 bottom-2 flex items-center space-x-1">
+							<span className={`text-xs ${replyText.length >= MAX_REPLY_LENGTH ? 'text-red-600 font-bold' : (replyText.length > MAX_REPLY_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400')}`}>
+								{replyText.length}/{MAX_REPLY_LENGTH}
+							</span>
 							<EmojiSelector
 								onEmojiSelect={handleAddEmoji}
 								parentRef={replyContainerRef}
@@ -388,7 +473,7 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 							<button
 								type="submit"
 								disabled={isSubmitting}
-								className={`ml-1 text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+								className={`text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
 							>
 								{isSubmitting ? (
 									<i className="fas fa-spinner fa-spin"></i>
@@ -396,7 +481,19 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 									<i className="fas fa-paper-plane"></i>
 								)}
 							</button>
+							<button
+								type="button"
+								onClick={() => setShowReplyInput(false)}
+								className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+							>
+								<i className="fas fa-times"></i>
+							</button>
 						</div>
+						{replyText.length >= MAX_REPLY_LENGTH && (
+							<div className="absolute top-full right-0 mt-1 text-red-600 text-xs font-medium bg-red-50 px-2 py-1 rounded shadow-sm z-10 border border-red-100">
+								Character limit reached!
+							</div>
+						)}
 					</form>
 				)}
 				{hasReplies && (

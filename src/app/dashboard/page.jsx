@@ -3,7 +3,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // Keep useMutation for createPost
 
 import Navbar from '../../components/NavBar';
@@ -14,6 +14,8 @@ import ConnectifyLogo from "@/components/ConnectifyLogo";
 export default function HomePage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const highlightPostId = searchParams.get('postId');
 	const [profile, setProfile] = useState(null);
 	const [loadingInitialData, setLoadingInitialData] = useState(true);
 
@@ -255,6 +257,7 @@ export default function HomePage() {
 						setPostError={setPostError}
 						onReply={handleInlineReply} // <-- Pass the inline reply handler
 						onLikeReply={handleLikeReply} // <-- Pass the like reply handler
+						highlightPostId={highlightPostId} // <-- Pass post ID to highlight/scroll to
 					/>
 				</div>
 			</main>

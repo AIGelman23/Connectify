@@ -569,6 +569,9 @@ export default function MessagingPage() {
 									const { name, imageUrl, participantNames } = getParticipantNameAndImage(conversation);
 									const isSelected = selectedConversation?.id === conversation.id;
 									const isMultiSelected = selectedConversationIds.includes(conversation.id);
+									const otherParticipants = conversation.participants?.filter(p => p.id !== session?.user?.id) || [];
+									const isTwoPersonChat = otherParticipants.length === 1;
+									const otherParticipantId = isTwoPersonChat ? otherParticipants[0]?.id : null;
 
 									return (
 										<li
@@ -607,7 +610,13 @@ export default function MessagingPage() {
 											<img
 												src={imageUrl}
 												alt={name}
-												className="w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0"
+												className={`w-10 h-10 rounded-full object-cover mr-3 flex-shrink-0 ${isTwoPersonChat ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all' : ''}`}
+												onClick={(e) => {
+													if (isTwoPersonChat && otherParticipantId) {
+														e.stopPropagation();
+														router.push(`/profile/${otherParticipantId}`);
+													}
+												}}
 												onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/40x40/A78BFA/ffffff?text=${name[0].toUpperCase()}`; }}
 											/>
 											<div className="flex-1 overflow-hidden">
@@ -637,15 +646,32 @@ export default function MessagingPage() {
 						<>
 							{/* Chat Header */}
 							<div className="sticky top-0 z-10 bg-white dark:bg-slate-800 p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between shadow-sm">
-								<div className="flex items-center">
-									<img
-										src={getParticipantNameAndImage(selectedConversation).imageUrl}
-										alt={getParticipantNameAndImage(selectedConversation).name}
-										className="w-10 h-10 rounded-full object-cover mr-3"
-										onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/40x40/A78BFA/ffffff?text=${getParticipantNameAndImage(selectedConversation).name[0].toUpperCase()}`; }}
-									/>
-									<div>
-										<h3 className="font-bold text-gray-800 dark:text-slate-100">{getParticipantNameAndImage(selectedConversation).name}</h3>
+								{(() => {
+									const headerOtherParticipants = selectedConversation.participants?.filter(p => p.id !== session?.user?.id) || [];
+									const headerIsTwoPersonChat = headerOtherParticipants.length === 1;
+									const headerOtherParticipantId = headerIsTwoPersonChat ? headerOtherParticipants[0]?.id : null;
+									return (
+										<div className="flex items-center">
+											<img
+												src={getParticipantNameAndImage(selectedConversation).imageUrl}
+												alt={getParticipantNameAndImage(selectedConversation).name}
+												className={`w-10 h-10 rounded-full object-cover mr-3 ${headerIsTwoPersonChat ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all' : ''}`}
+												onClick={() => {
+													if (headerIsTwoPersonChat && headerOtherParticipantId) {
+														router.push(`/profile/${headerOtherParticipantId}`);
+													}
+												}}
+												onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/40x40/A78BFA/ffffff?text=${getParticipantNameAndImage(selectedConversation).name[0].toUpperCase()}`; }}
+											/>
+											<div>
+												<h3
+													className={`font-bold text-gray-800 dark:text-slate-100 ${headerIsTwoPersonChat ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+													onClick={() => {
+														if (headerIsTwoPersonChat && headerOtherParticipantId) {
+															router.push(`/profile/${headerOtherParticipantId}`);
+														}
+													}}
+												>{getParticipantNameAndImage(selectedConversation).name}</h3>
 										{selectedConversation.participants.length > 2 && (
 											<p className="text-sm text-gray-500 dark:text-slate-400 truncate">
 												{getParticipantNameAndImage(selectedConversation).participantNames}
@@ -653,6 +679,8 @@ export default function MessagingPage() {
 										)}
 									</div>
 								</div>
+									);
+								})()}
 							</div>
 
 							{/* Message List */}

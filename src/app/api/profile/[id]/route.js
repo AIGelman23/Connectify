@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json(
         { message: "Profile ID is required" },
@@ -62,6 +62,20 @@ export async function GET(request, { params }) {
       },
     });
 
+    // Get follow counts and status
+    const [followersCount, followingCount, isFollowing] = await Promise.all([
+      prisma.follows.count({ where: { followingId: id } }),
+      prisma.follows.count({ where: { followerId: id } }),
+      prisma.follows.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: session.user.id,
+            followingId: id,
+          },
+        },
+      }),
+    ]);
+
     // Only return full profile data if users are connected or it's the user's own profile
     const isOwn = session.user.id === id;
     if (!isOwn && !isConnected) {
@@ -79,17 +93,23 @@ export async function GET(request, { params }) {
           isProfileComplete: profile.isProfileComplete,
           // Don't include other sensitive data
         },
+        isFollowing: !!isFollowing,
+        followersCount,
+        followingCount,
       });
     }
 
-    return NextResponse.json({ profile });
+    return NextResponse.json({
+      profile,
+      isFollowing: !!isFollowing,
+      followersCount,
+      followingCount,
+    });
   } catch (error) {
     console.error("Error fetching profile:", error);
     return NextResponse.json(
       { message: "Internal server error", error: error.message },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

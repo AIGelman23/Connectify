@@ -19,7 +19,7 @@ export async function GET(request) {
 
     const userId = session.user.id;
 
-    // Fetch the profile data
+    // Fetch the profile data with all related data
     const profile = await prisma.profile.findUnique({
       where: { userId },
       include: {
@@ -27,8 +27,16 @@ export async function GET(request) {
           select: {
             name: true,
             email: true,
+            image: true,
           },
         },
+        experiences: {
+          orderBy: { startDate: "desc" },
+        },
+        education: {
+          orderBy: { startDate: "desc" },
+        },
+        skills: true,
       },
     });
 
@@ -43,8 +51,19 @@ export async function GET(request) {
       );
     }
 
+    // Get follow counts for own profile
+    const [followersCount, followingCount] = await Promise.all([
+      prisma.follows.count({ where: { followingId: userId } }),
+      prisma.follows.count({ where: { followerId: userId } }),
+    ]);
+
     // Return the profile data
-    return NextResponse.json({ profile });
+    return NextResponse.json({
+      profile,
+      isFollowing: false, // Can't follow yourself
+      followersCount,
+      followingCount,
+    });
   } catch (error) {
     console.error("Error fetching profile:", error);
     return NextResponse.json(

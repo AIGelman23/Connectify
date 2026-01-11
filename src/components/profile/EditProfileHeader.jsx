@@ -10,6 +10,10 @@ export default function EditProfileHeader({
 	handleRemoveCoverPhoto,
 	enterEditMode,
 	isOwnProfile = true,
+	isFollowing = false,
+	onFollowToggle,
+	followersCount = 0,
+	followingCount = 0,
 }) {
 
 	// Debug logging to track state
@@ -150,6 +154,17 @@ export default function EditProfileHeader({
 					<p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
 						{currentProfileState.location || "Your Location"}
 					</p>
+
+					<div className="flex items-center justify-center space-x-6 mt-4">
+						<div className="text-center">
+							<span className="block font-bold text-gray-900 dark:text-slate-100 text-lg">{followersCount}</span>
+							<span className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">Followers</span>
+						</div>
+						<div className="text-center">
+							<span className="block font-bold text-gray-900 dark:text-slate-100 text-lg">{followingCount}</span>
+							<span className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide">Following</span>
+						</div>
+					</div>
 				</div>
 
 				{viewMode === "view" && isOwnProfile ? (
@@ -158,6 +173,16 @@ export default function EditProfileHeader({
 						className="mt-5 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-150 ease-in-out"
 					>
 						Edit Profile
+					</button>
+				) : viewMode === "view" && !isOwnProfile ? (
+					<button
+						onClick={onFollowToggle}
+						className={`mt-5 px-6 py-2 font-medium rounded-lg transition duration-150 ease-in-out ${isFollowing
+							? "bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+							: "bg-blue-600 text-white hover:bg-blue-700"
+							}`}
+					>
+						{isFollowing ? "Following" : "Follow"}
 					</button>
 				) : null}
 			</div>

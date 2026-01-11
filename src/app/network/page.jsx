@@ -8,16 +8,20 @@ import NavBar from "@/components/NavBar";
 import ConnectifyLogo from "@/components/ConnectifyLogo";
 
 // Modern UserCard with Facebook-like visuals
-const UserCard = ({ user, type, onConnect, onAcceptOrReject }) => {
+const UserCard = ({ user, type, onConnect, onAcceptOrReject, onNavigateToProfile }) => {
 	return (
 		<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-row items-center gap-4 w-full max-w-full mx-auto hover:shadow-lg transition">
 			<img
 				src={user.imageUrl}
 				alt={user.name}
-				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200 dark:border-blue-500"
+				onClick={() => onNavigateToProfile(user.id)}
+				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200 dark:border-blue-500 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
 			/>
 			<div className="flex-1 min-w-0">
-				<h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 truncate">{user.name}</h3>
+				<h3
+					onClick={() => onNavigateToProfile(user.id)}
+					className="text-base font-semibold text-gray-900 dark:text-slate-100 truncate cursor-pointer hover:text-blue-600 hover:underline"
+				>{user.name}</h3>
 				<p className="text-xs text-gray-500 dark:text-slate-400 truncate">{user.headline}</p>
 				<div className="flex flex-row gap-2 mt-2">
 					{type === 'searchResult' && user.connectionStatus === 'CONNECTED' && (
@@ -87,7 +91,7 @@ const UserCard = ({ user, type, onConnect, onAcceptOrReject }) => {
 };
 
 // Facebook-like Section: Card with header and grid of UserCards
-const Section = ({ title, users, type, onConnect, onAcceptOrReject }) => {
+const Section = ({ title, users, type, onConnect, onAcceptOrReject, onNavigateToProfile }) => {
 	if (users.length === 0) return null;
 	return (
 		<div className="mb-8 bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700">
@@ -97,7 +101,7 @@ const Section = ({ title, users, type, onConnect, onAcceptOrReject }) => {
 			</div>
 			<div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
 				{users.map((user) => (
-					<UserCard key={user.id} user={user} type={type} onConnect={onConnect} onAcceptOrReject={onAcceptOrReject} />
+					<UserCard key={user.id} user={user} type={type} onConnect={onConnect} onAcceptOrReject={onAcceptOrReject} onNavigateToProfile={onNavigateToProfile} />
 				))}
 			</div>
 		</div>
@@ -338,6 +342,11 @@ export default function MyNetworkPage() {
 		router.push(`/network?${newParams.toString()}`);
 	};
 
+	// Navigate to user profile
+	const handleNavigateToProfile = useCallback((userId) => {
+		router.push(`/profile/${userId}`);
+	}, [router]);
+
 
 	if (status === "loading" || loading) {
 		return (
@@ -463,7 +472,7 @@ export default function MyNetworkPage() {
 									) : (
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 											{users.map((user) => (
-												<UserCard key={user.id} user={user} type="searchResult" onConnect={handleConnect} onAcceptOrReject={handleAcceptOrRejectRequest} />
+												<UserCard key={user.id} user={user} type="searchResult" onConnect={handleConnect} onAcceptOrReject={handleAcceptOrRejectRequest} onNavigateToProfile={handleNavigateToProfile} />
 											))}
 										</div>
 									)}
@@ -486,6 +495,7 @@ export default function MyNetworkPage() {
 										type={sectionData.find(s => s.key === selectedSection)?.type}
 										onConnect={handleConnect}
 										onAcceptOrReject={handleAcceptOrRejectRequest}
+										onNavigateToProfile={handleNavigateToProfile}
 									/>
 								</>
 							)}

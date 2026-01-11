@@ -78,7 +78,10 @@ export default function FriendsList({
 												</div>
 											</div>
 											<div className="text-center">
-												<h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">
+												<h3
+													onClick={() => router.push(`/profile/${friend.id}`)}
+													className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors cursor-pointer hover:underline"
+												>
 													{friend.name}
 												</h3>
 												<p className="text-xs mt-1">

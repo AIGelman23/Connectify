@@ -3,6 +3,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
+import PostCard from './PostCard';
+
+const MAX_POST_LENGTH = 2000;
 
 // Modern Facebook-style Media Modal
 function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUrl, file, onRemove }) {
@@ -217,6 +220,10 @@ export default function CreatePostCard() {
 	const [isUploading, setIsUploading] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [showGiphyModal, setShowGiphyModal] = useState(false);
+	const [showPreview, setShowPreview] = useState(false);
+	const [showPollCreator, setShowPollCreator] = useState(false);
+	const [pollOptions, setPollOptions] = useState(["", ""]);
+	const [pollDuration, setPollDuration] = useState(1); // Default 1 day
 
 	// Add missing refs
 	const textInputRef = useRef(null);
@@ -228,6 +235,14 @@ export default function CreatePostCard() {
 	const [showTagDropdown, setShowTagDropdown] = useState(false);
 	const [tagSearch, setTagSearch] = useState("");
 	const tagSearchRef = useRef(null);
+
+	// Auto-resize textarea
+	useEffect(() => {
+		if (isEditing && textInputRef.current) {
+			textInputRef.current.style.height = 'auto';
+			textInputRef.current.style.height = `${textInputRef.current.scrollHeight}px`;
+		}
+	}, [postText, isEditing]);
 
 	// Debug: log whenever selectedFile changes
 	useEffect(() => {
@@ -255,6 +270,27 @@ export default function CreatePostCard() {
 		setFilePreviewUrl(null);
 	};
 
+	const togglePollCreator = () => {
+		setShowPollCreator(!showPollCreator);
+		if (!showPollCreator) {
+			setPollOptions(["", ""]);
+		}
+	};
+
+	const handlePollOptionChange = (index, value) => {
+		const newOptions = [...pollOptions];
+		newOptions[index] = value;
+		setPollOptions(newOptions);
+	};
+
+	const addPollOption = () => {
+		if (pollOptions.length < 4) setPollOptions([...pollOptions, ""]);
+	};
+
+	const removePollOption = (index) => {
+		if (pollOptions.length > 2) setPollOptions(pollOptions.filter((_, i) => i !== index));
+	};
+
 	// Add a default onCreatePost function to be used if parent's onCreatePost is not provided or if you want to test without it
 	const defaultOnCreatePost = async (payload) => {
 		console.log("DEBUG: defaultOnCreatePost called with payload:", payload);
@@ -271,7 +307,7 @@ export default function CreatePostCard() {
 	const handlePost = async () => {
 		console.log("DEBUG: handlePost - postText:", postText, "selectedFile:", selectedFile);
 		setIsUploading(true);
-		if (!postText.trim() && !selectedFile) {
+		if (!postText.trim() && !selectedFile && !showPollCreator) {
 			setIsUploading(false);
 			return;
 		}
@@ -282,6 +318,9 @@ export default function CreatePostCard() {
 
 			// Extract the IDs of tagged friends
 			const tagIds = taggedFriends.map(f => f.id);
+			// Filter valid poll options
+			const validPollOptions = showPollCreator ? pollOptions.filter(o => o.trim()) : [];
+			const expiresAt = showPollCreator ? new Date(Date.now() + pollDuration * 24 * 60 * 60 * 1000).toISOString() : null;
 
 			if (selectedFile && selectedFile.type === "image/gif" && selectedFile.url) {
 				uploadedUrl = selectedFile.url;
@@ -291,6 +330,8 @@ export default function CreatePostCard() {
 					fileType,
 					content: postText,
 					taggedFriends: tagIds, // Add tagged friends to payload
+					pollOptions: validPollOptions,
+					expiresAt,
 				};
 				console.log("DEBUG: handlePost GIF payload:", payload);
 				await defaultOnCreatePost(payload);
@@ -321,13 +362,17 @@ export default function CreatePostCard() {
 					fileType,
 					content: postText,
 					taggedFriends: tagIds, // Add tagged friends to payload
+					pollOptions: validPollOptions,
+					expiresAt,
 				};
 				console.log("DEBUG: handlePost image/video payload:", payload);
 				await defaultOnCreatePost(payload);
 			} else {
 				const payload = {
 					content: postText,
-					taggedFriends: tagIds // Add tagged friends to payload
+					taggedFriends: tagIds, // Add tagged friends to payload
+					pollOptions: validPollOptions,
+					expiresAt,
 				};
 				console.log("DEBUG: handlePost text-only payload:", payload);
 				await defaultOnCreatePost(payload);
@@ -340,6 +385,9 @@ export default function CreatePostCard() {
 			setFilePreviewUrl(null);
 			setPostText("");
 			setTaggedFriends([]); // Clear tagged friends after posting
+			setShowPollCreator(false);
+			setPollOptions(["", ""]);
+			setPollDuration(1);
 		} catch (error) {
 			console.error("Post error:", error);
 			alert(error.message || "Failed to create post.");
@@ -440,6 +488,46 @@ export default function CreatePostCard() {
 		if (!postText) {
 			setIsEditing(false);
 		}
+	};
+
+	// Helper to generate mock post for preview
+	const getMockPost = () => {
+		const isVideo = selectedFile?.type?.startsWith('video');
+		let imageUrl = null;
+		let videoUrl = null;
+		const validPollOptions = showPollCreator ? pollOptions.filter(o => o.trim()) : [];
+		const expiresAt = showPollCreator ? new Date(Date.now() + pollDuration * 24 * 60 * 60 * 1000).toISOString() : null;
+
+		if (selectedFile) {
+			if (selectedFile.type === 'image/gif' && selectedFile.url) {
+				imageUrl = selectedFile.url;
+			} else if (selectedFile.type.startsWith('image')) {
+				imageUrl = filePreviewUrl;
+			} else if (selectedFile.type.startsWith('video')) {
+				videoUrl = filePreviewUrl;
+			}
+		}
+
+		return {
+			id: 'preview-post',
+			author: {
+				id: session?.user?.id,
+				name: session?.user?.name || 'You',
+				image: session?.user?.image,
+				profileUrl: '#'
+			},
+			content: postText,
+			imageUrl,
+			videoUrl,
+			createdAt: new Date().toISOString(),
+			likesCount: 0,
+			commentsCount: 0,
+			likedByCurrentUser: false,
+			comments: [],
+			taggedFriends: taggedFriends,
+			pollOptions: validPollOptions,
+			expiresAt
+		};
 	};
 
 	return (
@@ -555,15 +643,24 @@ export default function CreatePostCard() {
 								value={postText}
 								onChange={e => setPostText(e.target.value)}
 								onBlur={handleInputBlur}
-								className="flex-1 w-full px-5 py-3 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 dark:placeholder-slate-400 text-base text-gray-700 dark:text-slate-100 whitespace-pre-line break-words transition min-h-[44px] resize-none"
+								maxLength={MAX_POST_LENGTH}
+								className="flex-1 w-full px-5 py-3 bg-gray-100 dark:bg-slate-700 rounded-2xl border border-gray-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 dark:placeholder-slate-400 text-base text-gray-700 dark:text-slate-100 whitespace-pre-line break-words transition min-h-[44px] resize-none"
 								style={{ minHeight: 44 }}
 							/>
-							<div className="absolute right-3 bottom-2" tabIndex={-1}>
+							<div className="absolute right-3 bottom-2 flex items-center space-x-2" tabIndex={-1}>
+								<span className={`text-xs ${postText.length >= MAX_POST_LENGTH ? 'text-red-600 font-bold' : (postText.length > MAX_POST_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400')}`}>
+									{postText.length}/{MAX_POST_LENGTH}
+								</span>
 								<EmojiSelector
 									onEmojiSelect={handleAddEmoji}
 									parentRef={inputContainerRef}
 								/>
 							</div>
+							{postText.length >= MAX_POST_LENGTH && (
+								<div className="absolute top-full right-0 mt-1 text-red-600 text-xs font-medium bg-red-50 px-2 py-1 rounded shadow-sm z-10 border border-red-100">
+									Character limit reached!
+								</div>
+							)}
 						</div>
 					)}
 				</div>
@@ -586,6 +683,48 @@ export default function CreatePostCard() {
 						>
 							<i className="fas fa-times text-lg"></i>
 						</button>
+					</div>
+				</div>
+			)}
+			{/* Poll Creator UI */}
+			{showPollCreator && (
+				<div className="px-4 pb-2 space-y-2">
+					{pollOptions.map((option, index) => (
+						<div key={index} className="flex items-center gap-2">
+							<input
+								type="text"
+								value={option}
+								onChange={(e) => handlePollOptionChange(index, e.target.value)}
+								placeholder={`Option ${index + 1}`}
+								className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+							/>
+							{pollOptions.length > 2 && (
+								<button
+									onClick={() => removePollOption(index)}
+									className="text-red-500 hover:text-red-700 p-2"
+								>
+									<i className="fas fa-times"></i>
+								</button>
+							)}
+						</div>
+					))}
+					{pollOptions.length < 4 && (
+						<button onClick={addPollOption} className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+							<i className="fas fa-plus"></i> Add Option
+						</button>
+					)}
+					<div className="mt-3 flex items-center gap-2">
+						<label className="text-sm text-gray-600 dark:text-slate-300 font-medium">Duration:</label>
+						<select
+							value={pollDuration}
+							onChange={(e) => setPollDuration(Number(e.target.value))}
+							className="text-sm border border-gray-300 dark:border-slate-600 rounded-md p-1 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+						>
+							<option value={1}>1 Day</option>
+							<option value={3}>3 Days</option>
+							<option value={7}>1 Week</option>
+							<option value={30}>1 Month</option>
+						</select>
 					</div>
 				</div>
 			)}
@@ -614,6 +753,22 @@ export default function CreatePostCard() {
 				>
 					<i className="fas fa-gift text-xl"></i>
 					<span>GIF</span>
+				</button>
+				<button
+					type="button"
+					className={`flex items-center gap-2 flex-1 justify-center hover:bg-orange-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-orange-600 dark:text-orange-400 font-semibold ${showPollCreator ? 'bg-orange-50 dark:bg-slate-700' : ''}`}
+					onClick={togglePollCreator}
+				>
+					<i className="fas fa-poll text-xl"></i>
+					<span>Poll</span>
+				</button>
+				<button
+					type="button"
+					className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 font-semibold rounded-lg py-2 ml-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+					onClick={() => setShowPreview(true)}
+					disabled={!postText && !selectedFile && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
+				>
+					Preview
 				</button>
 				<button
 					className="flex-1 bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg py-2 ml-2 transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#2374e1]"
@@ -650,6 +805,46 @@ export default function CreatePostCard() {
 						handleFileSelected(gifFile);
 					}}
 				/>
+			)}
+			{/* Preview Modal */}
+			{showPreview && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+					<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative animate-fade-in-down">
+						<div className="sticky top-0 z-10 flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-2xl">
+							<h2 className="text-xl font-bold text-gray-900 dark:text-white">Post Preview</h2>
+							<button
+								onClick={() => setShowPreview(false)}
+								className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
+							>
+								<i className="fas fa-times text-xl"></i>
+							</button>
+						</div>
+						<div className="p-4">
+							<PostCard
+								post={getMockPost()}
+								sessionUserId={session?.user?.id}
+								isPreview={true}
+							/>
+						</div>
+						<div className="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3 bg-gray-50 dark:bg-slate-800/50 rounded-b-2xl">
+							<button
+								onClick={() => setShowPreview(false)}
+								className="px-4 py-2 text-gray-700 dark:text-slate-200 font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition"
+							>
+								Keep Editing
+							</button>
+							<button
+								onClick={() => {
+									setShowPreview(false);
+									handlePost();
+								}}
+								className="px-4 py-2 bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg transition"
+							>
+								Post
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);

@@ -97,7 +97,10 @@ export default function FriendsListContainer() {
 								/>
 								<div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-white"></div>
 							</div>
-							<span className="text-xs text-center text-gray-700 dark:text-slate-300 mt-1 truncate w-full">
+							<span
+								onClick={() => navigateToProfile(friend.id)}
+								className="text-xs text-center text-gray-700 dark:text-slate-300 mt-1 truncate w-full cursor-pointer hover:text-blue-600 hover:underline"
+							>
 								{friend.name}
 							</span>
 						</div>

@@ -66,6 +66,10 @@ model User {
   commentLikes               CommentLike[]        @relation("UserCommentLikes")
   replyLikes                 ReplyLike[]          @relation("UserReplyLikes")
   postLikes                  PostLike[]           @relation("UserPostLikes")
+  pollVotes                  PollVote[]
+  savedPosts                 SavedPost[]
+  followedBy                 Follows[]            @relation("following")
+  following                  Follows[]            @relation("follower")
 }
 
 model Skill {
@@ -144,6 +148,14 @@ model Post {
   comments      Comment[]
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes         PostLike[]
+  isPinned      Boolean        @default(false)
+  pollOptions   PollOption[]
+  pollVotes     PollVote[]
+  expiresAt     DateTime?
+  savedBy       SavedPost[]
+  originalPostId String?
+  originalPost   Post?         @relation("Reposts", fields: [originalPostId], references: [id])
+  reposts        Post[]        @relation("Reposts")
 
   @@map("posts")
 }
@@ -269,4 +281,44 @@ model PostLike {
 
   @@unique([userId, postId])
   @@index([postId])
+}
+
+model PollOption {
+  id     String     @id @default(uuid())
+  text   String
+  postId String
+  post   Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
+}
+
+model PollVote {
+  id       String     @id @default(uuid())
+  userId   String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId   String
+  post     Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
 }

@@ -91,9 +91,11 @@ async function getNestedReplies(commentId, currentUserId = null) {
   // Build a map of replies by id
   const replyMap = new Map();
   allReplies.forEach((reply) => {
-    const likerNames = (reply.likes || []).map(like => like.user.name).filter(Boolean);
+    const likerNames = (reply.likes || [])
+      .map((like) => like.user.name)
+      .filter(Boolean);
     const likedByCurrentUser = currentUserId
-      ? (reply.likes || []).some(like => like.userId === currentUserId)
+      ? (reply.likes || []).some((like) => like.userId === currentUserId)
       : false;
 
     replyMap.set(reply.id, {
@@ -149,6 +151,14 @@ export async function POST(request) {
     const fileUrl = typeof body.fileUrl === "string" ? body.fileUrl : null;
     const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl : null;
     const content = typeof body.content === "string" ? body.content : "";
+    const originalPostId =
+      typeof body.originalPostId === "string" ? body.originalPostId : null;
+    const pollOptions = Array.isArray(body.pollOptions)
+      ? body.pollOptions.filter(
+          (o) => typeof o === "string" && o.trim().length > 0
+        )
+      : [];
+    const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
 
     // --- DEBUG LOGGING ---
     console.log("DEBUG: imageUrl:", imageUrl);
@@ -179,7 +189,13 @@ export async function POST(request) {
       : [];
 
     // Allow posts with either content, image, or video
-    if (!content && !imageUrl && !videoUrl) {
+    if (
+      !content &&
+      !imageUrl &&
+      !videoUrl &&
+      !originalPostId &&
+      pollOptions.length === 0
+    ) {
       return NextResponse.json(
         { message: "Post content or media is required." },
         { status: 400 }
@@ -200,6 +216,14 @@ export async function POST(request) {
         content,
         imageUrl,
         videoUrl,
+        expiresAt,
+        originalPostId,
+        pollOptions:
+          pollOptions.length > 0
+            ? {
+                create: pollOptions.map((text) => ({ text })),
+              }
+            : undefined,
       },
       include: {
         author: {
@@ -305,6 +329,7 @@ export async function POST(request) {
             },
           },
         },
+        pollOptions: true,
       },
     });
 
@@ -338,21 +363,31 @@ export async function POST(request) {
       },
       imageUrl: postWithTags.imageUrl,
       videoUrl: postWithTags.videoUrl,
-      comments: await Promise.all(postWithTags.comments.map(async (comment) => ({
-        ...comment,
-        user: {
-          id: comment.author.id,
-          name: comment.author.name,
-          imageUrl:
-            comment.author.image ||
-            `https://placehold.co/32x32/A78BFA/ffffff?text=${
-              comment.author.name ? comment.author.name[0].toUpperCase() : "U"
-            }`,
-        },
-        timestamp: formatTimestamp(comment.createdAt),
-        replies: await getNestedReplies(comment.id), // <-- always use this!
-      }))),
+      comments: await Promise.all(
+        postWithTags.comments.map(async (comment) => ({
+          ...comment,
+          user: {
+            id: comment.author.id,
+            name: comment.author.name,
+            imageUrl:
+              comment.author.image ||
+              `https://placehold.co/32x32/A78BFA/ffffff?text=${
+                comment.author.name ? comment.author.name[0].toUpperCase() : "U"
+              }`,
+          },
+          timestamp: formatTimestamp(comment.createdAt),
+          replies: await getNestedReplies(comment.id), // <-- always use this!
+        }))
+      ),
       taggedFriends: formattedTaggedFriends,
+      pollOptions: (postWithTags.pollOptions || []).map((opt) => ({
+        id: opt.id,
+        text: opt.text,
+        count: 0,
+      })),
+      expiresAt: postWithTags.expiresAt,
+      originalPost: null,
+      userVote: null,
     };
 
     return NextResponse.json({ post: formattedPost }, { status: 201 });
@@ -386,40 +421,61 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const take = parseInt(searchParams.get("take") || "10", 10); // Number of posts to fetch
     const skip = parseInt(searchParams.get("skip") || "0", 10); // Number of posts to skip
+    const targetUserId = searchParams.get("userId");
+    const type = searchParams.get("type");
 
-    // 1. Find all accepted connections for the current user
-    const connections = await prisma.connectionRequest.findMany({
-      where: {
-        OR: [
-          { senderId: userId, status: "ACCEPTED" },
-          { receiverId: userId, status: "ACCEPTED" },
-        ],
-      },
-      select: {
-        senderId: true,
-        receiverId: true,
-      },
-    });
+    let where = {};
+    let orderBy = [{ isPinned: "desc" }, { createdAt: "desc" }];
 
-    // 2. Extract unique IDs of connected users
-    const connectedUserIds = new Set();
-    connections.forEach((conn) => {
-      if (conn.senderId !== userId) {
-        connectedUserIds.add(conn.senderId);
-      }
-      if (conn.receiverId !== userId) {
-        connectedUserIds.add(conn.receiverId);
-      }
-    });
+    if (targetUserId) {
+      // If userId is provided, fetch posts only for that user
+      where.authorId = targetUserId;
+    } else {
+      // 1. Find all accepted connections for the current user
+      const connections = await prisma.connectionRequest.findMany({
+        where: {
+          OR: [
+            { senderId: userId, status: "ACCEPTED" },
+            { receiverId: userId, status: "ACCEPTED" },
+          ],
+        },
+        select: {
+          senderId: true,
+          receiverId: true,
+        },
+      });
 
-    const userIdsToFetchPostsFor = Array.from(connectedUserIds);
-    userIdsToFetchPostsFor.push(userId); // Include current user's posts
+      // 2. Extract unique IDs of connected users
+      const connectedUserIds = new Set();
+      connections.forEach((conn) => {
+        if (conn.senderId !== userId) {
+          connectedUserIds.add(conn.senderId);
+        }
+        if (conn.receiverId !== userId) {
+          connectedUserIds.add(conn.receiverId);
+        }
+      });
+
+      const userIdsToFetchPostsFor = Array.from(connectedUserIds);
+      userIdsToFetchPostsFor.push(userId); // Include current user's posts
+      where.authorId = { in: userIdsToFetchPostsFor };
+    }
+
+    if (type === "poll") {
+      where.pollOptions = { some: {} };
+    } else if (type === "photos") {
+      where.imageUrl = { not: null };
+    } else if (type === "videos") {
+      where.videoUrl = { not: null };
+    } else if (type === "saved") {
+      where.savedBy = { some: { userId: targetUserId || userId } };
+    } else if (type === "trending") {
+      orderBy = [{ likesCount: "desc" }, { commentsCount: "desc" }];
+    }
 
     // 3. Fetch posts from these users with pagination
     const posts = await prisma.post.findMany({
-      where: {
-        authorId: { in: userIdsToFetchPostsFor },
-      },
+      where,
       include: {
         author: {
           select: {
@@ -476,10 +532,35 @@ export async function GET(request) {
           where: { userId },
           select: { id: true },
         },
+        pollOptions: {
+          include: {
+            _count: {
+              select: { votes: true },
+            },
+          },
+        },
+        pollVotes: {
+          where: { userId },
+          select: { optionId: true },
+        },
+        savedBy: {
+          where: { userId },
+          select: { id: true },
+        },
+        originalPost: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                profile: { select: { profilePictureUrl: true } },
+              },
+            },
+          },
+        },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: orderBy,
       skip: skip, // Apply skip
       take: take + 1, // Fetch one extra to check if more exist
     });
@@ -500,8 +581,12 @@ export async function GET(request) {
         const comments = await Promise.all(
           post.comments.map(async (comment) => {
             const replies = await getNestedReplies(comment.id, userId);
-            const likerNames = (comment.likes || []).map(like => like.user.name).filter(Boolean);
-            const likedByCurrentUser = (comment.likes || []).some(like => like.userId === userId);
+            const likerNames = (comment.likes || [])
+              .map((like) => like.user.name)
+              .filter(Boolean);
+            const likedByCurrentUser = (comment.likes || []).some(
+              (like) => like.userId === userId
+            );
             return {
               ...comment,
               likesCount: comment.likesCount || 0,
@@ -513,7 +598,9 @@ export async function GET(request) {
                 imageUrl:
                   comment.author.image ||
                   `https://placehold.co/32x32/A78BFA/ffffff?text=${
-                    comment.author.name ? comment.author.name[0].toUpperCase() : "U"
+                    comment.author.name
+                      ? comment.author.name[0].toUpperCase()
+                      : "U"
                   }`,
               },
               timestamp: formatTimestamp(comment.createdAt),
@@ -529,17 +616,38 @@ export async function GET(request) {
           ...post,
           likedByCurrentUser: post.likes && post.likes.length > 0,
           author: {
-            id: post.author.id,
-            name: post.author.name,
+            id: post.author?.id,
+            name: post.author?.name,
             imageUrl:
-              post.author.image ||
+              post.author?.image ||
               `https://placehold.co/40x40/A78BFA/ffffff?text=${
-                post.author.name ? post.author.name[0].toUpperCase() : "U"
+                post.author?.name ? post.author.name[0].toUpperCase() : "U"
               }`,
-            headline: post.author.profile?.headline || "No headline available",
+            headline: post.author?.profile?.headline || "No headline available",
           },
           comments,
           taggedFriends: formattedTaggedFriends,
+          pollOptions: (post.pollOptions || []).map((opt) => ({
+            id: opt.id,
+            text: opt.text,
+            count: opt._count?.votes || 0,
+          })),
+          expiresAt: post.expiresAt,
+          userVote: post.pollVotes?.[0]?.optionId || null,
+          originalPost: post.originalPost
+            ? {
+                ...post.originalPost,
+                author: {
+                  id: post.originalPost.author?.id,
+                  name: post.originalPost.author?.name,
+                  imageUrl:
+                    post.originalPost.author?.profile?.profilePictureUrl ||
+                    post.originalPost.author?.image ||
+                    null,
+                },
+              }
+            : null,
+          isSaved: post.savedBy && post.savedBy.length > 0,
         };
       })
     );
@@ -576,7 +684,8 @@ export async function PATCH(request) {
     }
 
     const requestBody = await request.json();
-    const { postId, commentId, action, content, parentId } = requestBody;
+    const { postId, commentId, action, content, parentId, optionId } =
+      requestBody;
 
     let commentContent;
 
@@ -1005,7 +1114,10 @@ export async function PATCH(request) {
 
         // Count replies to decrement
         let commentsDeletedCount = 1;
-        if (commentToDelete.replyThreads && commentToDelete.replyThreads.length > 0) {
+        if (
+          commentToDelete.replyThreads &&
+          commentToDelete.replyThreads.length > 0
+        ) {
           // Count all nested replies recursively
           const countNestedReplies = async (replies) => {
             let count = replies.length;
@@ -1017,7 +1129,9 @@ export async function PATCH(request) {
             }
             return count;
           };
-          commentsDeletedCount += await countNestedReplies(commentToDelete.replyThreads);
+          commentsDeletedCount += await countNestedReplies(
+            commentToDelete.replyThreads
+          );
         }
 
         await prisma.comment.delete({
@@ -1029,7 +1143,10 @@ export async function PATCH(request) {
           where: { id: commentToDelete.postId },
           select: { commentsCount: true },
         });
-        const newCount = Math.max(0, (currentPost?.commentsCount || 0) - commentsDeletedCount);
+        const newCount = Math.max(
+          0,
+          (currentPost?.commentsCount || 0) - commentsDeletedCount
+        );
 
         await prisma.post.update({
           where: { id: commentToDelete.postId },
@@ -1087,7 +1204,10 @@ export async function PATCH(request) {
         where: { id: postId },
         select: { commentsCount: true },
       });
-      const newCount = Math.max(0, (currentPost?.commentsCount || 0) - repliesDeletedCount);
+      const newCount = Math.max(
+        0,
+        (currentPost?.commentsCount || 0) - repliesDeletedCount
+      );
 
       await prisma.post.update({
         where: { id: postId },
@@ -1144,7 +1264,10 @@ export async function PATCH(request) {
 
         if (!parentReply) {
           return NextResponse.json(
-            { message: "Parent reply not found or doesn't belong to this comment." },
+            {
+              message:
+                "Parent reply not found or doesn't belong to this comment.",
+            },
             { status: 404 }
           );
         }
@@ -1184,9 +1307,9 @@ export async function PATCH(request) {
           data: {
             recipientId: notifyUserId,
             type: "POST_COMMENT",
-            message: `${
-              session.user.name || "Someone"
-            } replied to your ${parentId ? 'reply' : 'comment'}.`,
+            message: `${session.user.name || "Someone"} replied to your ${
+              parentId ? "reply" : "comment"
+            }.`,
             senderId: userId,
             targetId: postId,
             read: false,
@@ -1244,6 +1367,122 @@ export async function PATCH(request) {
         { message: "Post deleted successfully." },
         { status: 200 }
       );
+    } else if (action === "pin" || action === "unpin") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required." },
+          { status: 400 }
+        );
+      }
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      if (!post) {
+        return NextResponse.json(
+          { message: "Post not found." },
+          { status: 404 }
+        );
+      }
+      if (post.authorId !== userId) {
+        return NextResponse.json(
+          { message: "Not authorized." },
+          { status: 403 }
+        );
+      }
+
+      await prisma.post.update({
+        where: { id: postId },
+        data: { isPinned: action === "pin" },
+      });
+
+      return NextResponse.json(
+        { message: `Post ${action}ned successfully.` },
+        { status: 200 }
+      );
+    } else if (action === "vote") {
+      if (!postId || !optionId) {
+        return NextResponse.json(
+          { message: "Post ID and Option ID are required." },
+          { status: 400 }
+        );
+      }
+
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { expiresAt: true },
+      });
+      if (post && post.expiresAt && new Date() > new Date(post.expiresAt)) {
+        return NextResponse.json(
+          { message: "Poll has expired." },
+          { status: 400 }
+        );
+      }
+
+      const existingVote = await prisma.pollVote.findFirst({
+        where: { postId, userId },
+      });
+
+      if (existingVote) {
+        if (existingVote.optionId !== optionId) {
+          await prisma.pollVote.update({
+            where: { id: existingVote.id },
+            data: { optionId },
+          });
+        }
+      } else {
+        await prisma.pollVote.create({
+          data: { postId, userId, optionId },
+        });
+      }
+
+      return NextResponse.json({ message: "Vote recorded." }, { status: 200 });
+    } else if (action === "retract_vote") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required." },
+          { status: 400 }
+        );
+      }
+
+      const existingVote = await prisma.pollVote.findFirst({
+        where: { postId, userId },
+      });
+
+      if (existingVote) {
+        await prisma.pollVote.delete({ where: { id: existingVote.id } });
+      }
+      return NextResponse.json({ message: "Vote retracted." }, { status: 200 });
+    } else if (action === "save") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required." },
+          { status: 400 }
+        );
+      }
+      // Check if already saved
+      const existingSave = await prisma.savedPost.findUnique({
+        where: { userId_postId: { userId, postId } },
+      });
+
+      if (!existingSave) {
+        await prisma.savedPost.create({
+          data: { userId, postId },
+        });
+      }
+      return NextResponse.json({ message: "Post saved." }, { status: 200 });
+    } else if (action === "unsave") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required." },
+          { status: 400 }
+        );
+      }
+      const existingSave = await prisma.savedPost.findUnique({
+        where: { userId_postId: { userId, postId } },
+      });
+
+      if (existingSave) {
+        await prisma.savedPost.delete({ where: { id: existingSave.id } });
+      }
+      return NextResponse.json({ message: "Post unsaved." }, { status: 200 });
     } else {
       return NextResponse.json(
         { message: "Invalid action specified." },

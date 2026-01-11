@@ -7,9 +7,10 @@ import MinimalSpinnerLoader from './MinimalSpinnerLoader'; // Assuming this is i
 import PostCard from './PostCard';
 import { formatTimestamp } from '../lib/utils'; // Assuming you move formatTimestamp here
 
-export default function PostFeed({ sessionUserId, setPostError, openReplyModal }) {
+export default function PostFeed({ sessionUserId, setPostError, openReplyModal, highlightPostId }) {
 	const mainScrollRef = useRef(null); // Ref for the scrollable container
 	const loaderRef = useRef(null);     // Ref for the element to observe
+	const highlightedPostRef = useRef(null); // Ref for the highlighted post
 
 	const {
 		data,
@@ -93,6 +94,19 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 
 	const posts = data?.pages?.flatMap(page => page.posts) || [];
 
+	// Scroll to highlighted post when it's loaded
+	useEffect(() => {
+		if (highlightPostId && highlightedPostRef.current) {
+			// Small delay to ensure the DOM is ready
+			setTimeout(() => {
+				highlightedPostRef.current?.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+				});
+			}, 100);
+		}
+	}, [highlightPostId, posts]);
+
 	useEffect(() => {
 		const currentLoader = loaderRef.current;
 		const currentMainScrollContainer = mainScrollRef.current;
@@ -138,15 +152,24 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 			)}
 
 			{posts.length > 0 ? (
-				posts.map((post) => (
-					<PostCard
-						key={post.id}
-						post={post}
-						sessionUserId={sessionUserId}
-						setPostError={setPostError}
-						openReplyModal={openReplyModal}
-					/>
-				))
+				posts.map((post) => {
+					const isHighlighted = highlightPostId === post.id;
+					return (
+						<div
+							key={post.id}
+							ref={isHighlighted ? highlightedPostRef : null}
+							className={isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg animate-pulse-once' : ''}
+						>
+							<PostCard
+								post={post}
+								sessionUserId={sessionUserId}
+								setPostError={setPostError}
+								openReplyModal={openReplyModal}
+								isHighlighted={isHighlighted}
+							/>
+						</div>
+					);
+				})
 			) : (
 				!isPostsLoading && !isPostsError && (
 					<p className="text-center text-gray-500 py-10">No posts yet. Start by creating one!</p>
