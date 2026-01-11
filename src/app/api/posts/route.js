@@ -63,7 +63,7 @@ async function getNestedRepliesForReply(parentId) {
   );
 }
 
-async function getNestedReplies(commentId) {
+async function getNestedReplies(commentId, currentUserId = null) {
   // Fetch all replies for this comment, not just top-level
   const allReplies = await prisma.reply.findMany({
     where: { commentId },
@@ -75,6 +75,15 @@ async function getNestedReplies(commentId) {
           image: true,
         },
       },
+      likes: {
+        take: 3,
+        include: {
+          user: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -82,11 +91,18 @@ async function getNestedReplies(commentId) {
   // Build a map of replies by id
   const replyMap = new Map();
   allReplies.forEach((reply) => {
+    const likerNames = (reply.likes || []).map(like => like.user.name).filter(Boolean);
+    const likedByCurrentUser = currentUserId
+      ? (reply.likes || []).some(like => like.userId === currentUserId)
+      : false;
+
     replyMap.set(reply.id, {
       id: reply.id,
       content: reply.content,
       createdAt: reply.createdAt,
-      likes: 0,
+      likesCount: reply.likesCount || 0,
+      likedByCurrentUser,
+      likerNames,
       parentId: reply.parentId,
       user: {
         id: reply.author.id,
@@ -429,6 +445,15 @@ export async function GET(request) {
                 image: true,
               },
             },
+            likes: {
+              take: 3,
+              include: {
+                user: {
+                  select: { id: true, name: true },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            },
             // Note: replies are fetched via getNestedReplies() using the Reply model
           },
           orderBy: { createdAt: "asc" },
@@ -445,6 +470,11 @@ export async function GET(request) {
               },
             },
           },
+        },
+        // Include post likes to check if current user liked
+        likes: {
+          where: { userId },
+          select: { id: true },
         },
       },
       orderBy: {
@@ -469,9 +499,14 @@ export async function GET(request) {
 
         const comments = await Promise.all(
           post.comments.map(async (comment) => {
-            const replies = await getNestedReplies(comment.id); // <-- always use this!
+            const replies = await getNestedReplies(comment.id, userId);
+            const likerNames = (comment.likes || []).map(like => like.user.name).filter(Boolean);
+            const likedByCurrentUser = (comment.likes || []).some(like => like.userId === userId);
             return {
               ...comment,
+              likesCount: comment.likesCount || 0,
+              likedByCurrentUser,
+              likerNames,
               user: {
                 id: comment.author.id,
                 name: comment.author.name,
@@ -492,6 +527,7 @@ export async function GET(request) {
 
         return {
           ...post,
+          likedByCurrentUser: post.likes && post.likes.length > 0,
           author: {
             id: post.author.id,
             name: post.author.name,
@@ -598,15 +634,94 @@ export async function PATCH(request) {
           { status: 400 }
         );
       }
-      updatedEntity = await prisma.post.update({
+
+      // Check if user already liked this post
+      const existingLike = await prisma.postLike.findUnique({
+        where: {
+          userId_postId: { userId, postId },
+        },
+      });
+
+      if (existingLike) {
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: { likesCount: true },
+        });
+        return NextResponse.json(
+          { message: "Already liked.", likesCount: post.likesCount },
+          { status: 200 }
+        );
+      }
+
+      // Create like record and increment count
+      await prisma.$transaction([
+        prisma.postLike.create({
+          data: { userId, postId },
+        }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { likesCount: { increment: 1 } },
+        }),
+      ]);
+
+      const updated = await prisma.post.findUnique({
         where: { id: postId },
-        data: { likesCount: { increment: 1 } },
         select: { likesCount: true },
       });
+
       return NextResponse.json(
         {
           message: "Post liked successfully.",
-          likesCount: updatedEntity.likesCount,
+          likesCount: updated.likesCount,
+        },
+        { status: 200 }
+      );
+    } else if (action === "unlike") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required for unliking a post." },
+          { status: 400 }
+        );
+      }
+
+      // Check if user has liked this post
+      const existingLike = await prisma.postLike.findUnique({
+        where: {
+          userId_postId: { userId, postId },
+        },
+      });
+
+      if (!existingLike) {
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: { likesCount: true },
+        });
+        return NextResponse.json(
+          { message: "Not liked.", likesCount: post?.likesCount || 0 },
+          { status: 200 }
+        );
+      }
+
+      // Delete like record and decrement count
+      await prisma.$transaction([
+        prisma.postLike.delete({
+          where: { userId_postId: { userId, postId } },
+        }),
+        prisma.post.update({
+          where: { id: postId },
+          data: { likesCount: { decrement: 1 } },
+        }),
+      ]);
+
+      const updated = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { likesCount: true },
+      });
+
+      return NextResponse.json(
+        {
+          message: "Post unliked successfully.",
+          likesCount: Math.max(0, updated.likesCount),
         },
         { status: 200 }
       );
@@ -674,15 +789,40 @@ export async function PATCH(request) {
       });
 
       if (comment) {
-        updatedEntity = await prisma.comment.update({
+        // Check if user already liked this comment
+        const existingLike = await prisma.commentLike.findUnique({
+          where: {
+            userId_commentId: { userId, commentId },
+          },
+        });
+
+        if (existingLike) {
+          return NextResponse.json(
+            { message: "Already liked.", likesCount: comment.likesCount },
+            { status: 200 }
+          );
+        }
+
+        // Create like record and increment count
+        await prisma.$transaction([
+          prisma.commentLike.create({
+            data: { userId, commentId },
+          }),
+          prisma.comment.update({
+            where: { id: commentId },
+            data: { likesCount: { increment: 1 } },
+          }),
+        ]);
+
+        const updated = await prisma.comment.findUnique({
           where: { id: commentId },
-          data: { likesCount: { increment: 1 } },
           select: { likesCount: true },
         });
+
         return NextResponse.json(
           {
             message: "Comment liked successfully.",
-            likesCount: updatedEntity.likesCount,
+            likesCount: updated.likesCount,
           },
           { status: 200 }
         );
@@ -700,16 +840,40 @@ export async function PATCH(request) {
         );
       }
 
-      updatedEntity = await prisma.reply.update({
+      // Check if user already liked this reply
+      const existingReplyLike = await prisma.replyLike.findUnique({
+        where: {
+          userId_replyId: { userId, replyId: commentId },
+        },
+      });
+
+      if (existingReplyLike) {
+        return NextResponse.json(
+          { message: "Already liked.", likesCount: reply.likesCount },
+          { status: 200 }
+        );
+      }
+
+      // Create like record and increment count
+      await prisma.$transaction([
+        prisma.replyLike.create({
+          data: { userId, replyId: commentId },
+        }),
+        prisma.reply.update({
+          where: { id: commentId },
+          data: { likesCount: { increment: 1 } },
+        }),
+      ]);
+
+      const updatedReply = await prisma.reply.findUnique({
         where: { id: commentId },
-        data: { likesCount: { increment: 1 } },
         select: { likesCount: true },
       });
 
       return NextResponse.json(
         {
           message: "Reply liked successfully.",
-          likesCount: updatedEntity.likesCount,
+          likesCount: updatedReply.likesCount,
         },
         { status: 200 }
       );
@@ -727,23 +891,39 @@ export async function PATCH(request) {
       });
 
       if (comment) {
-        updatedEntity = await prisma.comment.update({
+        // Delete the like record if it exists
+        const existingLike = await prisma.commentLike.findUnique({
+          where: {
+            userId_commentId: { userId, commentId },
+          },
+        });
+
+        if (!existingLike) {
+          return NextResponse.json(
+            { message: "Not liked.", likesCount: comment.likesCount },
+            { status: 200 }
+          );
+        }
+
+        await prisma.$transaction([
+          prisma.commentLike.delete({
+            where: { userId_commentId: { userId, commentId } },
+          }),
+          prisma.comment.update({
+            where: { id: commentId },
+            data: { likesCount: { decrement: 1 } },
+          }),
+        ]);
+
+        const updated = await prisma.comment.findUnique({
           where: { id: commentId },
-          data: { likesCount: { decrement: 1 } },
           select: { likesCount: true },
         });
-        // Ensure likesCount doesn't go below 0
-        if (updatedEntity.likesCount < 0) {
-          await prisma.comment.update({
-            where: { id: commentId },
-            data: { likesCount: 0 },
-          });
-          updatedEntity.likesCount = 0;
-        }
+
         return NextResponse.json(
           {
             message: "Comment unliked successfully.",
-            likesCount: updatedEntity.likesCount,
+            likesCount: Math.max(0, updated.likesCount),
           },
           { status: 200 }
         );
@@ -761,24 +941,39 @@ export async function PATCH(request) {
         );
       }
 
-      updatedEntity = await prisma.reply.update({
+      // Delete the like record if it exists
+      const existingReplyLike = await prisma.replyLike.findUnique({
+        where: {
+          userId_replyId: { userId, replyId: commentId },
+        },
+      });
+
+      if (!existingReplyLike) {
+        return NextResponse.json(
+          { message: "Not liked.", likesCount: reply.likesCount },
+          { status: 200 }
+        );
+      }
+
+      await prisma.$transaction([
+        prisma.replyLike.delete({
+          where: { userId_replyId: { userId, replyId: commentId } },
+        }),
+        prisma.reply.update({
+          where: { id: commentId },
+          data: { likesCount: { decrement: 1 } },
+        }),
+      ]);
+
+      const updatedReply = await prisma.reply.findUnique({
         where: { id: commentId },
-        data: { likesCount: { decrement: 1 } },
         select: { likesCount: true },
       });
-      // Ensure likesCount doesn't go below 0
-      if (updatedEntity.likesCount < 0) {
-        await prisma.reply.update({
-          where: { id: commentId },
-          data: { likesCount: 0 },
-        });
-        updatedEntity.likesCount = 0;
-      }
 
       return NextResponse.json(
         {
           message: "Reply unliked successfully.",
-          likesCount: updatedEntity.likesCount,
+          likesCount: Math.max(0, updatedReply.likesCount),
         },
         { status: 200 }
       );
@@ -829,9 +1024,16 @@ export async function PATCH(request) {
           where: { id: commentId },
         });
 
+        // Get current count and ensure we don't go negative
+        const currentPost = await prisma.post.findUnique({
+          where: { id: commentToDelete.postId },
+          select: { commentsCount: true },
+        });
+        const newCount = Math.max(0, (currentPost?.commentsCount || 0) - commentsDeletedCount);
+
         await prisma.post.update({
           where: { id: commentToDelete.postId },
-          data: { commentsCount: { decrement: commentsDeletedCount } },
+          data: { commentsCount: newCount },
         });
 
         return NextResponse.json(
@@ -880,9 +1082,16 @@ export async function PATCH(request) {
         where: { id: commentId },
       });
 
+      // Get current count and ensure we don't go negative
+      const currentPost = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { commentsCount: true },
+      });
+      const newCount = Math.max(0, (currentPost?.commentsCount || 0) - repliesDeletedCount);
+
       await prisma.post.update({
         where: { id: postId },
-        data: { commentsCount: { decrement: repliesDeletedCount } },
+        data: { commentsCount: newCount },
       });
 
       return NextResponse.json(

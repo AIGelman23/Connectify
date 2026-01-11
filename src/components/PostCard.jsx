@@ -14,6 +14,9 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 	const [editError, setEditError] = useState("");
 	const [notificationsOff, setNotificationsOff] = useState(false);
 	const [commentInputText, setCommentInputText] = useState('');
+	const [isLiked, setIsLiked] = useState(post.likedByCurrentUser || false);
+	const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+	const [isLiking, setIsLiking] = useState(false);
 	const commentInputRef = useRef(null);
 	const commentContainerRef = useRef(null);
 	const queryClient = useQueryClient();
@@ -45,46 +48,28 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 		};
 	}, [post.videoUrl]);
 
-	// Like Post Mutation
-	const { mutate: likePost } = useMutation({
-		mutationFn: async (postId) => {
+	// Like/Unlike Post Mutation
+	const { mutate: toggleLikePost } = useMutation({
+		mutationFn: async ({ postId, isLiking }) => {
 			const res = await fetch('/api/posts', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ postId, action: 'like' }),
+				body: JSON.stringify({ postId, action: isLiking ? 'like' : 'unlike' }),
 			});
 			if (!res.ok) {
 				const errorData = await res.json();
-				throw new Error(errorData.message || "Failed to like post.");
+				throw new Error(errorData.message || "Failed to update like.");
 			}
 			return res.json();
 		},
-		onMutate: async (postId) => {
-			await queryClient.cancelQueries({ queryKey: ['posts'] });
-			const previousPosts = queryClient.getQueryData(['posts']);
-
-			queryClient.setQueryData(['posts'], (oldData) => {
-				if (!oldData) return oldData;
-				return {
-					...oldData,
-					pages: oldData.pages.map(page => ({
-						...page,
-						posts: page.posts.map(p =>
-							p.id === postId ? { ...p, likesCount: (p.likesCount || 0) + 1 } : p
-						),
-					})),
-				};
-			});
-			return { previousPosts };
-		},
-		onError: (err, postId, context) => {
-			setPostError(err.message || "Failed to like post. Please try again.");
-			if (context?.previousPosts) {
-				queryClient.setQueryData(['posts'], context.previousPosts);
-			}
-		},
-		onSettled: () => {
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+		onError: (err) => {
+			// Revert optimistic update
+			setIsLiked(prev => !prev);
+			setLikesCount(prev => isLiked ? prev + 1 : Math.max(0, prev - 1));
+			setPostError(err.message || "Failed to update like. Please try again.");
 		},
 	});
 
@@ -195,8 +180,22 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			setPostError("You must be logged in to like a post.");
 			return;
 		}
-		likePost(post.id);
-	}, [post.id, sessionUserId, likePost, setPostError]);
+		if (isLiking) return;
+
+		setIsLiking(true);
+		const newIsLiked = !isLiked;
+
+		// Optimistic update
+		setIsLiked(newIsLiked);
+		setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+
+		toggleLikePost(
+			{ postId: post.id, isLiking: newIsLiked },
+			{
+				onSettled: () => setIsLiking(false),
+			}
+		);
+	}, [post.id, sessionUserId, toggleLikePost, setPostError, isLiked, isLiking]);
 
 	const handleAddComment = useCallback((e) => {
 		e.preventDefault();
@@ -472,7 +471,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 					<span className="flex items-center space-x-1">
 						{/* Like SVG */}
 						<svg width="16" height="16" viewBox="0 0 16 16" fill="url(#like-gradient)" className="inline-block"><defs><linearGradient id="like-gradient" x1="2" y1="2" x2="14" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#02ADFC" /><stop offset="0.5" stopColor="#0866FF" /><stop offset="1" stopColor="#2B7EFF" /></linearGradient></defs><path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="#0866FF" /></svg>
-						<span className="font-medium">{post.likesCount || 0}</span>
+						<span className="font-medium">{likesCount}</span>
 					</span>
 				</div>
 				<div className="flex items-center space-x-2">
@@ -484,11 +483,21 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			<div className="flex justify-between items-center px-2 py-1 gap-2">
 				<button
 					onClick={handleLike}
-					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
+					disabled={isLiking}
+					className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1 ${
+						isLiked
+							? 'text-blue-600 dark:text-blue-400'
+							: 'text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
+					} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
 				>
-					{/* Like SVG */}
-					<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="currentColor" /></svg>
-					<span>Like</span>
+					{isLiking ? (
+						<i className="fas fa-spinner fa-spin"></i>
+					) : (
+						<svg width="20" height="20" viewBox="0 0 16 16" fill={isLiked ? "#0866FF" : "none"}>
+							<path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="currentColor" />
+						</svg>
+					)}
+					<span>{isLiked ? 'Liked' : 'Like'}</span>
 				</button>
 				<button
 					onClick={toggleCommentSection}

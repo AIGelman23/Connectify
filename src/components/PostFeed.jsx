@@ -46,10 +46,13 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 						const commentAuthor = comment.author || {};
 						return {
 							...comment,
+							likesCount: comment.likesCount || 0,
+							likedByCurrentUser: comment.likedByCurrentUser || false,
+							likerNames: comment.likerNames || [],
 							user: {
-								id: commentAuthor.id || 'unknown',
-								name: commentAuthor.name || 'Unknown User',
-								imageUrl: commentAuthor.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${commentAuthor.name ? commentAuthor.name[0].toUpperCase() : 'U'}`,
+								id: commentAuthor.id || comment.user?.id || 'unknown',
+								name: commentAuthor.name || comment.user?.name || 'Unknown User',
+								imageUrl: commentAuthor.image || comment.user?.imageUrl || `https://placehold.co/32x32/A78BFA/ffffff?text=${(commentAuthor.name || comment.user?.name)?.[0]?.toUpperCase() || 'U'}`,
 							},
 							timestamp: formatTimestamp(comment.createdAt),
 							replies: (comment.replies || []).map(reply => {
@@ -57,6 +60,9 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 								const replyUser = reply.user || reply.author || {};
 								return {
 									...reply,
+									likesCount: reply.likesCount || 0,
+									likedByCurrentUser: reply.likedByCurrentUser || false,
+									likerNames: reply.likerNames || [],
 									user: {
 										id: replyUser.id || 'unknown',
 										name: replyUser.name || 'Unknown User',

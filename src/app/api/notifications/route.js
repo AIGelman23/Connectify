@@ -90,8 +90,6 @@ export async function GET(request) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -114,6 +112,27 @@ export async function DELETE(request) {
       );
     }
 
+    const userId = session.user.id;
+
+    // Check if notification exists and belongs to the user
+    const notification = await prisma.notification.findUnique({
+      where: { id: notifId },
+    });
+
+    if (!notification) {
+      return NextResponse.json(
+        { message: "Notification not found." },
+        { status: 404 }
+      );
+    }
+
+    if (notification.recipientId !== userId) {
+      return NextResponse.json(
+        { message: "Not authorized to delete this notification." },
+        { status: 403 }
+      );
+    }
+
     await prisma.notification.delete({
       where: { id: notifId },
     });
@@ -131,8 +150,6 @@ export async function DELETE(request) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -164,7 +181,5 @@ export async function PATCH(request) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

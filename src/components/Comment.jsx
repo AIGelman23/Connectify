@@ -10,17 +10,48 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showNestedReplies, setShowNestedReplies] = useState(false);
 	const [replyText, setReplyText] = useState('');
-	const [isLiked, setIsLiked] = useState(false);
+	const [isLiked, setIsLiked] = useState(reply.likedByCurrentUser || false);
+	const [likesCount, setLikesCount] = useState(reply.likesCount || 0);
+	const [isLiking, setIsLiking] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isContentExpanded, setIsContentExpanded] = useState(false);
 	const replyInputRef = useRef(null);
 	const replyContainerRef = useRef(null);
 
 	const MAX_DEPTH = 3;
+	const MAX_CONTENT_LENGTH = 200;
+	const shouldTruncate = reply.content && reply.content.length > MAX_CONTENT_LENGTH;
 	const hasNestedReplies = reply.replies && reply.replies.length > 0;
 	const canNestDeeper = depth < MAX_DEPTH;
 
-	const handleLike = () => {
-		onLike(reply.id, !isLiked);
-		setIsLiked(!isLiked);
+	// Format "Liked by X and Y others" text
+	const getLikedByText = () => {
+		const names = reply.likerNames || [];
+		if (likesCount === 0 || names.length === 0) return null;
+		if (likesCount === 1 && names.length === 1) return `Liked by ${names[0]}`;
+		if (likesCount === 2 && names.length >= 2) return `Liked by ${names[0]} and ${names[1]}`;
+		if (names.length >= 1) {
+			const othersCount = likesCount - 1;
+			return `Liked by ${names[0]} and ${othersCount} ${othersCount === 1 ? 'other' : 'others'}`;
+		}
+		return null;
+	};
+
+	const handleLike = async () => {
+		if (isLiking) return;
+		setIsLiking(true);
+		const newIsLiked = !isLiked;
+		setIsLiked(newIsLiked);
+		setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+		try {
+			await onLike(reply.id, newIsLiked);
+		} catch (error) {
+			// Revert on error
+			setIsLiked(!newIsLiked);
+			setLikesCount(prev => newIsLiked ? Math.max(0, prev - 1) : prev + 1);
+		} finally {
+			setIsLiking(false);
+		}
 	};
 
 	const handleAddEmoji = (emoji) => {
@@ -32,15 +63,20 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 
 	const handlePostReply = async (e) => {
 		e.preventDefault();
-		if (replyText.trim()) {
-			// If at max depth, don't pass parentId - reply goes to the comment level
-			// Otherwise, nest under this reply
-			const parentId = canNestDeeper ? reply.id : null;
-			await onReply(commentId, replyText, parentId);
-			setReplyText("");
-			setShowReplyInput(false);
-			if (canNestDeeper) {
-				setShowNestedReplies(true);
+		if (replyText.trim() && !isSubmitting) {
+			setIsSubmitting(true);
+			try {
+				// If at max depth, don't pass parentId - reply goes to the comment level
+				// Otherwise, nest under this reply
+				const parentId = canNestDeeper ? reply.id : null;
+				await onReply(commentId, replyText, parentId);
+				setReplyText("");
+				setShowReplyInput(false);
+				if (canNestDeeper) {
+					setShowNestedReplies(true);
+				}
+			} finally {
+				setIsSubmitting(false);
 			}
 		}
 	};
@@ -66,17 +102,34 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 						<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(reply.createdAt)}</span>
 						{isAuthor && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-medium">Author</span>}
 					</div>
-					<p className="text-gray-700 dark:text-slate-200 text-sm mt-0.5 break-words">{reply.content}</p>
+					<p className="text-gray-700 dark:text-slate-200 text-sm mt-0.5 break-words">
+						{shouldTruncate && !isContentExpanded
+							? `${reply.content.slice(0, MAX_CONTENT_LENGTH)}...`
+							: reply.content}
+						{shouldTruncate && (
+							<button
+								onClick={() => setIsContentExpanded(!isContentExpanded)}
+								className="ml-1 text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+							>
+								{isContentExpanded ? 'See less' : 'See more'}
+							</button>
+						)}
+					</p>
 				</div>
-				<div className="flex items-center space-x-3 mt-1 pl-2">
+				<div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 pl-2">
 					<button
 						onClick={handleLike}
+						disabled={isLiking}
 						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${
 							isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
-						}`}
+						} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
 					>
-						<i className={`${isLiked ? 'fas' : 'far'} fa-thumbs-up`}></i>
-						<span>Like{(reply.likesCount || 0) > 0 ? ` (${reply.likesCount})` : ''}</span>
+						{isLiking ? (
+							<i className="fas fa-spinner fa-spin"></i>
+						) : (
+							<i className={`${isLiked ? 'fas' : 'far'} fa-thumbs-up`}></i>
+						)}
+						<span>Like{likesCount > 0 ? ` (${likesCount})` : ''}</span>
 					</button>
 					<button
 						onClick={() => {
@@ -95,15 +148,20 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 							Delete
 						</button>
 					)}
+					{getLikedByText() && (
+						<span className="text-xs text-gray-500 dark:text-slate-400 italic">
+							{getLikedByText()}
+						</span>
+					)}
 				</div>
 				{showReplyInput && (
-					<form onSubmit={handlePostReply} className="mt-2 flex relative" ref={replyContainerRef}>
+					<form onSubmit={handlePostReply} className="mt-2 flex relative animate-fade-in" ref={replyContainerRef}>
 						<input
 							ref={replyInputRef}
 							type="text"
 							value={replyText}
 							onChange={(e) => setReplyText(e.target.value)}
-							placeholder={`Reply to ${reply.user.name}...`}
+							placeholder={`Reply to ${reply.user.name}... (Press Enter to send)`}
 							className="flex-grow p-2 pr-16 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 							autoFocus
 						/>
@@ -114,9 +172,14 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 							/>
 							<button
 								type="submit"
-								className="ml-1 text-blue-600 hover:text-blue-800"
+								disabled={isSubmitting}
+								className={`ml-1 text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
 							>
-								<i className="fas fa-paper-plane"></i>
+								{isSubmitting ? (
+									<i className="fas fa-spinner fa-spin"></i>
+								) : (
+									<i className="fas fa-paper-plane"></i>
+								)}
 							</button>
 						</div>
 					</form>
@@ -140,7 +203,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 									<i className="fas fa-chevron-up mr-1.5"></i>
 									Hide replies
 								</button>
-								<div className="space-y-2 border-l-2 border-gray-200 dark:border-slate-600 pl-3">
+								<div className="space-y-2 border-l-2 border-gray-200 dark:border-slate-600 pl-3 animate-fade-in">
 									{reply.replies.map(nestedReply => (
 										<Reply
 											key={nestedReply.id}
@@ -169,11 +232,30 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showReplies, setShowReplies] = useState(false);
 	const [replyText, setReplyText] = useState('');
-	const [isLiked, setIsLiked] = useState(false);
+	const [isLiked, setIsLiked] = useState(comment.likedByCurrentUser || false);
+	const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
+	const [isLiking, setIsLiking] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isContentExpanded, setIsContentExpanded] = useState(false);
 	const replyInputRef = useRef(null);
 	const replyContainerRef = useRef(null);
 
 	const hasReplies = comment.replies && comment.replies.length > 0;
+	const MAX_CONTENT_LENGTH = 200;
+	const shouldTruncate = comment.content && comment.content.length > MAX_CONTENT_LENGTH;
+
+	// Format "Liked by X and Y others" text
+	const getLikedByText = () => {
+		const names = comment.likerNames || [];
+		if (likesCount === 0 || names.length === 0) return null;
+		if (likesCount === 1 && names.length === 1) return `Liked by ${names[0]}`;
+		if (likesCount === 2 && names.length >= 2) return `Liked by ${names[0]} and ${names[1]}`;
+		if (names.length >= 1) {
+			const othersCount = likesCount - 1;
+			return `Liked by ${names[0]} and ${othersCount} ${othersCount === 1 ? 'other' : 'others'}`;
+		}
+		return null;
+	};
 
 	// Count total replies including nested ones
 	const countAllReplies = (replies) => {
@@ -192,18 +274,35 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 		}
 	};
 
-	const handleLike = () => {
-		onLike(comment.id, !isLiked);
-		setIsLiked(!isLiked);
+	const handleLike = async () => {
+		if (isLiking) return;
+		setIsLiking(true);
+		const newIsLiked = !isLiked;
+		setIsLiked(newIsLiked);
+		setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+		try {
+			await onLike(comment.id, newIsLiked);
+		} catch (error) {
+			// Revert on error
+			setIsLiked(!newIsLiked);
+			setLikesCount(prev => newIsLiked ? Math.max(0, prev - 1) : prev + 1);
+		} finally {
+			setIsLiking(false);
+		}
 	};
 
 	const handlePostReply = async (e) => {
 		e.preventDefault();
-		if (replyText.trim()) {
-			await onReply(comment.id, replyText);
-			setReplyText("");
-			setShowReplyInput(false);
-			setShowReplies(true);
+		if (replyText.trim() && !isSubmitting) {
+			setIsSubmitting(true);
+			try {
+				await onReply(comment.id, replyText);
+				setReplyText("");
+				setShowReplyInput(false);
+				setShowReplies(true);
+			} finally {
+				setIsSubmitting(false);
+			}
 		}
 	};
 
@@ -221,17 +320,34 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 						<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(comment.createdAt)}</span>
 						{isAuthor && <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Author</span>}
 					</div>
-					<p className="text-gray-700 dark:text-slate-200 text-sm mt-1 break-words">{comment.content}</p>
+					<p className="text-gray-700 dark:text-slate-200 text-sm mt-1 break-words">
+						{shouldTruncate && !isContentExpanded
+							? `${comment.content.slice(0, MAX_CONTENT_LENGTH)}...`
+							: comment.content}
+						{shouldTruncate && (
+							<button
+								onClick={() => setIsContentExpanded(!isContentExpanded)}
+								className="ml-1 text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+							>
+								{isContentExpanded ? 'See less' : 'See more'}
+							</button>
+						)}
+					</p>
 				</div>
-				<div className="flex items-center space-x-3 mt-1 pl-2">
+				<div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 pl-2">
 					<button
 						onClick={handleLike}
+						disabled={isLiking}
 						className={`text-xs font-medium hover:underline flex items-center space-x-1 ${
 							isLiked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'
-						}`}
+						} ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
 					>
-						<i className={`${isLiked ? 'fas' : 'far'} fa-thumbs-up`}></i>
-						<span>Like{(comment.likesCount || 0) > 0 ? ` (${comment.likesCount})` : ''}</span>
+						{isLiking ? (
+							<i className="fas fa-spinner fa-spin"></i>
+						) : (
+							<i className={`${isLiked ? 'fas' : 'far'} fa-thumbs-up`}></i>
+						)}
+						<span>Like{likesCount > 0 ? ` (${likesCount})` : ''}</span>
 					</button>
 					<button
 						onClick={() => setShowReplyInput((prev) => !prev)}
@@ -247,15 +363,20 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 							Delete
 						</button>
 					)}
+					{getLikedByText() && (
+						<span className="text-xs text-gray-500 dark:text-slate-400 italic">
+							{getLikedByText()}
+						</span>
+					)}
 				</div>
 				{showReplyInput && (
-					<form onSubmit={handlePostReply} className="mt-2 ml-6 flex relative" ref={replyContainerRef}>
+					<form onSubmit={handlePostReply} className="mt-2 ml-6 flex relative animate-fade-in" ref={replyContainerRef}>
 						<input
 							ref={replyInputRef}
 							type="text"
 							value={replyText}
 							onChange={(e) => setReplyText(e.target.value)}
-							placeholder="Write a reply..."
+							placeholder="Write a reply... (Press Enter to send)"
 							className="flex-grow p-2 pr-16 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 							autoFocus
 						/>
@@ -266,9 +387,14 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 							/>
 							<button
 								type="submit"
-								className="ml-1 text-blue-600 hover:text-blue-800"
+								disabled={isSubmitting}
+								className={`ml-1 text-blue-600 hover:text-blue-800 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
 							>
-								<i className="fas fa-paper-plane"></i>
+								{isSubmitting ? (
+									<i className="fas fa-spinner fa-spin"></i>
+								) : (
+									<i className="fas fa-paper-plane"></i>
+								)}
 							</button>
 						</div>
 					</form>
@@ -292,7 +418,7 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 									<i className="fas fa-chevron-up mr-1.5"></i>
 									Hide replies
 								</button>
-								<div className="space-y-2 border-l-2 border-gray-200 dark:border-slate-600 pl-3">
+								<div className="space-y-2 border-l-2 border-gray-200 dark:border-slate-600 pl-3 animate-fade-in">
 									{comment.replies.map(reply => (
 										<Reply
 											key={reply.id}
