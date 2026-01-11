@@ -5,19 +5,20 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
+import ConnectifyLogo from "@/components/ConnectifyLogo";
 
 // Modern UserCard with Facebook-like visuals
 const UserCard = ({ user, type, onConnect, onAcceptOrReject }) => {
 	return (
-		<div className="bg-white rounded-xl shadow border border-gray-200 p-4 flex flex-row items-center gap-4 w-full max-w-full mx-auto hover:shadow-lg transition">
+		<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-row items-center gap-4 w-full max-w-full mx-auto hover:shadow-lg transition">
 			<img
 				src={user.imageUrl}
 				alt={user.name}
-				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200"
+				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200 dark:border-blue-500"
 			/>
 			<div className="flex-1 min-w-0">
-				<h3 className="text-base font-semibold text-gray-900 truncate">{user.name}</h3>
-				<p className="text-xs text-gray-500 truncate">{user.headline}</p>
+				<h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 truncate">{user.name}</h3>
+				<p className="text-xs text-gray-500 dark:text-slate-400 truncate">{user.headline}</p>
 				<div className="flex flex-row gap-2 mt-2">
 					{type === 'searchResult' && user.connectionStatus === 'CONNECTED' && (
 						<span className="px-3 py-1 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
@@ -89,10 +90,10 @@ const UserCard = ({ user, type, onConnect, onAcceptOrReject }) => {
 const Section = ({ title, users, type, onConnect, onAcceptOrReject }) => {
 	if (users.length === 0) return null;
 	return (
-		<div className="mb-8 bg-white rounded-xl shadow border border-gray-200">
-			<div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-				<span className="text-lg font-semibold text-gray-800">{title}</span>
-				<span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">{users.length}</span>
+		<div className="mb-8 bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700">
+			<div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2">
+				<span className="text-lg font-semibold text-gray-800 dark:text-slate-100">{title}</span>
+				<span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300">{users.length}</span>
 			</div>
 			<div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
 				{users.map((user) => (
@@ -340,13 +341,9 @@ export default function MyNetworkPage() {
 
 	if (status === "loading" || loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#F5F6FA] to-[#E5E6F0] p-4">
-				<div className="flex items-center space-x-2 text-[#6C47FF]">
-					<svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-						<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-						<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-					</svg>
-					Loading your network...
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100 p-4">
+				<div className="flex flex-col items-center space-y-4">
+					<ConnectifyLogo width={350} height={350} className="animate-pulse" />
 				</div>
 			</div>
 		);
@@ -395,9 +392,9 @@ export default function MyNetworkPage() {
 	return (
 		<>
 			<NavBar session={session} router={router} />
-			<div className="min-h-screen bg-gray-100 px-2 sm:px-6 lg:px-12 pt-4 pb-safe">
+			<div className="min-h-screen bg-gray-100 dark:bg-slate-900 px-2 sm:px-6 lg:px-12 pt-4 pb-safe">
 				<div className="max-w-5xl mx-auto">
-					<h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700 mb-6 text-center tracking-tight">
+					<h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-700 dark:text-blue-400 mb-6 text-center tracking-tight">
 						My Network
 					</h1>
 
@@ -424,24 +421,24 @@ export default function MyNetworkPage() {
 					<div className="flex flex-col md:flex-row gap-8">
 						{/* Sidebar: Always visible, Facebook-like left nav */}
 						<aside className="w-full md:w-64 flex-shrink-0 mb-4 md:mb-0">
-							<div className="bg-white rounded-xl shadow border border-gray-200 p-4 flex flex-col space-y-1 w-full">
+							<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-col space-y-1 w-full">
 								{sectionData.map(section => (
 									<button
 										key={section.key}
 										onClick={() => handleSectionChange(section.key)}
 										className={`flex items-center px-4 py-3 rounded-lg transition font-semibold gap-3 text-base w-full
 											${selectedSection === section.key
-												? 'bg-blue-50 text-blue-700 border border-blue-200'
-												: 'hover:bg-gray-100 text-gray-700'
+												? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+												: 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
 											}`}
 									>
-										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-blue-600' : 'text-blue-400'}`}></i>
+										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-blue-600 dark:text-blue-400' : 'text-blue-400 dark:text-blue-500'}`}></i>
 										<span className="flex-1 break-words text-left">{section.title}</span>
 										<span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${section.count > 0
 											? selectedSection === section.key
 												? 'bg-blue-600 text-white'
-												: 'bg-blue-100 text-blue-600'
-											: 'bg-gray-200 text-gray-400'
+												: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'
+											: 'bg-gray-200 dark:bg-slate-600 text-gray-400 dark:text-slate-400'
 											}`}>
 											{section.count}
 										</span>
@@ -454,14 +451,14 @@ export default function MyNetworkPage() {
 						<main className="flex-1">
 							{currentSearchQuery ? (
 								<>
-									<div className="mb-6 bg-white rounded-xl shadow border border-gray-200 px-6 py-4 flex items-center gap-2">
-										<h2 className="text-lg font-semibold text-blue-700">
+									<div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 px-6 py-4 flex items-center gap-2">
+										<h2 className="text-lg font-semibold text-blue-700 dark:text-blue-400">
 											{users.length} results found for "{currentSearchQuery}"
 										</h2>
 									</div>
 									{users.length === 0 && !loading && !error ? (
-										<div className="text-center py-8 bg-white shadow rounded-xl border border-gray-200">
-											<p className="text-blue-600 text-base">No users found matching "{currentSearchQuery}".</p>
+										<div className="text-center py-8 bg-white dark:bg-slate-800 shadow rounded-xl border border-gray-200 dark:border-slate-700">
+											<p className="text-blue-600 dark:text-blue-400 text-base">No users found matching "{currentSearchQuery}".</p>
 										</div>
 									) : (
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -474,8 +471,8 @@ export default function MyNetworkPage() {
 							) : (
 								<>
 									{sectionData.find(s => s.key === selectedSection)?.users.length === 0 && (
-										<div className="text-center py-8 bg-white shadow rounded-xl border border-gray-200">
-											<p className="text-blue-600 text-base">
+										<div className="text-center py-8 bg-white dark:bg-slate-800 shadow rounded-xl border border-gray-200 dark:border-slate-700">
+											<p className="text-blue-600 dark:text-blue-400 text-base">
 												{selectedSection === 'received' && "No received requests."}
 												{selectedSection === 'sent' && "No sent requests."}
 												{selectedSection === 'connections' && "You have no connections yet."}

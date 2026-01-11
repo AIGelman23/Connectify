@@ -39,29 +39,30 @@ model ConnectionRequest {
 }
 
 model User {
-  id                         String              @id @default(uuid())
+  id                         String               @id @default(uuid())
   name                       String?
-  email                      String              @unique
+  email                      String               @unique
   hashedPassword             String?
   image                      String?
-  role                       String              @default("USER")
-  createdAt                  DateTime            @default(now())
+  role                       String               @default("USER")
+  createdAt                  DateTime             @default(now())
   resetToken                 String?
   resetTokenExpiry           DateTime?
   resetPasswordToken         String?
   resetPasswordExpires       DateTime?
-  receivedConnectionRequests ConnectionRequest[] @relation("ReceivedConnectionRequests")
-  sentConnectionRequests     ConnectionRequest[] @relation("SentConnectionRequests")
+  receivedConnectionRequests ConnectionRequest[]  @relation("ReceivedConnectionRequests")
+  sentConnectionRequests     ConnectionRequest[]  @relation("SentConnectionRequests")
   sentMessages               Message[]
-  taggedInPosts              TaggedFriend[]      @relation("UserTaggedFriends")
+  taggedInPosts              TaggedFriend[]       @relation("UserTaggedFriends")
   comments                   Comment[]
-  notificationsSent          Notification[]      @relation("SenderNotifications")
-  notificationsReceived      Notification[]      @relation("UserNotifications")
+  notificationsSent          Notification[]       @relation("SenderNotifications")
+  notificationsReceived      Notification[]       @relation("UserNotifications")
   posts                      Post[]
   profile                    Profile?
-  conversationsJoined        Conversation[]      @relation("ConversationParticipants")
+  conversationsJoined        Conversation[]       @relation("ConversationParticipants")
   securityAnswers            UserSecurityAnswer[]
-  passwordResets             PasswordReset[]     // <--- Add this line
+  passwordResets             PasswordReset[] // <--- Add this line
+  replies                    Reply[]              @relation("UserReplies") // <--- Add this line
 }
 
 model Skill {
@@ -165,8 +166,25 @@ model Comment {
   replies         Comment[] @relation("CommentReplies")
   post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replyThreads    Reply[] // All direct replies to this comment
 
   @@map("comments")
+}
+
+model Reply {
+  id        String   @id @default(uuid())
+  content   String
+  authorId  String
+  commentId String? // If this reply is to a comment
+  parentId  String? // If this reply is to another reply
+  createdAt DateTime @default(now())
+  author    User     @relation("UserReplies", fields: [authorId], references: [id], onDelete: Cascade) // <--- Add relation name
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  parent    Reply?   @relation("ReplyToReply", fields: [parentId], references: [id])
+  replies   Reply[]  @relation("ReplyToReply") // Nested replies
+
+  @@index([commentId])
+  @@index([parentId])
 }
 
 model Notification {
@@ -194,18 +212,18 @@ model PasswordReset {
 }
 
 model SecurityQuestion {
-  id      String   @id @default(uuid())
-  question String  @unique
-  answers UserSecurityAnswer[]
+  id       String               @id @default(uuid())
+  question String               @unique
+  answers  UserSecurityAnswer[]
 }
 
 model UserSecurityAnswer {
-  id                  String   @id @default(uuid())
-  userId              String
-  securityQuestionId  String
-  answerHash          String
-  user                User     @relation(fields: [userId], references: [id])
-  securityQuestion    SecurityQuestion @relation(fields: [securityQuestionId], references: [id])
+  id                 String           @id @default(uuid())
+  userId             String
+  securityQuestionId String
+  answerHash         String
+  user               User             @relation(fields: [userId], references: [id])
+  securityQuestion   SecurityQuestion @relation(fields: [securityQuestionId], references: [id])
 
   @@unique([userId, securityQuestionId])
 }

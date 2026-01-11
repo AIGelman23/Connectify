@@ -21,6 +21,109 @@ function formatTimestamp(timestamp) {
   return date.toLocaleDateString();
 }
 
+// Helper to recursively nest replies for a comment or reply
+async function getNestedRepliesForReply(parentId) {
+  // DEBUG: Log parentId to trace recursion
+  // console.log("Fetching nested replies for parentId:", parentId);
+  const replies = await prisma.reply.findMany({
+    where: { parentId },
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // DEBUG: Log found replies
+  // console.log("Replies found for parentId", parentId, replies.map(r => r.id));
+
+  return Promise.all(
+    replies.map(async (reply) => ({
+      id: reply.id,
+      content: reply.content,
+      createdAt: reply.createdAt,
+      likes: 0,
+      parentId: reply.parentId,
+      user: {
+        id: reply.author.id,
+        name: reply.author.name,
+        imageUrl:
+          reply.author.image ||
+          `https://placehold.co/32x32/3B82F6/FFFFFF?text=${
+            reply.author.name ? reply.author.name[0].toUpperCase() : "U"
+          }`,
+      },
+      replies: await getNestedRepliesForReply(reply.id), // Recursively fetch nested replies
+    }))
+  );
+}
+
+async function getNestedReplies(commentId) {
+  // Fetch all replies for this comment, not just top-level
+  const allReplies = await prisma.reply.findMany({
+    where: { commentId },
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // DEBUG: Log all replies fetched for this comment
+  console.log("All replies for comment", commentId, allReplies.map(r => ({
+    id: r.id,
+    parentId: r.parentId,
+    content: r.content
+  })));
+
+  // Build a map of replies by id
+  const replyMap = new Map();
+  allReplies.forEach((reply) => {
+    replyMap.set(reply.id, {
+      id: reply.id,
+      content: reply.content,
+      createdAt: reply.createdAt,
+      likes: 0,
+      parentId: reply.parentId,
+      user: {
+        id: reply.author.id,
+        name: reply.author.name,
+        imageUrl:
+          reply.author.image ||
+          `https://placehold.co/32x32/3B82F6/FFFFFF?text=${
+            reply.author.name ? reply.author.name[0].toUpperCase() : "U"
+          }`,
+      },
+      replies: [],
+    });
+  });
+
+  // Build the nested structure
+  const topLevelReplies = [];
+  replyMap.forEach((reply) => {
+    if (reply.parentId && replyMap.has(reply.parentId)) {
+      replyMap.get(reply.parentId).replies.push(reply);
+    } else if (!reply.parentId) {
+      topLevelReplies.push(reply);
+    }
+  });
+
+  // DEBUG: Log the nested structure for this comment
+  console.log("Nested replies for comment", commentId, JSON.stringify(topLevelReplies, null, 2));
+
+  return topLevelReplies;
+}
+
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
@@ -228,7 +331,7 @@ export async function POST(request) {
       },
       imageUrl: postWithTags.imageUrl,
       videoUrl: postWithTags.videoUrl,
-      comments: postWithTags.comments.map((comment) => ({
+      comments: await Promise.all(postWithTags.comments.map(async (comment) => ({
         ...comment,
         user: {
           id: comment.author.id,
@@ -240,20 +343,8 @@ export async function POST(request) {
             }`,
         },
         timestamp: formatTimestamp(comment.createdAt),
-        replies: (comment.replies || []).map((reply) => ({
-          ...reply,
-          user: {
-            id: reply.author.id,
-            name: reply.author.name,
-            imageUrl:
-              reply.author.image ||
-              `https://placehold.co/24x24/A78BFA/ffffff?text=${
-                reply.author.name ? reply.author.name[0].toUpperCase() : "U"
-              }`,
-          },
-          timestamp: formatTimestamp(reply.createdAt),
-        })),
-      })),
+        replies: await getNestedReplies(comment.id), // <-- always use this!
+      }))),
       taggedFriends: formattedTaggedFriends,
     };
 
@@ -387,55 +478,58 @@ export async function GET(request) {
     const hasMore = posts.length > take;
     const dataToReturn = hasMore ? posts.slice(0, take) : posts;
 
-    const formattedPosts = dataToReturn.map((post) => {
-      // Format tagged friends for frontend
-      const formattedTaggedFriends = (post.taggedFriends || []).map((tf) => ({
-        id: tf.user.id,
-        name: tf.user.name,
-        imageUrl: tf.user.profile?.profilePictureUrl || tf.user.image || null,
-      }));
+    const formattedPosts = await Promise.all(
+      dataToReturn.map(async (post) => {
+        // Format tagged friends for frontend
+        const formattedTaggedFriends = (post.taggedFriends || []).map((tf) => ({
+          id: tf.user.id,
+          name: tf.user.name,
+          imageUrl: tf.user.profile?.profilePictureUrl || tf.user.image || null,
+        }));
 
-      return {
-        ...post,
-        author: {
-          id: post.author.id,
-          name: post.author.name,
-          imageUrl:
-            post.author.image ||
-            `https://placehold.co/40x40/A78BFA/ffffff?text=${
-              post.author.name ? post.author.name[0].toUpperCase() : "U"
-            }`,
-          headline: post.author.profile?.headline || "No headline available",
-        },
-        comments: post.comments.map((comment) => ({
-          ...comment,
-          user: {
-            id: comment.author.id,
-            name: comment.author.name,
+        const comments = await Promise.all(
+          post.comments.map(async (comment) => {
+            const replies = await getNestedReplies(comment.id); // <-- always use this!
+            return {
+              ...comment,
+              user: {
+                id: comment.author.id,
+                name: comment.author.name,
+                imageUrl:
+                  comment.author.image ||
+                  `https://placehold.co/32x32/A78BFA/ffffff?text=${
+                    comment.author.name ? comment.author.name[0].toUpperCase() : "U"
+                  }`,
+              },
+              timestamp: formatTimestamp(comment.createdAt),
+              replies,
+            };
+          })
+        );
+
+        // DEBUG: Log the full comments structure for this post
+        // console.log("Post", post.id, "comments with nested replies:", JSON.stringify(comments, null, 2));
+
+        return {
+          ...post,
+          author: {
+            id: post.author.id,
+            name: post.author.name,
             imageUrl:
-              comment.author.image ||
-              `https://placehold.co/32x32/A78BFA/ffffff?text=${
-                comment.author.name ? comment.author.name[0].toUpperCase() : "U"
+              post.author.image ||
+              `https://placehold.co/40x40/A78BFA/ffffff?text=${
+                post.author.name ? post.author.name[0].toUpperCase() : "U"
               }`,
+            headline: post.author.profile?.headline || "No headline available",
           },
-          timestamp: formatTimestamp(comment.createdAt),
-          replies: (comment.replies || []).map((reply) => ({
-            ...reply,
-            user: {
-              id: reply.author.id,
-              name: reply.author.name,
-              imageUrl:
-                reply.author.image ||
-                `https://placehold.co/24x24/A78BFA/ffffff?text=${
-                  reply.author.name ? reply.author.name[0].toUpperCase() : "U"
-                }`,
-            },
-            timestamp: formatTimestamp(reply.createdAt),
-          })),
-        })),
-        taggedFriends: formattedTaggedFriends,
-      };
-    });
+          comments,
+          taggedFriends: formattedTaggedFriends,
+        };
+      })
+    );
+
+    // DEBUG: Log the final posts structure
+    // console.log("Formatted posts with nested replies:", JSON.stringify(formattedPosts, null, 2));
 
     return NextResponse.json(
       { posts: formattedPosts, hasMore: hasMore },
@@ -723,6 +817,33 @@ export async function PATCH(request) {
       return NextResponse.json(
         { message: "Reply added successfully.", reply: newReply },
         { status: 201 }
+      );
+    } else if (action === "delete_post") {
+      // --- Delete post ---
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required for deleting a post." },
+          { status: 400 }
+        );
+      }
+      // Only allow author to delete
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      if (!post) {
+        return NextResponse.json(
+          { message: "Post not found." },
+          { status: 404 }
+        );
+      }
+      if (post.authorId !== userId) {
+        return NextResponse.json(
+          { message: "Not authorized to delete this post." },
+          { status: 403 }
+        );
+      }
+      await prisma.post.delete({ where: { id: postId } });
+      return NextResponse.json(
+        { message: "Post deleted successfully." },
+        { status: 200 }
       );
     } else {
       return NextResponse.json(

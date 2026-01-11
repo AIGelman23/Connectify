@@ -20,9 +20,9 @@ export default function EditProfileExperience({
 		}
 	};
 	return (
-		<section className="p-6 rounded-lg shadow-sm">
+		<section className="p-6 rounded-lg shadow-sm bg-white dark:bg-slate-800">
 			<div className="flex justify-between items-center mb-6">
-				<h2 className="text-2xl font-semibold">Experience</h2>
+				<h2 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Experience</h2>
 				{isEditable && (
 					<button
 						type="button"
@@ -35,16 +35,16 @@ export default function EditProfileExperience({
 			</div>
 			<div className="space-y-4">
 				{currentProfileState.experience?.length === 0 ? (
-					<p className="text-gray-600 text-center py-4">
+					<p className="text-gray-600 dark:text-slate-400 text-center py-4">
 						No experience added. {isEditable && 'Click "Add New" to get started.'}
 					</p>
 				) : (
 					currentProfileState.experience.map((exp) => (
-						<div key={exp.id} className="rounded-lg shadow p-4">
-							<p className="font-semibold">{exp.title}</p>
-							<p className="text-sm">{exp.company}</p>
-							<p className="text-xs">{exp.location}</p>
-							<p className="text-xs">
+						<div key={exp.id} className="rounded-lg shadow p-4 bg-gray-50 dark:bg-slate-700">
+							<p className="font-semibold text-gray-900 dark:text-slate-100">{exp.title}</p>
+							<p className="text-sm text-gray-700 dark:text-slate-300">{exp.company}</p>
+							<p className="text-xs text-gray-600 dark:text-slate-400">{exp.location}</p>
+							<p className="text-xs text-gray-500 dark:text-slate-400">
 								{formatDate(exp.startDate)} – {exp.isCurrent ? 'Present' : formatDate(exp.endDate)}
 							</p>
 							{isEditable && (
@@ -52,7 +52,7 @@ export default function EditProfileExperience({
 									<button
 										type="button"
 										onClick={() => openExperienceModal(exp)}
-										className="text-[#1877f2] hover:text-[#166fe5] p-1 rounded-full hover:bg-indigo-50 transition"
+										className="text-[#1877f2] dark:text-blue-400 hover:text-[#166fe5] dark:hover:text-blue-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-slate-600 transition"
 										title="Edit Experience"
 									>
 										<i className="fas fa-edit"></i>
@@ -60,7 +60,7 @@ export default function EditProfileExperience({
 									<button
 										type="button"
 										onClick={() => handleDeleteExperience(exp.id)}
-										className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition"
+										className="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-600 transition"
 										title="Delete Experience"
 									>
 										<i className="fas fa-trash-alt"></i>

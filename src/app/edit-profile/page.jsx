@@ -16,6 +16,7 @@ import EditProfileEducation from "../../components/profile/EditProfileEducation"
 import EditProfileSkills from "../../components/profile/EditProfileSkills";
 
 import { v4 as uuidv4 } from 'uuid'; // Import uuid for generating unique IDs
+import ConnectifyLogo from "../../components/ConnectifyLogo";
 
 export default function EditProfilePage() {
 	const { data: session, status, update } = useSession();
@@ -668,10 +669,9 @@ export default function EditProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
 				<div className="flex flex-col items-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-					<p className="mt-4 text-lg text-gray-700">Loading profile...</p>
+					<ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
 				</div>
 			</div>
 		);

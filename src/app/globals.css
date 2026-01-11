@@ -687,10 +687,10 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Force white background and black text on auth input fields */
-input[type="email"],
-input[type="password"],
-input[type="text"] {
+/* Force white background and black text on auth input fields - only on auth pages */
+.auth-page input[type="email"],
+.auth-page input[type="password"],
+.auth-page input[type="text"] {
   background-color: white !important;
   color: #111827 !important; /* gray-900 */
 }
@@ -701,22 +701,14 @@ input[type="text"] {
   color: #111827 !important;
 }
 
-/* Override any dark mode or theme styles on inputs */
-input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(
-    [type="button"]
-  ) {
-  background-color: white !important;
-  color: #111827 !important;
-}
-
-/* Ensure placeholder text remains visible */
-input::placeholder {
+/* Ensure placeholder text remains visible on auth pages */
+.auth-page input::placeholder {
   color: #9ca3af !important; /* gray-400 */
   opacity: 1 !important;
 }
 
-/* Override any focus states that might change colors */
-input:focus {
+/* Override any focus states that might change colors on auth pages */
+.auth-page input:focus {
   background-color: white !important;
   color: #111827 !important;
 }

@@ -245,7 +245,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 	};
 
 	return (
-		<div key={post.id} className="bg-white rounded-2xl shadow-md border border-gray-200 mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg">
+		<div key={post.id} className="post-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-200 dark:border-slate-700 mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg dark:shadow-slate-900/30">
 			{/* Header */}
 			<div className="flex items-center justify-between px-4 pt-4 pb-2">
 				<div className="flex items-center">
@@ -262,18 +262,18 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 						/>
 					</a>
 					<div className="ml-3">
-						<a href={post.author?.profileUrl || '#'} className="font-semibold text-gray-900 leading-tight hover:underline focus:underline outline-none text-[16px]">
+						<a href={post.author?.profileUrl || '#'} className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline focus:underline outline-none text-[16px]">
 							{post.author?.name}
 						</a>
 						{/* --- Show tagged friends if present --- */}
 						{Array.isArray(post.taggedFriends) && post.taggedFriends.length > 0 && (
-							<div className="text-xs text-gray-500 mt-0.5">
+							<div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
 								<span>
 									with{" "}
 									{post.taggedFriends.map((friend, idx) => (
 										<span key={friend.id || friend._id || idx}>
 											{idx > 0 && ", "}
-											<span className="font-medium text-blue-700">
+											<span className="font-medium text-blue-700 dark:text-blue-400">
 												{friend.name}
 											</span>
 										</span>
@@ -281,7 +281,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 								</span>
 							</div>
 						)}
-						<div className="flex items-center space-x-1 text-xs text-gray-500 mt-0.5">
+						<div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-slate-400 mt-0.5">
 							<span title={new Date(post.createdAt).toLocaleString()}>{getTimestamp()}</span>
 							<span aria-hidden="true">·</span>
 							<span title="Public" className="inline-flex items-center">
@@ -293,24 +293,24 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 				{/* Menu button */}
 				<div className="relative">
 					<button
-						className="p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+						className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
 						aria-label="Post actions"
 						onClick={() => setShowMenu((v) => !v)}
 					>
 						<svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><g fillRule="evenodd"><circle cx="4" cy="10" r="2" /><circle cx="10" cy="10" r="2" /><circle cx="16" cy="10" r="2" /></g></svg>
 					</button>
 					{showMenu && (
-						<div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+						<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
 							{sessionUserId === post.author?.id && (
 								<button
-									className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+									className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
 									onClick={() => { setIsEditing(true); setShowMenu(false); }}
 								>
 									Edit Post
 								</button>
 							)}
 							<button
-								className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+								className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
 								onClick={() => { handleToggleNotifications(); setShowMenu(false); }}
 							>
 								{notificationsOff ? "Turn On Notifications" : "Turn Off Notifications"}
@@ -324,7 +324,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			{isEditing ? (
 				<div className="px-4 pb-2">
 					<textarea
-						className="w-full border border-gray-300 rounded-lg p-2 mb-2"
+						className="w-full border border-gray-300 dark:border-slate-600 rounded-lg p-2 mb-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 						value={editContent}
 						onChange={e => setEditContent(e.target.value)}
 						rows={3}
@@ -339,22 +339,22 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 							{editLoading ? "Saving..." : "Save"}
 						</button>
 						<button
-							className="bg-gray-200 text-gray-700 px-4 py-1 rounded hover:bg-gray-300"
+							className="bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-200 px-4 py-1 rounded hover:bg-gray-300 dark:hover:bg-slate-500"
 							onClick={() => setIsEditing(false)}
 							disabled={editLoading}
 						>
 							Cancel
 						</button>
 					</div>
-					{editError && <div className="text-red-500 text-sm mt-1">{editError}</div>}
+					{editError && <div className="text-red-500 dark:text-red-400 text-sm mt-1">{editError}</div>}
 				</div>
 			) : (
 				<>
 					{post.content && (
-						<div className="px-4 pb-2 text-gray-900 text-[15px] leading-relaxed whitespace-pre-line">
+						<div className="px-4 pb-2 text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed whitespace-pre-line">
 							{post.content}
 							{post.updatedAt && post.updatedAt !== post.createdAt && (
-								<span className="ml-2 text-xs text-gray-400">(edited)</span>
+								<span className="ml-2 text-xs text-gray-400 dark:text-slate-500">(edited)</span>
 							)}
 						</div>
 					)}
@@ -392,7 +392,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			)}
 
 			{/* Reactions/Stats Row */}
-			<div className="flex items-center justify-between px-4 pt-2 pb-1 text-xs text-gray-500 border-b border-gray-100">
+			<div className="flex items-center justify-between px-4 pt-2 pb-1 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
 				<div className="flex items-center space-x-2">
 					<span className="flex items-center space-x-1">
 						{/* Like SVG */}
@@ -409,7 +409,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 			<div className="flex justify-between items-center px-2 py-1 gap-2">
 				<button
 					onClick={handleLike}
-					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
+					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
 				>
 					{/* Like SVG */}
 					<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="currentColor" /></svg>
@@ -417,7 +417,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 				</button>
 				<button
 					onClick={toggleCommentSection}
-					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
+					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
 				>
 					{/* Comment SVG */}
 					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3C5.58 3 2 6.13 2 10c0 1.61.7 3.09 1.9 4.27-.13.47-.5 1.47-1.2 2.36-.13.16-.02.4.18.4.06 0 .12-.02.17-.06 1.1-.8 2.1-1.2 2.6-1.36C7.1 16.44 8.5 17 10 17c4.42 0 8-3.13 8-7s-3.58-7-8-7z" fill="currentColor" /></svg>
@@ -425,7 +425,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 				</button>
 				<button
 					type="button"
-					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
+					className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1"
 					onClick={() => handlePostTypeAction("share")}
 				>
 					{/* Share SVG */}
@@ -450,7 +450,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 							value={commentInputText}
 							onChange={(e) => setCommentInputText(e.target.value)}
 							placeholder="Write a comment..."
-							className="w-full pl-4 pr-16 py-2 border border-gray-200 rounded-full bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
+							className="w-full pl-4 pr-16 py-2 border border-gray-200 dark:border-slate-600 rounded-full bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm placeholder-gray-500 dark:placeholder-slate-400"
 						/>
 						<div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
 							<EmojiSelector
@@ -515,7 +515,7 @@ export default function PostCard({ post, sessionUserId, setPostError, openReplyM
 									))}
 							</div>
 						) : (
-							<p className="text-gray-500 text-sm text-center">No comments yet. Be the first to comment!</p>
+							<p className="text-gray-500 dark:text-slate-400 text-sm text-center">No comments yet. Be the first to comment!</p>
 						)}
 					</div>
 				)}

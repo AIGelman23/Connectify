@@ -15,30 +15,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [securityQuestions, setSecurityQuestions] = useState([]);
-  const [selectedQuestions, setSelectedQuestions] = useState([
-    { id: '', answer: '' },
-    { id: '', answer: '' },
-  ]);
   const router = useRouter();
-
-  useEffect(() => {
-    // Fetch security questions from API
-    fetch('/api/security-questions')
-      .then(res => res.json())
-      .then(data => setSecurityQuestions(data.questions || []));
-  }, []);
-
-  const handleQuestionChange = (idx, id) => {
-    setSelectedQuestions(qs =>
-      qs.map((q, i) => (i === idx ? { ...q, id } : q))
-    );
-  };
-  const handleAnswerChange = (idx, answer) => {
-    setSelectedQuestions(qs =>
-      qs.map((q, i) => (i === idx ? { ...q, answer } : q))
-    );
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,18 +23,12 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // Add security questions/answers to signup payload
-      const securityAnswers = selectedQuestions.map(q => ({
-        questionId: q.id,
-        answer: q.answer,
-      }));
-
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, name, securityAnswers }),
+        body: JSON.stringify({ email, password, name }),
       });
 
       const data = await response.json();
@@ -223,37 +194,6 @@ export default function SignUpPage() {
                       </svg>
                     )}
                   </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Security Questions
-                </label>
-                <div className="space-y-4 mt-2">
-                  {[0, 1].map(idx => (
-                    <div key={idx} className="flex flex-col gap-2">
-                      <select
-                        required
-                        value={selectedQuestions[idx].id}
-                        onChange={e => handleQuestionChange(idx, e.target.value)}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-gray-900"
-                      >
-                        <option value="">Select a question...</option>
-                        {securityQuestions.map(q => (
-                          <option key={q.id} value={q.id}>{q.question}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        required
-                        value={selectedQuestions[idx].answer}
-                        onChange={e => handleAnswerChange(idx, e.target.value)}
-                        placeholder="Your answer"
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-gray-900"
-                      />
-                    </div>
-                  ))}
                 </div>
               </div>
 

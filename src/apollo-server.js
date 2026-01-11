@@ -1,31 +1,45 @@
-// src/index.js
+// src/apollo-server.js
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
 import prisma from "./lib/prisma.js";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers.js";
 
-// Create the Apollo Server instance
 const server = new ApolloServer({
   typeDefs,
   resolvers,
 });
 
-// Start the server
-async function startServer() {
-  const { url } = await startStandaloneServer(server, {
-    listen: { port: 4000 },
-    context: async ({ req, res }) => ({
-      // This context object is passed to all your resolvers,
-      // making `prisma` client accessible
-      prisma,
-      // You can also add authentication information here
-      // user: getUserFromAuthHeader(req.headers.authorization),
-    }),
-  });
+const DEFAULT_PORT = parseInt(
+  process.env.APOLLO_PORT || process.env.PORT || "4000",
+  10
+);
 
-  console.log(`🚀 Server ready at ${url}`);
-  console.log(`Explore your API at ${url}`);
+async function startServer() {
+  let port = DEFAULT_PORT;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const { url } = await startStandaloneServer(server, {
+        listen: { port },
+        context: async ({ req, res }) => ({ prisma }),
+      });
+
+      console.log(`🚀 Server ready at ${url}`);
+      return;
+    } catch (err) {
+      const msg = String(err?.message || err);
+      if (msg.includes("EADDRINUSE") || err?.code === "EADDRINUSE") {
+        console.warn(`Port ${port} in use, trying ${port + 1}...`);
+        port += 1;
+        continue;
+      }
+      console.error(err);
+      process.exit(1);
+    }
+  }
+
+  console.error("Failed to start Apollo server after multiple attempts");
+  process.exit(1);
 }
 
 startServer();

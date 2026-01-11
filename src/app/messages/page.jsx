@@ -516,14 +516,14 @@ export default function MessagingPage() {
 
 
 	return (
-		<div className="min-h-screen bg-gray-100 font-sans antialiased text-gray-900 flex flex-col">
+		<div className="min-h-screen bg-gray-100 dark:bg-slate-900 font-sans antialiased text-gray-900 dark:text-slate-100 flex flex-col">
 			<Navbar session={session} router={router} />
 
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left Sidebar - Conversations List */}
-				<aside className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-					<div className="p-4 border-b border-gray-200 flex justify-between items-center">
-						<h2 className="text-xl font-bold text-gray-800">Messages</h2>
+				<aside className="w-80 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shadow-sm">
+					<div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+						<h2 className="text-xl font-bold text-gray-800 dark:text-slate-100">Messages</h2>
 						<div className="flex space-x-2">
 							{selectedConversationIds.length > 0 && (
 								<button
@@ -545,11 +545,11 @@ export default function MessagingPage() {
 							</button>
 						</div>
 					</div>
-					<div className="p-4 border-b border-gray-200">
+					<div className="p-4 border-b border-gray-200 dark:border-slate-700">
 						<input
 							type="text"
 							placeholder="Search conversations..."
-							className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
@@ -573,7 +573,7 @@ export default function MessagingPage() {
 									return (
 										<li
 											key={conversation.id}
-											className={`flex items-center p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}
+											className={`flex items-center p-4 border-b border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-indigo-600' : ''}`}
 											onClick={() => {
 												if (!isMultiSelected) { // Only change selection if not in multi-select mode
 													setSelectedConversation(conversation);
@@ -611,12 +611,12 @@ export default function MessagingPage() {
 												onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/40x40/A78BFA/ffffff?text=${name[0].toUpperCase()}`; }}
 											/>
 											<div className="flex-1 overflow-hidden">
-												<h3 className="font-semibold text-gray-800 truncate">{name}</h3>
+												<h3 className="font-semibold text-gray-800 dark:text-slate-100 truncate">{name}</h3>
 												{conversation.lastMessage && (
-													<p className="text-sm text-gray-500 truncate">{conversation.lastMessage}</p>
+													<p className="text-sm text-gray-500 dark:text-slate-400 truncate">{conversation.lastMessage}</p>
 												)}
 											</div>
-											<span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+											<span className="text-xs text-gray-400 dark:text-slate-500 ml-2 flex-shrink-0">
 												{conversation.timestamp ? new Date(conversation.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
 											</span>
 										</li>
@@ -628,15 +628,15 @@ export default function MessagingPage() {
 				</aside>
 
 				{/* Right Panel - Chat Window */}
-				<main className="flex-1 flex flex-col bg-gray-50">
+				<main className="flex-1 flex flex-col bg-gray-50 dark:bg-slate-900">
 					{!selectedConversation ? (
-						<div className="flex-1 flex items-center justify-center text-gray-500 text-lg">
+						<div className="flex-1 flex items-center justify-center text-gray-500 dark:text-slate-400 text-lg">
 							Select a conversation to start chatting.
 						</div>
 					) : (
 						<>
 							{/* Chat Header */}
-							<div className="sticky top-0 z-10 bg-white p-4 border-b border-gray-200 flex items-center justify-between shadow-sm">
+							<div className="sticky top-0 z-10 bg-white dark:bg-slate-800 p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between shadow-sm">
 								<div className="flex items-center">
 									<img
 										src={getParticipantNameAndImage(selectedConversation).imageUrl}
@@ -645,9 +645,9 @@ export default function MessagingPage() {
 										onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/40x40/A78BFA/ffffff?text=${getParticipantNameAndImage(selectedConversation).name[0].toUpperCase()}`; }}
 									/>
 									<div>
-										<h3 className="font-bold text-gray-800">{getParticipantNameAndImage(selectedConversation).name}</h3>
+										<h3 className="font-bold text-gray-800 dark:text-slate-100">{getParticipantNameAndImage(selectedConversation).name}</h3>
 										{selectedConversation.participants.length > 2 && (
-											<p className="text-sm text-gray-500 truncate">
+											<p className="text-sm text-gray-500 dark:text-slate-400 truncate">
 												{getParticipantNameAndImage(selectedConversation).participantNames}
 											</p>
 										)}
@@ -666,16 +666,16 @@ export default function MessagingPage() {
 										<div
 											className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow ${message.senderId === session.user.id
 												? 'bg-indigo-600 text-white rounded-br-none'
-												: 'bg-white text-gray-800 rounded-bl-none'
+												: 'bg-white dark:bg-slate-700 text-gray-800 dark:text-slate-100 rounded-bl-none'
 												}`}
 										>
 											{message.senderId !== session.user.id && (
-												<p className="font-semibold text-xs mb-1">
+												<p className="font-semibold text-xs mb-1 text-gray-600 dark:text-slate-300">
 													{message.sender?.name || 'Unknown'}
 												</p>
 											)}
 											<p className="text-sm">{message.content}</p>
-											<span className={`block text-right text-xs mt-1 ${message.senderId === session.user.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+											<span className={`block text-right text-xs mt-1 ${message.senderId === session.user.id ? 'text-indigo-200' : 'text-gray-400 dark:text-slate-400'}`}>
 												{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
 											</span>
 										</div>
@@ -684,11 +684,11 @@ export default function MessagingPage() {
 							</div>
 
 							{/* Message Input */}
-							<form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-gray-200 flex items-center shadow-md">
+							<form onSubmit={handleSendMessage} className="bg-white dark:bg-slate-800 p-4 border-t border-gray-200 dark:border-slate-700 flex items-center shadow-md">
 								<input
 									type="text"
 									placeholder="Type a message..."
-									className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-1 focus:ring-indigo-500"
+									className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-full focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400"
 									value={messageInput}
 									onChange={(e) => setMessageInput(e.target.value)}
 								/>
@@ -708,15 +708,15 @@ export default function MessagingPage() {
 			{/* Confirmation Delete Modal */}
 			{isConfirmDeleteModalOpen && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-					<div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-sm w-full animate-fade-in-up">
-						<h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Deletion</h3>
-						<p className="text-gray-700 mb-6">
+					<div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 m-4 max-w-sm w-full animate-fade-in-up">
+						<h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-4">Confirm Deletion</h3>
+						<p className="text-gray-700 dark:text-slate-300 mb-6">
 							Are you sure you want to delete {conversationToDelete.length > 1 ? `${conversationToDelete.length} conversations` : "this conversation"}? This action cannot be undone.
 						</p>
 						<div className="flex justify-end space-x-3">
 							<button
 								onClick={closeConfirmDeleteModal}
-								className="px-4 py-2 rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition"
+								className="px-4 py-2 rounded-lg text-gray-600 dark:text-slate-300 border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 transition"
 							>
 								Cancel
 							</button>
@@ -873,21 +873,21 @@ function NewConversationModal({
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 animate-scale-in">
-				<h3 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Start New Conversation</h3>
+		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+			<div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full max-w-lg p-6 animate-scale-in">
+				<h3 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-4 border-b dark:border-slate-700 pb-2">Start New Conversation</h3>
 				<div className="space-y-4">
 					<div>
-						<label htmlFor="friendSearch" className="block text-sm font-semibold text-gray-700 mb-1">Search for friends</label>
+						<label htmlFor="friendSearch" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">Search for friends</label>
 						<input
 							type="text"
 							id="friendSearch"
-							className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 							placeholder="Search by name or email"
 							value={newChatFriendSearchTerm}
 							onChange={handleSearchChange}
 						/>
-						{newChatFriendsError && <p className="text-red-500 text-xs mt-1">{newChatFriendsError}</p>}
+						{newChatFriendsError && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{newChatFriendsError}</p>}
 					</div>
 
 					{newChatLoadingFriends ? (
@@ -895,18 +895,18 @@ function NewConversationModal({
 							<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
 						</div>
 					) : (
-						<div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 custom-scrollbar">
+						<div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg p-2 custom-scrollbar">
 							{newChatSearchableFriends.length === 0 && newChatFriendSearchTerm.length >= 2 ? (
-								<p className="text-gray-500 text-sm text-center py-2">No matching users found.</p>
+								<p className="text-gray-500 dark:text-slate-400 text-sm text-center py-2">No matching users found.</p>
 							) : newChatSearchableFriends.length === 0 && newChatFriendSearchTerm.length < 2 ? (
-								<p className="text-gray-500 text-sm text-center py-2">Start typing to search for friends.</p>
+								<p className="text-gray-500 dark:text-slate-400 text-sm text-center py-2">Start typing to search for friends.</p>
 							) : (
 								newChatSearchableFriends.map(friend => {
 									const isAlreadySelected = selectedFriends.some(f => f.id === friend.id);
 									return (
 										<div
 											key={friend.id}
-											className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md cursor-pointer"
+											className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-md cursor-pointer"
 											onClick={() => handleToggleFriend(friend)}
 										>
 											<div className="flex items-center">
@@ -931,9 +931,9 @@ function NewConversationModal({
 					)}
 
 					<div>
-						<p className="block text-sm font-semibold text-gray-700 mb-1">Selected Participants:</p>
+						<p className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">Selected Participants:</p>
 						{selectedFriends.length === 0 ? (
-							<p className="text-gray-500 text-sm">No participants selected.</p>
+							<p className="text-gray-500 dark:text-slate-400 text-sm">No participants selected.</p>
 						) : (
 							<div className="flex flex-wrap gap-2">
 								{selectedFriends.map(friend => (
@@ -976,16 +976,16 @@ function ConfirmDeleteModal({ isOpen, onClose, onConfirm, itemType = "item" }) {
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 animate-scale-in">
-				<h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Confirm Deletion</h3>
-				<p className="text-gray-700 mb-6">
+		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+			<div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full max-w-sm p-6 animate-scale-in">
+				<h3 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-4 border-b dark:border-slate-700 pb-2">Confirm Deletion</h3>
+				<p className="text-gray-700 dark:text-slate-300 mb-6">
 					Are you sure you want to delete the selected {itemType}? This action cannot be undone.
 				</p>
 				<div className="flex justify-end space-x-3">
 					<button
 						onClick={onClose}
-						className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-100 transition duration-150 ease-in-out"
+						className="px-5 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-slate-300 font-semibold hover:bg-gray-100 dark:hover:bg-slate-700 transition duration-150 ease-in-out"
 					>
 						Cancel
 					</button>

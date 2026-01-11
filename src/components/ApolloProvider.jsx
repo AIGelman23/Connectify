@@ -5,6 +5,7 @@ import { ApolloClient, InMemoryCache, ApolloProvider, HttpLink } from '@apollo/c
 import { setContext } from '@apollo/client/link/context';
 import { useSession } from 'next-auth/react'; // NEW: Import useSession
 import React, { useMemo } from 'react'; // NEW: Import useMemo
+import ConnectifyLogo from "./ConnectifyLogo";
 
 // Define your static GraphQL endpoint here.
 // IMPORTANT: Replace 'http://localhost:4000/graphql' with your actual GraphQL server URL
@@ -49,7 +50,13 @@ export default function ApolloClientProvider({ children }) {
 	// This depends on whether your app can function meaningfully without auth status.
 	// For most cases, waiting for the session status is good practice.
 	if (status === "loading") {
-		return <p>Loading authentication...</p>; // Or a more sophisticated loading spinner
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
+				<div className="text-center">
+					<ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
+				</div>
+			</div>
+		);
 	}
 
 	return (

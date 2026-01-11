@@ -10,6 +10,7 @@ import EditProfileEducation from "../../../components/profile/EditProfileEducati
 import EditProfileSkills from "../../../components/profile/EditProfileSkills";
 import FriendsListContainer from "../../../components/profile/FriendsListContainer";
 import Posts from "../../../components/Posts";
+import ConnectifyLogo from "../../../components/ConnectifyLogo";
 
 export default function ProfilePage() {
 	const { id } = useParams();
@@ -63,10 +64,9 @@ export default function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
 				<div className="flex flex-col items-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-					<p className="mt-4 text-lg text-gray-700">Loading profile...</p>
+					<ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
 				</div>
 			</div>
 		);
@@ -74,10 +74,10 @@ export default function ProfilePage() {
 
 	if (error) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="p-8 rounded-lg shadow-md bg-white max-w-md">
-					<h2 className="text-xl font-bold text-red-600 mb-4">Error</h2>
-					<p className="text-gray-700">{error}</p>
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+				<div className="p-8 rounded-lg shadow-md bg-white dark:bg-slate-800 max-w-md">
+					<h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Error</h2>
+					<p className="text-gray-700 dark:text-slate-300">{error}</p>
 					<button
 						onClick={() => router.push('/dashboard')}
 						className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
@@ -91,10 +91,10 @@ export default function ProfilePage() {
 
 	if (!profile) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="p-8 rounded-lg shadow-md bg-white max-w-md text-center">
-					<h2 className="text-xl font-bold text-gray-800 mb-4">Profile Not Found</h2>
-					<p className="text-gray-600">The profile you're looking for doesn't exist or you don't have permission to view it.</p>
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+				<div className="p-8 rounded-lg shadow-md bg-white dark:bg-slate-800 max-w-md text-center">
+					<h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-4">Profile Not Found</h2>
+					<p className="text-gray-600 dark:text-slate-400">The profile you're looking for doesn't exist or you don't have permission to view it.</p>
 					<button
 						onClick={() => router.push('/dashboard')}
 						className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
@@ -123,7 +123,7 @@ export default function ProfilePage() {
 	};
 
 	return (
-		<div className="min-h-screen font-sans antialiased text-gray-900">
+		<div className="min-h-screen font-sans antialiased text-gray-900 dark:text-slate-100 bg-gray-100 dark:bg-slate-900">
 			<Navbar session={session} router={router} />
 			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 				<EditProfileHeader

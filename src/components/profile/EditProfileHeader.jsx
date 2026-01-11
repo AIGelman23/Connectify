@@ -28,7 +28,7 @@ export default function EditProfileHeader({
 	};
 
 	return (
-		<div className="dark:shadow-lg rounded-lg overflow-hidden">
+		<div className="bg-white dark:bg-slate-800 dark:shadow-lg rounded-lg overflow-hidden">
 			{/* Cover Photo */}
 			<div className="relative h-52 bg-gradient-to-r from-blue-400 to-indigo-500">
 				{currentProfileState.coverPhoto ? (
@@ -102,7 +102,7 @@ export default function EditProfileHeader({
 								className="w-full h-full object-cover"
 							/>
 						) : (
-							<div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-5xl">
+							<div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-300 text-5xl">
 								<i className="fas fa-user"></i>
 							</div>
 						)}
@@ -143,13 +143,13 @@ export default function EditProfileHeader({
 				</div>
 
 				<div className="text-center">
-					<h1 className="text-2xl font-bold">
+					<h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
 						{currentProfileState.name || "Your Name"}
 					</h1>
-					<p className="mt-1">
+					<p className="mt-1 text-gray-700 dark:text-slate-300">
 						{currentProfileState.headline || "Your Headline"}
 					</p>
-					<p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+					<p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
 						{currentProfileState.location || "Your Location"}
 					</p>
 				</div>

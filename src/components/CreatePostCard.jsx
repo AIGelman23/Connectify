@@ -22,17 +22,24 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-			<div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fade-in-down">
+		<div
+			className="fixed left-0 right-0 bottom-0 z-50 flex items-center justify-center"
+			style={{
+				top: "4rem", // Adjust this value to match your navbar height (e.g., 64px = 4rem)
+				background: "rgba(0,0,0,0.5)",
+				height: "calc(100vh - 4rem)"
+			}}
+		>
+			<div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fade-in-down">
 				<button
-					className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl z-10"
+					className="absolute top-4 right-4 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 text-2xl z-10"
 					onClick={onClose}
 					aria-label="Close"
 				>
 					<i className="fas fa-times"></i>
 				</button>
 				<div className="flex flex-col items-center p-8">
-					<h2 className="text-2xl font-bold text-gray-800 mb-4">
+					<h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-4">
 						{fileType === "image" ? "Add Photo" : "Add Video"}
 					</h2>
 					<div className="w-full flex flex-col items-center">
@@ -42,7 +49,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 									<img
 										src={previewUrl}
 										alt="Preview"
-										className="rounded-xl max-h-96 object-contain border border-gray-200 shadow-lg"
+										className="rounded-xl object-contain border border-gray-200 shadow-lg"
 									/>
 								) : (
 									<video
@@ -60,7 +67,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 								</button>
 							</div>
 						) : (
-							<div className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+							<div className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl bg-gray-50 dark:bg-slate-700/50">
 								<input
 									type="file"
 									accept={fileType === "image" ? "image/*" : "video/*"}
@@ -69,14 +76,14 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 									className="hidden"
 								/>
 								<button
-									className="flex flex-col items-center justify-center text-indigo-600 hover:text-indigo-800 focus:outline-none"
+									className="flex flex-col items-center justify-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 focus:outline-none"
 									onClick={handleChooseFile}
 								>
 									<i className={`fas ${fileType === "image" ? "fa-image" : "fa-video"} text-4xl mb-2`}></i>
 									<span className="font-semibold text-lg">
 										Click to {fileType === "image" ? "add a photo" : "add a video"}
 									</span>
-									<span className="text-gray-500 text-sm mt-1">
+									<span className="text-gray-500 dark:text-slate-400 text-sm mt-1">
 										{fileType === "image"
 											? "JPG, PNG, WEBP up to 10MB"
 											: "MP4, WEBM, OGG up to 10MB"}
@@ -87,7 +94,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 					</div>
 					<div className="flex justify-end w-full mt-6 space-x-3">
 						<button
-							className="px-5 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition"
+							className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-200 font-semibold hover:bg-gray-300 dark:hover:bg-slate-500 transition"
 							onClick={onClose}
 						>
 							Cancel
@@ -153,22 +160,29 @@ function GiphyModal({ isOpen, onClose, onGifSelected }) {
 
 	if (!isOpen) return null;
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-			<div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fade-in-down p-6">
-				<button className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl z-10" onClick={onClose} aria-label="Close"><i className="fas fa-times"></i></button>
-				<h2 className="text-xl font-bold mb-4">Add a GIF</h2>
+		<div
+			className="fixed left-0 right-0 bottom-0 z-50 flex items-center justify-center"
+			style={{
+				top: "4rem", // Adjust this value to match your navbar height
+				background: "rgba(0,0,0,0.5)",
+				height: "calc(100vh - 4rem)"
+			}}
+		>
+			<div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fade-in-down p-6">
+				<button className="absolute top-4 right-4 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 text-2xl z-10" onClick={onClose} aria-label="Close"><i className="fas fa-times"></i></button>
+				<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-slate-100">Add a GIF</h2>
 				<form onSubmit={handleSearch} className="flex mb-4 gap-2">
 					<input
 						type="text"
 						value={search}
 						onChange={e => setSearch(e.target.value)}
 						placeholder="Search GIFs"
-						className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+						className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 					/>
 					<button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Search</button>
 				</form>
 				<div className="grid grid-cols-4 gap-2 max-h-72 overflow-y-auto">
-					{loading ? <div className="col-span-4 text-center">Loading...</div> :
+					{loading ? <div className="col-span-4 text-center text-gray-600 dark:text-slate-300">Loading...</div> :
 						results.map(gif => (
 							<img
 								key={gif.id}
@@ -429,7 +443,7 @@ export default function CreatePostCard() {
 	};
 
 	return (
-		<div className="bg-white rounded-2xl shadow-md border border-gray-200 mb-6 w-full max-w-3xl mx-auto p-0">
+		<div className="create-post-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-200 dark:border-slate-700 mb-6 w-full max-w-3xl mx-auto p-0">
 			<div className="flex items-start px-4 pt-4 pb-2">
 				<img
 					src={
@@ -445,7 +459,7 @@ export default function CreatePostCard() {
 					{/* Tag friends UI */}
 					<div className="flex flex-wrap gap-2 mb-2">
 						{taggedFriends.map(friend => (
-							<span key={friend.id} className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full flex items-center text-sm">
+							<span key={friend.id} className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full flex items-center text-sm">
 								{friend.name}
 								<button
 									type="button"
@@ -459,7 +473,7 @@ export default function CreatePostCard() {
 						))}
 						<button
 							type="button"
-							className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full flex items-center text-sm hover:bg-blue-100 hover:text-blue-700"
+							className="bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 px-2 py-1 rounded-full flex items-center text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-700 dark:hover:text-blue-300"
 							onClick={handleToggleTagDropdown}
 						>
 							<i className="fas fa-user-tag mr-1"></i>
@@ -475,12 +489,12 @@ export default function CreatePostCard() {
 								placeholder="Search friends..."
 								value={tagSearch}
 								onChange={e => setTagSearch(e.target.value)}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 								autoFocus
 							/>
-							<div className="absolute bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-full">
+							<div className="absolute bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded shadow-lg max-h-48 overflow-y-auto w-full">
 								{friends.length === 0 ? (
-									<div className="px-3 py-4 text-center text-gray-500">
+									<div className="px-3 py-4 text-center text-gray-500 dark:text-slate-400">
 										{friends.length === 0 ? 'Loading friends...' : 'No matching friends found.'}
 									</div>
 								) : (
@@ -493,7 +507,7 @@ export default function CreatePostCard() {
 											.map(friend => (
 												<div
 													key={friend.id}
-													className="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center"
+													className="px-3 py-2 hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer flex items-center text-gray-900 dark:text-slate-100"
 													onClick={() => handleAddTag(friend)}
 												>
 													<img
@@ -512,7 +526,7 @@ export default function CreatePostCard() {
 											(f.name || "").toLowerCase().includes(tagSearch.toLowerCase()) &&
 											!taggedFriends.some(tf => tf.id === f.id)
 										).length === 0 && (
-												<div className="px-3 py-2 text-gray-400">
+												<div className="px-3 py-2 text-gray-400 dark:text-slate-500">
 													{tagSearch ? 'No friends found matching your search' : 'No friends available to tag'}
 												</div>
 											)}
@@ -524,7 +538,7 @@ export default function CreatePostCard() {
 
 					{!isEditing ? (
 						<button
-							className="flex-1 text-left bg-gray-100 hover:bg-gray-200 focus:bg-gray-200 rounded-full px-5 py-3 text-gray-700 text-base font-normal transition outline-none border border-gray-200 focus:ring-2 focus:ring-blue-500 placeholder-gray-500 whitespace-pre-line break-words w-full"
+							className="flex-1 text-left bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 focus:bg-gray-200 dark:focus:bg-slate-600 rounded-full px-5 py-3 text-gray-700 dark:text-slate-200 text-base font-normal transition outline-none border border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 placeholder-gray-500 whitespace-pre-line break-words w-full"
 							style={{ minHeight: 44 }}
 							onClick={() => setIsEditing(true)}
 							type="button"
@@ -541,7 +555,7 @@ export default function CreatePostCard() {
 								value={postText}
 								onChange={e => setPostText(e.target.value)}
 								onBlur={handleInputBlur}
-								className="flex-1 w-full px-5 py-3 bg-gray-100 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 text-base text-gray-700 whitespace-pre-line break-words transition min-h-[44px] resize-none"
+								className="flex-1 w-full px-5 py-3 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 dark:placeholder-slate-400 text-base text-gray-700 dark:text-slate-100 whitespace-pre-line break-words transition min-h-[44px] resize-none"
 								style={{ minHeight: 44 }}
 							/>
 							<div className="absolute right-3 bottom-2" tabIndex={-1}>
@@ -559,27 +573,27 @@ export default function CreatePostCard() {
 				<div className="px-4 pb-2">
 					<div className="relative w-full flex justify-center">
 						{selectedFile && selectedFile.type === "image/gif" && selectedFile.url ? (
-							<img src={selectedFile.url} alt="GIF Preview" className="max-h-64 rounded-xl border border-gray-200 shadow" />
+							<img src={selectedFile.url} alt="GIF Preview" className="rounded-xl border border-gray-200 shadow" />
 						) : selectedFile && selectedFile.type && selectedFile.type.startsWith("image") ? (
 							<img src={filePreviewUrl} alt="Preview" className="max-h-64 rounded-xl border border-gray-200 shadow" />
 						) : selectedFile && selectedFile.type && selectedFile.type.startsWith("video") ? (
 							<video src={filePreviewUrl} controls className="max-h-64 rounded-xl border border-gray-200 shadow" />
 						) : null}
 						<button
-							className="absolute top-2 right-2 bg-white bg-opacity-80 rounded-full p-2 shadow hover:bg-opacity-100 transition"
+							className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-1 h-8 w-8 shadow transition"
 							onClick={handleRemoveFile}
 							title="Remove"
 						>
-							<i className="fas fa-trash text-red-500"></i>
+							<i className="fas fa-times text-lg"></i>
 						</button>
 					</div>
 				</div>
 			)}
-			<div className="border-t border-gray-200 mt-2" />
+			<div className="border-t border-gray-200 dark:border-slate-700 mt-2" />
 			<div className="flex items-center justify-between px-4 py-2">
 				<button
 					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 rounded-lg py-2 transition text-blue-600 font-semibold"
+					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-blue-600 dark:text-blue-400 font-semibold"
 					onClick={() => openFileModal("image")}
 				>
 					<i className="fas fa-image text-xl"></i>
@@ -587,7 +601,7 @@ export default function CreatePostCard() {
 				</button>
 				<button
 					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 rounded-lg py-2 transition text-green-600 font-semibold"
+					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-green-600 dark:text-green-400 font-semibold"
 					onClick={() => openFileModal("video")}
 				>
 					<i className="fas fa-video text-xl"></i>
@@ -595,7 +609,7 @@ export default function CreatePostCard() {
 				</button>
 				<button
 					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-purple-100 rounded-lg py-2 transition text-purple-600 font-semibold"
+					className="flex items-center gap-2 flex-1 justify-center hover:bg-purple-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-purple-600 dark:text-purple-400 font-semibold"
 					onClick={() => setShowGiphyModal(true)}
 				>
 					<i className="fas fa-gift text-xl"></i>

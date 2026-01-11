@@ -60,9 +60,9 @@ export default function EditProfileSkills({
 
 
 	return (
-		<section className="p-8 rounded-md shadow bg-white dark:bg-gray-800">
+		<section className="p-8 rounded-md shadow bg-white dark:bg-slate-800">
 			<div className="flex justify-between items-center mb-6">
-				<h2 className="text-2xl font-semibold">Skills</h2>
+				<h2 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Skills</h2>
 			</div>
 			<div className="space-y-4">
 				{currentProfileState.skills?.length === 0 ? (

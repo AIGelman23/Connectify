@@ -52,12 +52,12 @@ export default function FriendsListContainer() {
 
 	if (loading) {
 		return (
-			<div className="bg-white rounded-lg shadow p-4 mb-6">
-				<h2 className="text-xl font-bold mb-4">Connections</h2>
+			<div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 mb-6">
+				<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-slate-100">Connections</h2>
 				<div className="animate-pulse flex space-x-4 mb-2">
-					<div className="rounded-full bg-gray-200 h-12 w-12"></div>
-					<div className="rounded-full bg-gray-200 h-12 w-12"></div>
-					<div className="rounded-full bg-gray-200 h-12 w-12"></div>
+					<div className="rounded-full bg-gray-200 dark:bg-slate-600 h-12 w-12"></div>
+					<div className="rounded-full bg-gray-200 dark:bg-slate-600 h-12 w-12"></div>
+					<div className="rounded-full bg-gray-200 dark:bg-slate-600 h-12 w-12"></div>
 				</div>
 			</div>
 		);
@@ -65,9 +65,9 @@ export default function FriendsListContainer() {
 
 	if (error) {
 		return (
-			<div className="bg-white rounded-lg shadow p-4 mb-6">
-				<h2 className="text-xl font-bold mb-4">Connections</h2>
-				<p className="text-red-500">{error.message}</p>
+			<div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 mb-6">
+				<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-slate-100">Connections</h2>
+				<p className="text-red-500 dark:text-red-400">{error.message}</p>
 			</div>
 		);
 	}

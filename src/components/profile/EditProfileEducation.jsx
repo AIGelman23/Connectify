@@ -19,9 +19,9 @@ export default function EditProfileEducation({ currentProfileState, openEducatio
 	const modalKey = editingEducation?.id || 'new-education-modal';
 
 	return (
-		<section className="p-8 rounded-md shadow bg-white dark:bg-gray-800">
+		<section className="p-8 rounded-md shadow bg-white dark:bg-slate-800">
 			<div className="flex justify-between items-center mb-6">
-				<h2 className="text-2xl font-semibold">Education</h2>
+				<h2 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Education</h2>
 				{isEditable && (
 					<button
 						type="button"
@@ -36,18 +36,18 @@ export default function EditProfileEducation({ currentProfileState, openEducatio
 			</div>
 			<div className="space-y-4">
 				{currentProfileState.education?.length === 0 ? (
-					<p className="text-center py-4">
+					<p className="text-center py-4 text-gray-600 dark:text-slate-400">
 						No education added. {isEditable && 'Click "Add New" to get started.'}
 					</p>
 				) : (
 					currentProfileState.education.map((edu) => (
-						<div key={edu.id} className="rounded-lg shadow p-4">
+						<div key={edu.id} className="rounded-lg shadow p-4 bg-gray-50 dark:bg-slate-700">
 							{/* Always show institution, even in preview mode */}
-							<p className="font-semibold">{edu.institution}</p>
-							<p className="text-sm">
+							<p className="font-semibold text-gray-900 dark:text-slate-100">{edu.institution}</p>
+							<p className="text-sm text-gray-700 dark:text-slate-300">
 								{edu.degree}{edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
 							</p>
-							<p className="text-xs">
+							<p className="text-xs text-gray-500 dark:text-slate-400">
 								{formatDate(edu.startDate)} – {formatDate(edu.endDate)}
 							</p>
 							{isEditable && (
@@ -57,7 +57,7 @@ export default function EditProfileEducation({ currentProfileState, openEducatio
 										// This `openEducationModal` function should pass the `edu` object
 										// and set `isEducationModalOpen` to `true`.
 										onClick={() => openEducationModal(edu)}
-										className="text-[#1877f2] hover:text-[#166fe5] p-1 rounded-full hover:bg-indigo-50 transition"
+										className="text-[#1877f2] dark:text-blue-400 hover:text-[#166fe5] dark:hover:text-blue-300 p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-slate-600 transition"
 										title="Edit Education"
 									>
 										<i className="fas fa-edit"></i>
@@ -65,7 +65,7 @@ export default function EditProfileEducation({ currentProfileState, openEducatio
 									<button
 										type="button"
 										onClick={() => handleDeleteEducation(edu.id)}
-										className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition"
+										className="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-600 transition"
 										title="Delete Education"
 									>
 										<i className="fas fa-trash-alt"></i>

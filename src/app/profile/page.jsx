@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import ConnectifyLogo from "@/components/ConnectifyLogo";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +23,9 @@ export default function ProfileRedirect() {
 
   // Loading state while waiting for session or redirect
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading your profile...</p>
+        <ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
       </div>
     </div>
   );
