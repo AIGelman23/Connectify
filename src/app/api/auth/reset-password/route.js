@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export async function POST(req) {
   try {
@@ -13,34 +14,42 @@ export async function POST(req) {
       );
     }
 
-    // Find the reset token in the database
-    const passwordReset = await prisma.passwordReset.findUnique({
-      where: { token },
+    // Validate password length
+    if (password.length < 6) {
+      return NextResponse.json(
+        { message: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
+    }
+
+    // Hash the token to match stored format
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find the reset token in the database - must be verified
+    const passwordReset = await prisma.passwordReset.findFirst({
+      where: {
+        token: hashedToken,
+        verified: true, // Only allow verified codes
+        expiresAt: { gt: new Date() },
+      },
       include: { user: true },
     });
 
     // Debug: log what was found
     if (!passwordReset) {
-      console.error("Invalid or expired reset token", { token });
+      console.error("Invalid, expired, or unverified reset token");
       return NextResponse.json(
-        { message: "Invalid or expired reset token" },
-        { status: 400 }
-      );
-    }
-
-    // Check if the token is expired (tokens are valid for 1 hour)
-    const now = new Date();
-    if (passwordReset.expiresAt < now) {
-      console.error("Reset token has expired", { token });
-      return NextResponse.json(
-        { message: "Reset token has expired" },
+        { message: "Invalid or expired reset token. Please start over." },
         { status: 400 }
       );
     }
 
     // Defensive: check if user exists
     if (!passwordReset.user) {
-      console.error("No user found for this reset token", { token });
+      console.error("No user found for this reset token");
       return NextResponse.json(
         { message: "No user found for this reset token" },
         { status: 400 }
@@ -72,5 +81,7 @@ export async function POST(req) {
       { message: "Failed to reset password", error: error.message },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

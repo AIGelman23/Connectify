@@ -2,12 +2,20 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { rateLimit } from "@/lib/rate-limit";
+import { sendPasswordResetCodeEmail } from "@/utils/email";
 
 // Create a rate limiter for password resets
 const resetLimiter = rateLimit({
   interval: 60 * 60 * 1000, // 1 hour
   maxRequests: 3, // Max requests per unique identifier per interval
 });
+
+/**
+ * Generate a cryptographically secure 6-digit code
+ */
+function generateVerificationCode() {
+  return crypto.randomInt(100000, 999999).toString();
+}
 
 export async function POST(req) {
   try {
@@ -41,20 +49,20 @@ export async function POST(req) {
         {
           message:
             "Too many password reset attempts. Please wait and try again later.",
-          retryAfter: Math.ceil((rateCheckResult.resetAt - Date.now()) / 1000), // seconds until reset
+          retryAfter: Math.ceil((rateCheckResult.resetAt - Date.now()) / 1000),
         },
-        { status: 429 } // Too Many Requests
+        { status: 429 }
       );
     }
 
-    // Generate a reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    // Generate a 6-digit verification code
+    const verificationCode = generateVerificationCode();
+    const codeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Hash the token for security
-    const hashedToken = crypto
+    // Hash the code for security
+    const hashedCode = crypto
       .createHash("sha256")
-      .update(resetToken)
+      .update(verificationCode)
       .digest("hex");
 
     try {
@@ -63,36 +71,48 @@ export async function POST(req) {
         where: { email: email.toLowerCase() },
       });
 
-      // If user exists, update with token
+      // If user exists, create password reset entry
       if (user) {
-        console.log(`Updating user ${user.id} with reset token`);
-        await prisma.user.update({
-          where: { id: user.id },
+        console.log(`Creating password reset for user ${user.id}`);
+
+        // Delete any existing password reset entries for this user
+        await prisma.passwordReset.deleteMany({
+          where: { userId: user.id },
+        });
+
+        // Create new password reset entry with the code
+        await prisma.passwordReset.create({
           data: {
-            resetPasswordToken: hashedToken,
-            resetPasswordExpires: resetTokenExpiry,
+            token: hashedCode,
+            userId: user.id,
+            email: email.toLowerCase(),
+            expiresAt: codeExpiry,
+            attempts: 0,
+            verified: false,
           },
         });
+
+        // Send the verification code email
+        try {
+          await sendPasswordResetCodeEmail(
+            email.toLowerCase(),
+            verificationCode,
+            user.name
+          );
+        } catch (emailError) {
+          console.error("Failed to send email:", emailError);
+          // Don't fail the request if email fails - the code is still in the DB
+        }
       }
 
       // Don't reveal if user exists or not
-      // When building the reset URL, make sure the URL is properly formatted
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      // Ensure there's no double slash between baseUrl and the path
-      const resetUrl = `${baseUrl.replace(
-        /\/+$/,
-        ""
-      )}/auth/reset-password?token=${resetToken}`;
-
-      console.log("Reset URL (dev only):", resetUrl);
-
       return NextResponse.json(
         {
           message:
-            "If your email exists in our system, you will receive a password reset link shortly.",
-          resetLink:
-            process.env.NODE_ENV === "development" ? resetUrl : undefined,
+            "If your email exists in our system, you will receive a verification code shortly.",
+          // In development, return the code for testing
+          code:
+            process.env.NODE_ENV === "development" ? verificationCode : undefined,
         },
         { status: 200 }
       );

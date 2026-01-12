@@ -6,6 +6,7 @@ import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector compone
 import PostCard from './PostCard';
 import Tooltip from './Tooltip';
 import Cropper from 'react-easy-crop';
+import confetti from 'canvas-confetti';
 
 const MAX_POST_LENGTH = 2000;
 
@@ -510,6 +511,13 @@ export default function CreatePostCard() {
 
 			const end = Date.now();
 			console.log("DEBUG: Total post time (ms):", end - start);
+
+			// Trigger confetti celebration
+			confetti({
+				particleCount: 100,
+				spread: 70,
+				origin: { y: 0.6 }
+			});
 
 			setSelectedFiles([]);
 			setPostText("");

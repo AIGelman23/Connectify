@@ -55,6 +55,33 @@ export default function UserDetailModal({ userId, onClose }) {
     }
   };
 
+  // Helper to calculate badges based on user stats
+  const getBadges = (u) => {
+    const badges = [];
+
+    // Role & Status Badges
+    if (u.role === 'ADMIN') badges.push({ label: 'Admin', classes: 'bg-purple-100 text-purple-800', icon: 'fa-shield-alt' });
+    if (u.isBanned) badges.push({ label: 'Banned', classes: 'bg-red-100 text-red-800', icon: 'fa-ban' });
+
+    // Engagement Badges (Posts)
+    const postCount = u._count?.posts || 0;
+    if (postCount >= 50) badges.push({ label: 'Thought Leader', classes: 'bg-yellow-100 text-yellow-800', icon: 'fa-crown' });
+    else if (postCount >= 10) badges.push({ label: 'Prolific', classes: 'bg-orange-100 text-orange-800', icon: 'fa-pen-nib' });
+    else if (postCount >= 1) badges.push({ label: 'Contributor', classes: 'bg-blue-100 text-blue-800', icon: 'fa-pen' });
+
+    // Engagement Badges (Comments)
+    const commentCount = u._count?.comments || 0;
+    if (commentCount >= 50) badges.push({ label: 'Community Pillar', classes: 'bg-pink-100 text-pink-800', icon: 'fa-heart' });
+    else if (commentCount >= 10) badges.push({ label: 'Chatterbox', classes: 'bg-teal-100 text-teal-800', icon: 'fa-comments' });
+
+    // Tenure Badge
+    const daysJoined = Math.floor((new Date() - new Date(u.createdAt)) / (1000 * 60 * 60 * 24));
+    if (daysJoined < 7) badges.push({ label: 'Newcomer', classes: 'bg-green-100 text-green-800', icon: 'fa-leaf' });
+    else if (daysJoined > 365) badges.push({ label: 'Veteran', classes: 'bg-indigo-100 text-indigo-800', icon: 'fa-medal' });
+
+    return badges;
+  };
+
   if (!userId) return null;
 
   return (
@@ -114,20 +141,19 @@ export default function UserDetailModal({ userId, onClose }) {
                   {user.name}
                 </h3>
                 <p className="text-gray-500">{user.email}</p>
-                <div className="mt-2 flex gap-2">
-                  <span
-                    className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'ADMIN'
-                      ? 'bg-purple-100 text-purple-800'
-                      : 'bg-green-100 text-green-800'
-                      }`}
-                  >
-                    {user.role}
-                  </span>
-                  {user.isBanned && (
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                      Banned
+
+                {/* Badges Section */}
+                <div className="mt-2 flex flex-wrap justify-center gap-2">
+                  {getBadges(user).map((badge, index) => (
+                    <span
+                      key={index}
+                      className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${badge.classes}`}
+                      title={badge.label}
+                    >
+                      {badge.icon && <i className={`fas ${badge.icon}`}></i>}
+                      {badge.label}
                     </span>
-                  )}
+                  ))}
                 </div>
               </div>
 
@@ -175,8 +201,8 @@ export default function UserDetailModal({ userId, onClose }) {
             <button
               type="button"
               className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${user.isBanned
-                  ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                  : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                 }`}
               onClick={handleBanToggle}
             >
