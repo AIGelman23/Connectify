@@ -22,7 +22,7 @@ export default function FriendsListContainer() {
 		const fetchConnections = async () => {
 			try {
 				setLoading(true);
-				const res = await fetch('/api/connections?q=');
+				const res = await fetch('/api/connections');
 
 				if (!res.ok) {
 					throw new Error('Failed to load connections');
