@@ -41,8 +41,28 @@ const getCroppedImg = async (imageSrc, pixelCrop) => {
 };
 
 // Modern Facebook-style Media Modal
-function ModernMediaModal({ isOpen, onClose, onFilesSelected, fileType, selectedFiles, onRemove, onCropStart }) {
+function ModernMediaModal({ isOpen, onClose, onFilesSelected, fileType, selectedFiles, onRemove, onCropStart, onReorder }) {
 	const fileInputRef = useRef();
+	const [draggedIndex, setDraggedIndex] = useState(null);
+
+	const handleDragStart = (e, index) => {
+		setDraggedIndex(index);
+		e.dataTransfer.effectAllowed = "move";
+		// Optional: Set a custom drag image if needed
+	};
+
+	const handleDragOver = (e, index) => {
+		e.preventDefault(); // Necessary to allow dropping
+		e.dataTransfer.dropEffect = "move";
+	};
+
+	const handleDrop = (e, index) => {
+		e.preventDefault();
+		if (draggedIndex !== null && draggedIndex !== index) {
+			onReorder(draggedIndex, index);
+		}
+		setDraggedIndex(null);
+	};
 
 	const handleChooseFile = () => {
 		if (fileInputRef.current) fileInputRef.current.click();
@@ -81,7 +101,14 @@ function ModernMediaModal({ isOpen, onClose, onFilesSelected, fileType, selected
 						{selectedFiles.length > 0 ? (
 							<div className="w-full grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-2">
 								{selectedFiles.map((fileObj, index) => (
-									<div key={index} className="relative group">
+									<div
+										key={fileObj.preview}
+										className={`relative group ${fileType === "image" ? "cursor-move" : ""}`}
+										draggable={fileType === "image"}
+										onDragStart={(e) => handleDragStart(e, index)}
+										onDragOver={(e) => handleDragOver(e, index)}
+										onDrop={(e) => handleDrop(e, index)}
+									>
 										{fileType === "image" ? (
 											<img
 												src={fileObj.preview}
@@ -332,6 +359,15 @@ export default function CreatePostCard() {
 
 	const handleRemoveFile = (index) => {
 		setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+	};
+
+	const handleReorderFiles = (fromIndex, toIndex) => {
+		setSelectedFiles(prev => {
+			const newFiles = [...prev];
+			const [movedItem] = newFiles.splice(fromIndex, 1);
+			newFiles.splice(toIndex, 0, movedItem);
+			return newFiles;
+		});
 	};
 
 	const handleCropComplete = (croppedArea, croppedAreaPixels) => {
@@ -916,6 +952,7 @@ export default function CreatePostCard() {
 				selectedFiles={selectedFiles}
 				onRemove={handleRemoveFile}
 				onCropStart={setCropImageIndex}
+				onReorder={handleReorderFiles}
 			/>
 
 			{/* Crop Modal */}
