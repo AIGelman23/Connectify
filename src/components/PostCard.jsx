@@ -373,6 +373,28 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		},
 	});
 
+	// Report Entity Mutation
+	const { mutate: reportEntity } = useMutation({
+		mutationFn: async ({ targetId, targetType }) => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'report', targetId, targetType }),
+			});
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || "Failed to report.");
+			}
+			return res.json();
+		},
+		onError: (err) => {
+			setPostError(err.message || "Failed to report. Please try again.");
+		},
+		onSuccess: () => {
+			alert("Content reported. Thank you for your feedback.");
+		}
+	});
+
 	const handleReactionClick = useCallback((type = "LIKE") => {
 		if (!sessionUserId || isPreview) {
 			setPostError("You must be logged in to react to a post.");
@@ -492,6 +514,14 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		}
 		likeCommentOrReply({ commentId, isLiking });
 	}, [sessionUserId, likeCommentOrReply, setPostError]);
+
+	const handleReport = useCallback((targetId, targetType) => {
+		if (!sessionUserId) {
+			setPostError("You must be logged in to report content.");
+			return;
+		}
+		reportEntity({ targetId, targetType });
+	}, [sessionUserId, reportEntity, setPostError]);
 
 	const toggleCommentSection = () => {
 		setActiveCommentForPost(prevId => (prevId === post.id ? null : post.id));
@@ -1223,6 +1253,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 											onDeleteComment={handleDeleteComment}
 											postId={post.id}
 											targetCommentId={targetCommentId}
+											onReport={handleReport}
 										/>
 									))
 							) : (
@@ -1241,6 +1272,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 											onDeleteComment={handleDeleteComment}
 											postId={post.id}
 											targetCommentId={targetCommentId}
+											onReport={handleReport}
 										/>
 									))
 							)}
@@ -1333,6 +1365,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 				onDeleteComment={handleDeleteComment}
 				onAddComment={handleLightboxComment}
 				onReaction={handleReactionClick}
+				onReport={handleReport}
 			/>
 		</div>
 	);

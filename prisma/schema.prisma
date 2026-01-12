@@ -70,6 +70,7 @@ model User {
   savedPosts                 SavedPost[]
   followedBy                 Follows[]            @relation("following")
   following                  Follows[]            @relation("follower")
+  reports                    Report[]
 }
 
 model Skill {
@@ -324,4 +325,14 @@ model Follows {
   following   User   @relation("following", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String
+  targetId   String
+  targetType String   // "POST", "COMMENT", "REPLY"
+  reason     String?
+  createdAt  DateTime @default(now())
+  reporter   User     @relation(fields: [reporterId], references: [id])
 }

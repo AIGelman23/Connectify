@@ -143,6 +143,17 @@ export async function POST(request) {
       );
     }
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isBanned: true },
+    });
+    if (currentUser?.isBanned) {
+      return NextResponse.json(
+        { message: "You are banned from performing this action." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     console.log("DEBUG: Received post payload:", body);
 
@@ -706,6 +717,17 @@ export async function PATCH(request) {
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
         { status: 401 }
+      );
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isBanned: true },
+    });
+    if (currentUser?.isBanned) {
+      return NextResponse.json(
+        { message: "You are banned from performing this action." },
+        { status: 403 }
       );
     }
 
@@ -1533,6 +1555,27 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         { message: "Share count updated." },
+        { status: 200 }
+      );
+    } else if (action === "report") {
+      const { targetId, targetType, reason } = requestBody;
+      if (!targetId || !targetType) {
+        return NextResponse.json(
+          { message: "Target ID and type are required." },
+          { status: 400 }
+        );
+      }
+
+      await prisma.report.create({
+        data: {
+          reporterId: userId,
+          targetId,
+          targetType,
+          reason,
+        },
+      });
+      return NextResponse.json(
+        { message: "Report submitted." },
         { status: 200 }
       );
     } else {

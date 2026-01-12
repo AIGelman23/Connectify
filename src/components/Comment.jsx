@@ -48,7 +48,7 @@ const ReportConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
 	);
 };
 
-export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, onLike, commentId, depth = 1, targetCommentId }) => {
+export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, onLike, commentId, depth = 1, targetCommentId, onReport }) => {
 	const isAuthor = reply.user.id === sessionUserId;
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showNestedReplies, setShowNestedReplies] = useState(false);
@@ -94,7 +94,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 
 	const confirmReport = () => {
 		setShowReportModal(false);
-		alert("Comment reported. Thank you for your feedback.");
+		if (onReport) onReport(reply.id, 'REPLY');
 	};
 
 	// Auto-expand if this reply contains the target comment
@@ -348,6 +348,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 											commentId={commentId}
 											depth={depth + 1}
 											targetCommentId={targetCommentId}
+											onReport={onReport}
 										/>
 									))}
 								</div>
@@ -367,7 +368,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 	);
 };
 
-export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComment, postId, targetCommentId }) => {
+export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComment, postId, targetCommentId, onReport }) => {
 	const isAuthor = comment.user.id === sessionUserId;
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showReplies, setShowReplies] = useState(false);
@@ -418,7 +419,7 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 
 	const confirmReport = () => {
 		setShowReportModal(false);
-		alert("Comment reported. Thank you for your feedback.");
+		if (onReport) onReport(comment.id, 'COMMENT');
 	};
 
 	// Format "Liked by X and Y others" text
@@ -660,6 +661,7 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 											commentId={comment.id}
 											depth={1}
 											targetCommentId={targetCommentId}
+											onReport={onReport}
 										/>
 									))}
 								</div>
