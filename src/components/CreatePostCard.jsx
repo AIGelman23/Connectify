@@ -5,11 +5,43 @@ import { useSession } from "next-auth/react";
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
 import PostCard from './PostCard';
 import Tooltip from './Tooltip';
+import Cropper from 'react-easy-crop';
 
 const MAX_POST_LENGTH = 2000;
 
+// Helper to create the cropped image
+const getCroppedImg = async (imageSrc, pixelCrop) => {
+	const image = new Image();
+	image.src = imageSrc;
+	await new Promise((resolve) => { image.onload = resolve; });
+
+	const canvas = document.createElement('canvas');
+	const ctx = canvas.getContext('2d');
+
+	canvas.width = pixelCrop.width;
+	canvas.height = pixelCrop.height;
+
+	ctx.drawImage(
+		image,
+		pixelCrop.x,
+		pixelCrop.y,
+		pixelCrop.width,
+		pixelCrop.height,
+		0,
+		0,
+		pixelCrop.width,
+		pixelCrop.height
+	);
+
+	return new Promise((resolve) => {
+		canvas.toBlob((blob) => {
+			resolve(blob);
+		}, 'image/jpeg');
+	});
+};
+
 // Modern Facebook-style Media Modal
-function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUrl, file, onRemove }) {
+function ModernMediaModal({ isOpen, onClose, onFilesSelected, fileType, selectedFiles, onRemove, onCropStart }) {
 	const fileInputRef = useRef();
 
 	const handleChooseFile = () => {
@@ -17,9 +49,8 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 	};
 
 	const handleFileChange = (e) => {
-		const file = e.target.files[0];
-		if (file) {
-			onFileSelected(file);
+		if (e.target.files && e.target.files.length > 0) {
+			onFilesSelected(Array.from(e.target.files));
 		}
 	};
 
@@ -44,30 +75,52 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 				</button>
 				<div className="flex flex-col items-center p-8">
 					<h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-4">
-						{fileType === "image" ? "Add Photo" : "Add Video"}
+						{fileType === "image" ? "Add Photos" : "Add Video"}
 					</h2>
 					<div className="w-full flex flex-col items-center">
-						{previewUrl ? (
-							<div className="relative w-full flex flex-col items-center">
-								{fileType === "image" ? (
-									<img
-										src={previewUrl}
-										alt="Preview"
-										className="rounded-xl object-contain border border-gray-200 shadow-lg"
-									/>
-								) : (
-									<video
-										src={previewUrl}
-										controls
-										className="rounded-xl max-h-96 object-contain border border-gray-200 shadow-lg"
-									/>
-								)}
+						{selectedFiles.length > 0 ? (
+							<div className="w-full grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-2">
+								{selectedFiles.map((fileObj, index) => (
+									<div key={index} className="relative group">
+										{fileType === "image" ? (
+											<img
+												src={fileObj.preview}
+												alt={`Preview ${index}`}
+												className="rounded-xl object-cover w-full h-40 border border-gray-200 shadow-sm"
+											/>
+										) : (
+											<video
+												src={fileObj.preview}
+												controls
+												className="rounded-xl object-cover w-full h-40 border border-gray-200 shadow-sm"
+											/>
+										)}
+										<div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+											{fileType === "image" && (
+												<button
+													className="bg-white bg-opacity-90 rounded-full p-2 shadow hover:bg-opacity-100 transition text-blue-600"
+													onClick={() => onCropStart(index)}
+													title="Crop"
+												>
+													<i className="fas fa-crop-alt"></i>
+												</button>
+											)}
+											<button
+												className="bg-white bg-opacity-90 rounded-full p-2 shadow hover:bg-opacity-100 transition text-red-500"
+												onClick={() => onRemove(index)}
+												title="Remove"
+											>
+												<i className="fas fa-trash"></i>
+											</button>
+										</div>
+									</div>
+								))}
 								<button
-									className="absolute top-2 right-2 bg-white bg-opacity-80 rounded-full p-2 shadow hover:bg-opacity-100 transition"
-									onClick={onRemove}
-									title="Remove"
+									className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700 transition"
+									onClick={handleChooseFile}
 								>
-									<i className="fas fa-trash text-red-500"></i>
+									<i className="fas fa-plus text-2xl text-gray-400"></i>
+									<span className="text-sm text-gray-500 mt-1">Add more</span>
 								</button>
 							</div>
 						) : (
@@ -78,6 +131,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 									ref={fileInputRef}
 									onChange={handleFileChange}
 									className="hidden"
+									multiple={fileType === "image"}
 								/>
 								<button
 									className="flex flex-col items-center justify-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 focus:outline-none"
@@ -85,7 +139,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 								>
 									<i className={`fas ${fileType === "image" ? "fa-image" : "fa-video"} text-4xl mb-2`}></i>
 									<span className="font-semibold text-lg">
-										Click to {fileType === "image" ? "add a photo" : "add a video"}
+										Click to {fileType === "image" ? "add photos" : "add a video"}
 									</span>
 									<span className="text-gray-500 dark:text-slate-400 text-sm mt-1">
 										{fileType === "image"
@@ -106,7 +160,7 @@ function ModernMediaModal({ isOpen, onClose, onFileSelected, fileType, previewUr
 						<button
 							className="px-6 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
 							onClick={onClose}
-							disabled={!file}
+							disabled={selectedFiles.length === 0}
 						>
 							Done
 						</button>
@@ -213,10 +267,16 @@ function GiphyModal({ isOpen, onClose, onGifSelected }) {
 
 export default function CreatePostCard() {
 	const { data: session } = useSession();
-	const [selectedFile, setSelectedFile] = useState(null);
-	const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+	const [selectedFiles, setSelectedFiles] = useState([]); // Array of { file, preview }
 	const [showFileModal, setShowFileModal] = useState(false);
 	const [fileTypeToSelect, setFileTypeToSelect] = useState("image");
+
+	// Cropping state
+	const [cropImageIndex, setCropImageIndex] = useState(null);
+	const [crop, setCrop] = useState({ x: 0, y: 0 });
+	const [zoom, setZoom] = useState(1);
+	const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
 	const [postText, setPostText] = useState("");
 	const [isUploading, setIsUploading] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -247,28 +307,56 @@ export default function CreatePostCard() {
 
 	// Debug: log whenever selectedFile changes
 	useEffect(() => {
-		console.log("DEBUG: selectedFile updated:", selectedFile);
-	}, [selectedFile]);
+		console.log("DEBUG: selectedFiles updated:", selectedFiles);
+	}, [selectedFiles]);
 
 	const openFileModal = (type) => {
 		setFileTypeToSelect(type);
 		setShowFileModal(true);
 	};
 
-	const handleFileSelected = (file) => {
-		console.log("DEBUG: handleFileSelected called with:", file);
-		if (file && file.type === "image/gif" && file.url) {
-			setSelectedFile(file);
-			setFilePreviewUrl(file.url);
-		} else if (file) {
-			setSelectedFile(file);
-			setFilePreviewUrl(URL.createObjectURL(file));
+	const handleFilesSelected = (files) => {
+		const newFiles = files.map(file => ({
+			file,
+			preview: file.url || URL.createObjectURL(file),
+			type: file.type || 'image/jpeg' // Fallback
+		}));
+
+		if (fileTypeToSelect === 'video') {
+			// Only allow one video
+			setSelectedFiles([newFiles[0]]);
+		} else {
+			setSelectedFiles(prev => [...prev, ...newFiles]);
 		}
 	};
 
-	const handleRemoveFile = () => {
-		setSelectedFile(null);
-		setFilePreviewUrl(null);
+	const handleRemoveFile = (index) => {
+		setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+	};
+
+	const handleCropComplete = (croppedArea, croppedAreaPixels) => {
+		setCroppedAreaPixels(croppedAreaPixels);
+	};
+
+	const saveCroppedImage = async () => {
+		if (cropImageIndex === null || !croppedAreaPixels) return;
+
+		try {
+			const imageSrc = selectedFiles[cropImageIndex].preview;
+			const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+			const croppedFile = new File([croppedBlob], selectedFiles[cropImageIndex].file.name, { type: 'image/jpeg' });
+			const croppedPreview = URL.createObjectURL(croppedBlob);
+
+			setSelectedFiles(prev => prev.map((item, i) =>
+				i === cropImageIndex ? { ...item, file: croppedFile, preview: croppedPreview } : item
+			));
+
+			setCropImageIndex(null);
+			setCrop({ x: 0, y: 0 });
+			setZoom(1);
+		} catch (e) {
+			console.error("Error cropping image:", e);
+		}
 	};
 
 	const togglePollCreator = () => {
@@ -306,14 +394,14 @@ export default function CreatePostCard() {
 	};
 
 	const handlePost = async () => {
-		console.log("DEBUG: handlePost - postText:", postText, "selectedFile:", selectedFile);
+		console.log("DEBUG: handlePost - postText:", postText, "selectedFiles:", selectedFiles);
 		setIsUploading(true);
-		if (!postText.trim() && !selectedFile && !showPollCreator) {
+		if (!postText.trim() && selectedFiles.length === 0 && !showPollCreator) {
 			setIsUploading(false);
 			return;
 		}
 		try {
-			let uploadedUrl = null;
+			let uploadedUrls = [];
 			let fileType = null;
 			const start = Date.now(); // Start timing
 
@@ -323,11 +411,13 @@ export default function CreatePostCard() {
 			const validPollOptions = showPollCreator ? pollOptions.filter(o => o.trim()) : [];
 			const expiresAt = showPollCreator ? new Date(Date.now() + pollDuration * 24 * 60 * 60 * 1000).toISOString() : null;
 
-			if (selectedFile && selectedFile.type === "image/gif" && selectedFile.url) {
-				uploadedUrl = selectedFile.url;
+			// Handle GIF (special case, usually single file from Giphy)
+			if (selectedFiles.length === 1 && selectedFiles[0].file.type === "image/gif" && selectedFiles[0].file.url) {
+				uploadedUrls = [selectedFiles[0].file.url];
 				fileType = "gif";
 				const payload = {
-					imageUrl: uploadedUrl,
+					imageUrl: uploadedUrls[0], // Backward compatibility
+					imageUrls: uploadedUrls,
 					fileType,
 					content: postText,
 					taggedFriends: tagIds, // Add tagged friends to payload
@@ -336,30 +426,33 @@ export default function CreatePostCard() {
 				};
 				console.log("DEBUG: handlePost GIF payload:", payload);
 				await defaultOnCreatePost(payload);
-			} else if (selectedFile) {
-				const formData = new FormData();
-				formData.append("file", selectedFile);
+			} else if (selectedFiles.length > 0) {
+				// Upload all files
+				for (const fileObj of selectedFiles) {
+					const formData = new FormData();
+					formData.append("file", fileObj.file);
 
-				// Set loading state before upload
-				setIsUploading(true);
-
-				const uploadStart = Date.now();
-				const res = await fetch("/api/upload", {
-					method: "POST",
-					body: formData,
-				});
-				const data = await res.json();
-				const uploadEnd = Date.now();
-				console.log("DEBUG: Upload time (ms):", uploadEnd - uploadStart);
-				if (!res.ok || !data.url) {
-					alert(data.error || "Failed to upload file.");
-					setIsUploading(false);
-					return;
+					const res = await fetch("/api/upload", {
+						method: "POST",
+						body: formData,
+					});
+					const data = await res.json();
+					if (!res.ok || !data.url) {
+						throw new Error(data.error || "Failed to upload file.");
+					}
+					uploadedUrls.push(data.url);
 				}
-				uploadedUrl = data.url;
-				fileType = selectedFile.type.startsWith("video") ? "video" : "image";
+
+				fileType = selectedFiles[0].file.type.startsWith("video") ? "video" : "image";
+
+				// If video, we typically only allow one, but let's handle it generally
+				const videoUrl = fileType === "video" ? uploadedUrls[0] : null;
+				const imageUrl = fileType === "image" ? uploadedUrls[0] : null; // Primary image
+
 				const payload = {
-					[fileType === "video" ? "videoUrl" : "imageUrl"]: uploadedUrl,
+					imageUrl,
+					imageUrls: fileType === "image" ? uploadedUrls : [],
+					videoUrl,
 					fileType,
 					content: postText,
 					taggedFriends: tagIds, // Add tagged friends to payload
@@ -382,8 +475,7 @@ export default function CreatePostCard() {
 			const end = Date.now();
 			console.log("DEBUG: Total post time (ms):", end - start);
 
-			setSelectedFile(null);
-			setFilePreviewUrl(null);
+			setSelectedFiles([]);
 			setPostText("");
 			setTaggedFriends([]); // Clear tagged friends after posting
 			setShowPollCreator(false);
@@ -493,19 +585,21 @@ export default function CreatePostCard() {
 
 	// Helper to generate mock post for preview
 	const getMockPost = () => {
-		const isVideo = selectedFile?.type?.startsWith('video');
+		const isVideo = selectedFiles[0]?.file?.type?.startsWith('video');
 		let imageUrl = null;
+		let imageUrls = [];
 		let videoUrl = null;
 		const validPollOptions = showPollCreator ? pollOptions.filter(o => o.trim()) : [];
 		const expiresAt = showPollCreator ? new Date(Date.now() + pollDuration * 24 * 60 * 60 * 1000).toISOString() : null;
 
-		if (selectedFile) {
-			if (selectedFile.type === 'image/gif' && selectedFile.url) {
-				imageUrl = selectedFile.url;
-			} else if (selectedFile.type.startsWith('image')) {
-				imageUrl = filePreviewUrl;
-			} else if (selectedFile.type.startsWith('video')) {
-				videoUrl = filePreviewUrl;
+		if (selectedFiles.length > 0) {
+			if (selectedFiles[0].file.type === 'image/gif' && selectedFiles[0].file.url) {
+				imageUrl = selectedFiles[0].file.url;
+			} else if (selectedFiles[0].file.type.startsWith('image')) {
+				imageUrls = selectedFiles.map(f => f.preview);
+				imageUrl = imageUrls[0];
+			} else if (selectedFiles[0].file.type.startsWith('video')) {
+				videoUrl = selectedFiles[0].preview;
 			}
 		}
 
@@ -519,6 +613,7 @@ export default function CreatePostCard() {
 			},
 			content: postText,
 			imageUrl,
+			imageUrls,
 			videoUrl,
 			createdAt: new Date().toISOString(),
 			likesCount: 0,
@@ -667,23 +762,34 @@ export default function CreatePostCard() {
 				</div>
 			</div>
 			{/* Media preview below input */}
-			{filePreviewUrl && (
+			{selectedFiles.length > 0 && (
 				<div className="px-4 pb-2">
-					<div className="relative w-full flex justify-center">
-						{selectedFile && selectedFile.type === "image/gif" && selectedFile.url ? (
-							<img src={selectedFile.url} alt="GIF Preview" className="rounded-xl border border-gray-200 shadow" />
-						) : selectedFile && selectedFile.type && selectedFile.type.startsWith("image") ? (
-							<img src={filePreviewUrl} alt="Preview" className="max-h-64 rounded-xl border border-gray-200 shadow" />
-						) : selectedFile && selectedFile.type && selectedFile.type.startsWith("video") ? (
-							<video src={filePreviewUrl} controls className="max-h-64 rounded-xl border border-gray-200 shadow" />
-						) : null}
-						<button
-							className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-1 h-8 w-8 shadow transition"
-							onClick={handleRemoveFile}
-							title="Remove"
-						>
-							<i className="fas fa-times text-lg"></i>
-						</button>
+					<div className={`grid gap-2 ${selectedFiles.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+						{selectedFiles.map((fileObj, index) => (
+							<div key={index} className="relative group">
+								{fileObj.file.type.startsWith("video") ? (
+									<video src={fileObj.preview} controls className="max-h-64 w-full object-cover rounded-xl border border-gray-200 shadow" />
+								) : (
+									<img src={fileObj.preview} alt="Preview" className="max-h-64 w-full object-cover rounded-xl border border-gray-200 shadow" />
+								)}
+								<button
+									className="absolute top-2 right-2 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-1 h-8 w-8 shadow transition opacity-0 group-hover:opacity-100"
+									onClick={() => handleRemoveFile(index)}
+									title="Remove"
+								>
+									<i className="fas fa-times text-lg"></i>
+								</button>
+								{fileObj.file.type.startsWith("image") && !fileObj.file.type.includes("gif") && (
+									<button
+										className="absolute top-2 right-12 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full p-1 h-8 w-8 shadow transition opacity-0 group-hover:opacity-100"
+										onClick={() => setCropImageIndex(index)}
+										title="Crop"
+									>
+										<i className="fas fa-crop-alt text-lg"></i>
+									</button>
+								)}
+							</div>
+						))}
 					</div>
 				</div>
 			)}
@@ -779,7 +885,7 @@ export default function CreatePostCard() {
 							type="button"
 							className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
 							onClick={() => setShowPreview(true)}
-							disabled={!postText && !selectedFile && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
+							disabled={!postText && selectedFiles.length === 0 && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
 							aria-label="Preview Post"
 						>
 							<i className="fas fa-eye text-xl"></i>
@@ -805,12 +911,46 @@ export default function CreatePostCard() {
 			<ModernMediaModal
 				isOpen={showFileModal}
 				onClose={() => setShowFileModal(false)}
-				onFileSelected={handleFileSelected}
+				onFilesSelected={handleFilesSelected}
 				fileType={fileTypeToSelect}
-				previewUrl={filePreviewUrl}
-				file={selectedFile}
+				selectedFiles={selectedFiles}
 				onRemove={handleRemoveFile}
+				onCropStart={setCropImageIndex}
 			/>
+
+			{/* Crop Modal */}
+			{cropImageIndex !== null && (
+				<div className="fixed inset-0 z-[60] bg-black bg-opacity-90 flex flex-col items-center justify-center p-4">
+					<div className="relative w-full max-w-2xl h-[60vh] bg-black rounded-lg overflow-hidden">
+						<Cropper
+							image={selectedFiles[cropImageIndex].preview}
+							crop={crop}
+							zoom={zoom}
+							aspect={4 / 3}
+							onCropChange={setCrop}
+							onCropComplete={handleCropComplete}
+							onZoomChange={setZoom}
+						/>
+					</div>
+					<div className="flex gap-4 mt-4">
+						<input
+							type="range"
+							value={zoom}
+							min={1}
+							max={3}
+							step={0.1}
+							aria-labelledby="Zoom"
+							onChange={(e) => setZoom(e.target.value)}
+							className="w-64"
+						/>
+					</div>
+					<div className="flex gap-4 mt-4">
+						<button onClick={() => setCropImageIndex(null)} className="px-4 py-2 bg-gray-600 text-white rounded-lg">Cancel</button>
+						<button onClick={saveCroppedImage} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Save Crop</button>
+					</div>
+				</div>
+			)}
+
 			{showGiphyModal && (
 				<GiphyModal
 					isOpen={showGiphyModal}
@@ -818,7 +958,7 @@ export default function CreatePostCard() {
 					onGifSelected={(url) => {
 						const gifFile = { type: "image/gif", name: "giphy.gif", url };
 						console.log("DEBUG: onGifSelected called with:", gifFile);
-						handleFileSelected(gifFile);
+						handleFilesSelected([gifFile]);
 					}}
 				/>
 			)}

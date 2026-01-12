@@ -148,6 +148,7 @@ export async function POST(request) {
 
     // Accept both imageUrl and fileUrl for GIFs
     let imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : null;
+    const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls : [];
     const fileUrl = typeof body.fileUrl === "string" ? body.fileUrl : null;
     const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl : null;
     const content = typeof body.content === "string" ? body.content : "";
@@ -192,6 +193,7 @@ export async function POST(request) {
     if (
       !content &&
       !imageUrl &&
+      imageUrls.length === 0 &&
       !videoUrl &&
       !originalPostId &&
       pollOptions.length === 0
@@ -215,6 +217,7 @@ export async function POST(request) {
         authorId: session.user.id,
         content,
         imageUrl,
+        imageUrls,
         videoUrl,
         expiresAt,
         originalPostId,
@@ -362,6 +365,7 @@ export async function POST(request) {
           postWithTags.author.profile?.headline || "No headline available",
       },
       imageUrl: postWithTags.imageUrl,
+      imageUrls: postWithTags.imageUrls || [],
       videoUrl: postWithTags.videoUrl,
       comments: await Promise.all(
         postWithTags.comments.map(async (comment) => ({

@@ -148,6 +148,7 @@ model Post {
   comments      Comment[]
   author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes         PostLike[]
+  imageUrls     String[]
   isPinned      Boolean        @default(false)
   pollOptions   PollOption[]
   pollVotes     PollVote[]
