@@ -2,9 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@apollo/client';
-import { GET_FRIENDS } from '@/graphql/queries';
-import FriendsList from './FriendsList';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -12,35 +9,46 @@ export default function FriendsListContainer() {
 	const router = useRouter();
 	const { data: session } = useSession();
 	const currentUserId = session?.user?.id;
-	const { loading, error, data } = useQuery(GET_FRIENDS, {
-		skip: !currentUserId,
-		variables: { currentUserId },
-		fetchPolicy: "network-only", // <-- Add this line to always fetch fresh data
-	});
 
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	const [connections, setConnections] = useState([]);
 	const [friendSearchTerm, setFriendSearchTerm] = useState('');
-	const [filteredFriends, setFilteredFriends] = useState([]);
 
-	const initialFriendsList = data?.myConnections || [];
-	// Memoize the initial friends list so its reference is stable
-	const memoizedFriends = useMemo(() => initialFriendsList, [initialFriendsList]);
-
-	// Update filteredFriends only when memoizedFriends or friendSearchTerm changes
+	// Fetch connections using REST API
 	useEffect(() => {
-		const newFiltered = memoizedFriends.filter(friend =>
+		if (!currentUserId) return;
+
+		const fetchConnections = async () => {
+			try {
+				setLoading(true);
+				const res = await fetch('/api/connections?q=');
+
+				if (!res.ok) {
+					throw new Error('Failed to load connections');
+				}
+
+				const data = await res.json();
+				// Extract accepted connections from the response
+				const acceptedConnections = data.connections?.accepted || [];
+				setConnections(acceptedConnections);
+			} catch (err) {
+				console.error('Error fetching connections:', err);
+				setError(err.message);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchConnections();
+	}, [currentUserId]);
+
+	// Filter friends based on search term
+	const filteredFriends = useMemo(() => {
+		return connections.filter(friend =>
 			friend.name?.toLowerCase().includes(friendSearchTerm.toLowerCase())
 		);
-		// Only update state if newFiltered is different from current state
-		setFilteredFriends(prev => {
-			if (
-				prev.length !== newFiltered.length ||
-				prev.some((item, index) => item.id !== newFiltered[index]?.id)
-			) {
-				return newFiltered;
-			}
-			return prev;
-		});
-	}, [memoizedFriends, friendSearchTerm]);
+	}, [connections, friendSearchTerm]);
 
 	const navigateToProfile = (userId) => {
 		router.push(`/profile/${userId}`);
@@ -67,12 +75,10 @@ export default function FriendsListContainer() {
 		return (
 			<div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 mb-6">
 				<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-slate-100">Connections</h2>
-				<p className="text-red-500 dark:text-red-400">{error.message}</p>
+				<p className="text-red-500 dark:text-red-400">Failed to load connections</p>
 			</div>
 		);
 	}
-
-	const formErrors = {};
 
 	return (
 		<div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 mb-6">
@@ -95,7 +101,6 @@ export default function FriendsListContainer() {
 									alt={friend.name}
 									className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
 								/>
-								<div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-white"></div>
 							</div>
 							<span
 								onClick={() => navigateToProfile(friend.id)}
