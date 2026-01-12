@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,8 +19,9 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	const [editError, setEditError] = useState("");
 	const [notificationsOff, setNotificationsOff] = useState(false);
 	const [commentInputText, setCommentInputText] = useState('');
-	const [isLiked, setIsLiked] = useState(post.likedByCurrentUser || false);
+	const [userReaction, setUserReaction] = useState(post.currentUserReaction || (post.likedByCurrentUser ? "LIKE" : null));
 	const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+	const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
 	const [isSaved, setIsSaved] = useState(post.isSaved || false);
 	const [isLiking, setIsLiking] = useState(false);
 	const [showRepostMenu, setShowRepostMenu] = useState(false);
@@ -29,6 +32,8 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	const queryClient = useQueryClient();
 	const videoRef = useRef(null);
 	const [localError, setLocalError] = useState(null);
+	const [showToast, setShowToast] = useState(false);
+	const [showReactionMenu, setShowReactionMenu] = useState(false);
 	const setPostError = propSetPostError || setLocalError;
 
 	// Auto-play video when in viewport
@@ -78,16 +83,16 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	};
 
 	// Like/Unlike Post Mutation
-	const { mutate: toggleLikePost } = useMutation({
-		mutationFn: async ({ postId, isLiking }) => {
+	const { mutate: toggleReaction } = useMutation({
+		mutationFn: async ({ postId, reactionType }) => {
 			const res = await fetch('/api/posts', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ postId, action: isLiking ? 'like' : 'unlike' }),
+				body: JSON.stringify({ postId, action: reactionType ? 'react' : 'unreact', reactionType }),
 			});
 			if (!res.ok) {
 				const errorData = await res.json();
-				throw new Error(errorData.message || "Failed to update like.");
+				throw new Error(errorData.message || "Failed to update reaction.");
 			}
 			return res.json();
 		},
@@ -96,9 +101,8 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		},
 		onError: (err) => {
 			// Revert optimistic update
-			setIsLiked(prev => !prev);
-			setLikesCount(prev => isLiked ? prev + 1 : Math.max(0, prev - 1));
-			setPostError(err.message || "Failed to update like. Please try again.");
+			queryClient.invalidateQueries({ queryKey: ['posts'] });
+			setPostError(err.message || "Failed to update reaction. Please try again.");
 		},
 	});
 
@@ -312,27 +316,62 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		},
 	});
 
-	const handleLike = useCallback(() => {
+	// Share Post Mutation
+	const { mutate: sharePost } = useMutation({
+		mutationFn: async () => {
+			const res = await fetch('/api/posts', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ postId: post.id, action: 'share' }),
+			});
+			if (!res.ok) throw new Error("Failed to update share count.");
+			return res.json();
+		},
+		onSuccess: () => {
+			// queryClient.invalidateQueries({ queryKey: ['posts'] });
+		},
+	});
+
+	const handleReactionClick = useCallback((type = "LIKE") => {
 		if (!sessionUserId || isPreview) {
-			setPostError("You must be logged in to like a post.");
+			setPostError("You must be logged in to react to a post.");
 			return;
 		}
 		if (isLiking) return;
 
 		setIsLiking(true);
-		const newIsLiked = !isLiked;
+
+		// Determine new state
+		let newReaction = type;
+		let newCount = likesCount;
+
+		if (userReaction === type) {
+			// Toggle off if clicking same reaction
+			newReaction = null;
+			newCount = Math.max(0, likesCount - 1);
+		} else {
+			// Change reaction or add new
+			if (!userReaction) {
+				newCount = likesCount + 1;
+			}
+			// If changing from one type to another, count stays same (assuming count is total reactions)
+		}
 
 		// Optimistic update
-		setIsLiked(newIsLiked);
-		setLikesCount(prev => newIsLiked ? prev + 1 : Math.max(0, prev - 1));
+		setUserReaction(newReaction);
+		setLikesCount(newCount);
+		setShowReactionMenu(false);
 
-		toggleLikePost(
-			{ postId: post.id, isLiking: newIsLiked },
+		toggleReaction(
+			{ postId: post.id, reactionType: newReaction },
 			{
 				onSettled: () => setIsLiking(false),
 			}
 		);
-	}, [post.id, sessionUserId, toggleLikePost, setPostError, isLiked, isLiking]);
+	}, [post.id, sessionUserId, toggleReaction, setPostError, userReaction, likesCount, isLiking]);
+
+	// Default click handler (Like button)
+	const handleDefaultLike = () => handleReactionClick("LIKE");
 
 	const handleSave = useCallback(() => {
 		if (!sessionUserId || isPreview) {
@@ -455,6 +494,44 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		// Optionally, call backend to persist notification preference
 	};
 
+	const handleShare = async () => {
+		if (typeof window !== 'undefined') {
+			const url = `${window.location.origin}/dashboard?postId=${post.id}`;
+			const shareData = {
+				title: `Post by ${post.author?.name}`,
+				text: post.content || 'Check out this post on ConnectifAI',
+				url: url,
+			};
+
+			if (navigator.share) {
+				try {
+					await navigator.share(shareData);
+					setSharesCount(prev => prev + 1);
+					sharePost();
+				} catch (err) {
+					console.error("Error sharing:", err);
+				}
+			} else {
+				handleCopyLink();
+			}
+		}
+	};
+
+	const handleCopyLink = () => {
+		if (typeof window !== 'undefined') {
+			const url = `${window.location.origin}/dashboard?postId=${post.id}`;
+			navigator.clipboard.writeText(url)
+				.then(() => {
+					setShowToast(true);
+					setTimeout(() => setShowToast(false), 3000);
+					setSharesCount(prev => prev + 1);
+					sharePost();
+				})
+				.catch((err) => console.error("Failed to copy link:", err));
+			setShowMenu(false);
+		}
+	};
+
 	// Helper to format timestamp if not already present
 	const getTimestamp = () => {
 		if (post.timestamp) return post.timestamp;
@@ -483,10 +560,70 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 		}
 	};
 
+	// Helper to get reaction icons
+	const getReactionIcon = (type) => {
+		switch (type) {
+			case 'LOVE': return <div className="z-30 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-heart text-red-500 text-sm"></i></div>;
+			case 'HAHA': return <div className="z-20 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-laugh-squint text-yellow-500 text-sm"></i></div>;
+			case 'WOW': return <div className="z-10 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-surprise text-yellow-500 text-sm"></i></div>;
+			case 'SAD': return <div className="z-10 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-sad-tear text-yellow-500 text-sm"></i></div>;
+			case 'ANGRY': return <div className="z-10 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-angry text-orange-500 text-sm"></i></div>;
+			default: return <div className="z-30 bg-white dark:bg-slate-800 rounded-full p-0.5"><i className="fas fa-thumbs-up text-blue-600 text-sm"></i></div>;
+		}
+	};
+
+	// Generate reaction summary
+	const getReactionSummary = () => {
+		if (likesCount === 0) return null;
+
+		const latest = post.latestReactions || [];
+		// Filter out current user from latest to avoid "You, You..."
+		const others = latest.filter(r => r.user.id !== sessionUserId);
+
+		let text = "";
+		if (userReaction) {
+			if (others.length === 0) {
+				text = "You";
+			} else if (others.length === 1) {
+				text = `You and ${others[0].user.name}`;
+			} else {
+				text = `You, ${others[0].user.name} and ${likesCount - 2} others`;
+			}
+		} else {
+			if (others.length === 0) {
+				text = `${likesCount} ${likesCount === 1 ? 'person' : 'people'}`;
+			} else if (others.length === 1) {
+				text = others[0].user.name;
+			} else if (others.length === 2) {
+				text = `${others[0].user.name} and ${others[1].user.name}`;
+			} else {
+				text = `${others[0].user.name}, ${others[1].user.name} and ${likesCount - 2} others`;
+			}
+		}
+
+		return text;
+	};
+
 	return (
 		<div key={post.id} className="post-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-200 dark:border-slate-700 mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg dark:shadow-slate-900/30">
+			{/* Toast Notification */}
+			{showToast && (
+				<div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 backdrop-blur-sm animate-fade-in">
+					<i className="fas fa-check-circle text-green-400"></i>
+					<span className="text-sm font-medium">Link copied to clipboard</span>
+				</div>
+			)}
+
+			{/* Pinned Indicator */}
+			{post.isPinned && (
+				<div className="px-4 pt-3 text-xs font-semibold text-gray-500 dark:text-slate-400 flex items-center justify-end gap-2">
+					<i className="fas fa-thumbtack transform rotate-45 text-blue-600 dark:text-blue-400"></i>
+					<span>Pinned Post</span>
+				</div>
+			)}
+
 			{/* Header */}
-			<div className="flex items-center justify-between px-4 pt-4 pb-2">
+			<div className={`flex items-center justify-between px-4 ${post.isPinned ? 'pt-2' : 'pt-4'} pb-2`}>
 				<div className="flex items-center">
 					<Link href={`/profile/${post.author?.id || ''}`} className="group flex-shrink-0">
 						<img
@@ -563,21 +700,21 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 								>
 									{notificationsOff ? "Turn On Notifications" : "Turn Off Notifications"}
 								</button>
+								<button
+									className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
+									onClick={handleCopyLink}
+								>
+									Copy Link
+								</button>
 							</div>
 						)}
 					</div>
 				)}
 			</div>
 
-			{post.isPinned && (
-				<div className="px-4 pb-1 text-xs text-gray-500 dark:text-slate-400 flex items-center gap-1">
-					<i className="fas fa-thumbtack transform rotate-45"></i> Pinned
-				</div>
-			)}
-
 			{/* Reposted Content */}
 			{post.originalPost && (
-				<div className="px-4 pb-2">
+				<div className="px-4 py-2">
 					<div className="border border-gray-200 dark:border-slate-700 rounded-xl p-3 bg-gray-50 dark:bg-slate-700/50">
 						<div className="flex items-center mb-2">
 							<Link href={`/profile/${post.originalPost.author.id || ''}`} className="flex-shrink-0">
@@ -602,7 +739,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 
 			{/* Content */}
 			{isEditing ? (
-				<div className="px-4 pb-2">
+				<div className="px-4 py-2">
 					<textarea
 						className="w-full border border-gray-300 dark:border-slate-600 rounded-lg p-2 mb-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 						value={editContent}
@@ -631,7 +768,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 			) : (
 				<>
 					{post.content && (
-						<div className="px-4 pb-2 text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed whitespace-pre-line">
+						<div className="px-4 py-2 text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed whitespace-pre-line">
 							{post.content}
 							{post.updatedAt && post.updatedAt !== post.createdAt && (
 								<span className="ml-2 text-xs text-gray-400 dark:text-slate-500">(edited)</span>
@@ -643,7 +780,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 
 			{/* Media */}
 			{post.imageUrl && (
-				<div className="flex justify-center px-4 pb-2">
+				<div className="flex justify-center px-4 py-2">
 					<img
 						src={post.imageUrl}
 						alt="Post attachment"
@@ -653,7 +790,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 				</div>
 			)}
 			{post.videoUrl && (
-				<div className="flex justify-center px-4 pb-2">
+				<div className="flex justify-center px-4 py-2">
 					<video
 						ref={videoRef}
 						src={post.videoUrl}
@@ -673,7 +810,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 
 			{/* Poll Display */}
 			{post.pollOptions && post.pollOptions.length > 0 && (
-				<div className="px-4 pb-2">
+				<div className="px-4 py-2">
 					{(() => {
 						// Calculate total votes if options are objects with counts
 						const totalVotes = post.pollOptions.reduce((acc, opt) => acc + (typeof opt === 'object' ? (opt.count || 0) : 0), 0);
@@ -765,57 +902,134 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 			)}
 
 			{/* Reactions/Stats Row */}
-			<div className="flex items-center justify-between px-4 pt-2 pb-1 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
+			<div className="flex items-center justify-between px-4 py-2 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
 				<div className="flex items-center space-x-2">
-					<span className="flex items-center space-x-1">
-						{/* Like SVG */}
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="url(#like-gradient)" className="inline-block"><defs><linearGradient id="like-gradient" x1="2" y1="2" x2="14" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#02ADFC" /><stop offset="0.5" stopColor="#0866FF" /><stop offset="1" stopColor="#2B7EFF" /></linearGradient></defs><path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="#0866FF" /></svg>
-						<span className="font-medium">{likesCount}</span>
-					</span>
+					{likesCount > 0 && (
+						<div className="flex items-center cursor-pointer hover:underline">
+							<div className="flex -space-x-1 mr-2">
+								{/* Show unique reaction icons present on the post */}
+								{[...new Set([
+									userReaction,
+									...(post.latestReactions || []).map(r => r.type)
+								].filter(Boolean))].slice(0, 3).map((type, i) => (
+									<div key={type} className="relative">
+										{getReactionIcon(type)}
+									</div>
+								))}
+							</div>
+							<span className="font-medium text-gray-600 dark:text-slate-300">
+								{getReactionSummary()}
+							</span>
+						</div>
+					)}
 				</div>
 				<div className="flex items-center space-x-2">
 					<span className="hover:underline cursor-pointer">{post.commentsCount || 0} Comments</span>
+					{sharesCount > 0 && (
+						<span className="hover:underline cursor-pointer ml-2">{sharesCount} Shares</span>
+					)}
 				</div>
 			</div>
 
 			{/* Actions Row */}
-			<div className="flex justify-between items-center px-2 py-1 gap-2">
-				<button
-					onClick={handleLike}
-					disabled={isLiking || isPreview}
-					className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1 ${isLiked
-						? 'text-blue-600 dark:text-blue-400'
-						: 'text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
-						} ${isLiking || isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
-				>
-					{isLiking ? (
-						<i className="fas fa-spinner fa-spin"></i>
-					) : (
-						<svg width="20" height="20" viewBox="0 0 16 16" fill={isLiked ? "#0866FF" : "none"}>
-							<path d="M7.3 3.87a.7.7 0 0 1 .7-.7c.67 0 1.22.55 1.22 1.22v1.75a.1.1 0 0 0 .1.1h1.8c.99 0 1.72.93 1.49 1.89l-.46 1.9A2.3 2.3 0 0 1 11 12.7H6.92a.58.58 0 0 1-.58-.58V7.74c0-.42.1-.83.28-1.2l.29-.57a3.7 3.7 0 0 0 .39-1.65v-.45zM4.37 7a.77.77 0 0 0-.77.77v3.26c0 .42.34.77.77.77h.77a.38.38 0 0 0 .38-.38V7.38A.38.38 0 0 0 5.14 7h-.77z" fill="currentColor" />
-						</svg>
+			<div className="flex justify-between items-center px-6 py-2 border-t border-gray-100 dark:border-slate-700 mt-1">
+				<div className="relative" onMouseLeave={() => setShowReactionMenu(false)}>
+					{/* Reaction Menu */}
+					{showReactionMenu && (
+						<div className="absolute bottom-full left-0 pb-2 z-50">
+							<div className="bg-white dark:bg-slate-800 shadow-lg rounded-full p-2 flex gap-1 animate-fade-in border border-gray-200 dark:border-slate-700">
+								<button
+									onClick={() => handleReactionClick("LIKE")}
+									className="p-2 hover:scale-125 transition-transform text-blue-600"
+									title="Like"
+								>
+									<i className="fas fa-thumbs-up text-2xl"></i>
+								</button>
+								<button
+									onClick={() => handleReactionClick("LOVE")}
+									className="p-2 hover:scale-125 transition-transform text-red-500"
+									title="Love"
+								>
+									<i className="fas fa-heart text-2xl"></i>
+								</button>
+								<button
+									onClick={() => handleReactionClick("HAHA")}
+									className="p-2 hover:scale-125 transition-transform text-yellow-500"
+									title="Haha"
+								>
+									<i className="fas fa-laugh-squint text-2xl"></i>
+								</button>
+								<button
+									onClick={() => handleReactionClick("WOW")}
+									className="p-2 hover:scale-125 transition-transform text-yellow-500"
+									title="Wow"
+								>
+									<i className="fas fa-surprise text-2xl"></i>
+								</button>
+								<button
+									onClick={() => handleReactionClick("SAD")}
+									className="p-2 hover:scale-125 transition-transform text-yellow-500"
+									title="Sad"
+								>
+									<i className="fas fa-sad-tear text-2xl"></i>
+								</button>
+								<button
+									onClick={() => handleReactionClick("ANGRY")}
+									className="p-2 hover:scale-125 transition-transform text-orange-500"
+									title="Angry"
+								>
+									<i className="fas fa-angry text-2xl"></i>
+								</button>
+							</div>
+						</div>
 					)}
-					<span>{isLiked ? 'Liked' : 'Like'}</span>
-				</button>
-				<button
-					onClick={toggleCommentSection}
-					disabled={isPreview}
-					className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1 ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
-				>
-					{/* Comment SVG */}
-					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3C5.58 3 2 6.13 2 10c0 1.61.7 3.09 1.9 4.27-.13.47-.5 1.47-1.2 2.36-.13.16-.02.4.18.4.06 0 .12-.02.17-.06 1.1-.8 2.1-1.2 2.6-1.36C7.1 16.44 8.5 17 10 17c4.42 0 8-3.13 8-7s-3.58-7-8-7z" fill="currentColor" /></svg>
-					<span>Comment</span>
-				</button>
-				<div className="relative flex-1">
 					<button
-						type="button"
-						disabled={isPreview}
-						className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1 ${isPreview || isReposting ? 'opacity-50 cursor-not-allowed' : ''}`}
-						onClick={handleRepostClick}
+						onClick={handleDefaultLike}
+						onMouseEnter={() => !isPreview && setShowReactionMenu(true)}
+						disabled={isLiking || isPreview}
+						className={`group flex items-center justify-center p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 ${userReaction
+							? (userReaction === 'LOVE' ? 'text-red-500 bg-red-50 dark:bg-red-900/20' :
+								userReaction === 'HAHA' || userReaction === 'WOW' || userReaction === 'SAD' ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' :
+									userReaction === 'ANGRY' ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' :
+										'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+							)
+							: 'text-gray-500 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400'
+							} ${isLiking || isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
+						title={userReaction ? "Remove Reaction" : "Like"}
+						aria-label={userReaction ? "Remove Reaction" : "Like"}
 					>
-						<i className={`fas fa-retweet ${isReposting ? 'fa-spin' : ''}`}></i>
-						<span>Repost</span>
+						{isLiking ? (
+							<i className="fas fa-spinner fa-spin text-xl"></i>
+						) : (
+							userReaction === 'LOVE' ? (
+								<i className="fas fa-heart text-xl animate-pop"></i>
+							) : userReaction === 'HAHA' ? (
+								<i className="fas fa-laugh-squint text-xl animate-pop"></i>
+							) : userReaction === 'WOW' ? (
+								<i className="fas fa-surprise text-xl animate-pop"></i>
+							) : userReaction === 'SAD' ? (
+								<i className="fas fa-sad-tear text-xl animate-pop"></i>
+							) : userReaction === 'ANGRY' ? (
+								<i className="fas fa-angry text-xl animate-pop"></i>
+							) : (
+								<i className={`${userReaction === 'LIKE' ? 'fas animate-pop' : 'far'} fa-thumbs-up text-xl transform group-hover:scale-110 transition-transform`}></i>
+							)
+						)}
 					</button>
+				</div>
+				<div className="relative flex-1">
+					<div className="flex justify-center">
+						<button
+							type="button"
+							disabled={isPreview}
+							className={`group flex items-center justify-center p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-green-50 dark:hover:bg-slate-800 hover:text-green-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 ${isPreview || isReposting ? 'opacity-50 cursor-not-allowed' : ''}`}
+							onClick={handleRepostClick}
+							title="Repost"
+							aria-label="Repost"
+						>
+							<i className={`fas fa-retweet text-xl transform group-hover:scale-110 transition-transform ${isReposting ? 'fa-spin' : ''}`}></i>
+						</button>
+					</div>
 					{showRepostMenu && (
 						<div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-40 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-50 overflow-hidden animate-fade-in">
 							<button
@@ -836,24 +1050,35 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 				<button
 					type="button"
 					disabled={isPreview}
-					className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 font-semibold transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 mx-1 ${isSaved ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'} ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
+					className={`group flex items-center justify-center p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
+					onClick={handleShare}
+					title="Share"
+					aria-label="Share"
+				>
+					<i className="fas fa-share-nodes text-xl transform group-hover:scale-110 transition-transform"></i>
+				</button>
+				<button
+					type="button"
+					disabled={isPreview}
+					className={`group flex items-center justify-center p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-500 ${isSaved ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-500 dark:text-slate-400 hover:bg-yellow-50 dark:hover:bg-slate-800 hover:text-yellow-500'} ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
 					onClick={handleSave}
 					title={isSaved ? "Unsave Post" : "Save Post"}
+					aria-label={isSaved ? "Unsave Post" : "Save Post"}
 				>
-					<i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-lg`}></i>
+					<i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-xl transform group-hover:scale-110 transition-transform`}></i>
 				</button>
 			</div>
 
 			{/* Error Message */}
 			{localError && (
-				<div className="px-4 pb-2 text-red-500 dark:text-red-400 text-sm">
+				<div className="px-4 py-2 text-red-500 dark:text-red-400 text-sm">
 					{localError}
 				</div>
 			)}
 
 			{/* Comment Input and Top Comments (Facebook style) */}
 			{!isPreview && (
-				<div className="px-4 pt-2 pb-1">
+				<div className="px-4 py-2">
 					<form onSubmit={handleAddComment} className="flex items-center space-x-3 mb-3">
 						<img
 							src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
@@ -885,8 +1110,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 									className="text-blue-600 hover:text-blue-800 transition duration-150 ease-in-out p-1 rounded-full ml-1"
 									aria-label="Post comment"
 								>
-									{/* Send SVG */}
-									<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M2.94 17.94a1.5 1.5 0 0 0 1.6.33l13-5.5a1.5 1.5 0 0 0 0-2.74l-13-5.5A1.5 1.5 0 0 0 2 6.5v7a1.5 1.5 0 0 0 .94 1.44zM4 7.38l11.67 4.94L4 17.26V7.38z" /></svg>
+									<i className="fas fa-paper-plane text-lg"></i>
 								</button>
 							</div>
 							{commentInputText.length >= MAX_COMMENT_LENGTH && (
@@ -992,6 +1216,23 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 					</div>
 				</div>
 			)}
+			<style jsx>{`
+				@keyframes pop {
+					0% { transform: scale(1); }
+					50% { transform: scale(1.4); }
+					100% { transform: scale(1); }
+				}
+				.animate-pop {
+					animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+				}
+				@keyframes fade-in {
+					0% { opacity: 0; transform: translateY(5px); }
+					100% { opacity: 1; transform: translateY(0); }
+				}
+				.animate-fade-in {
+					animation: fade-in 0.2s ease-out;
+				}
+			`}</style>
 		</div>
 	);
 }

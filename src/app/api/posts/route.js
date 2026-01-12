@@ -527,10 +527,13 @@ export async function GET(request) {
             },
           },
         },
-        // Include post likes to check if current user liked
+        // Fetch latest 3 reactions for summary
         likes: {
-          where: { userId },
-          select: { id: true },
+          take: 3,
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: { select: { id: true, name: true } },
+          },
         },
         pollOptions: {
           include: {
@@ -568,6 +571,20 @@ export async function GET(request) {
     // Determine if there are more posts to load
     const hasMore = posts.length > take;
     const dataToReturn = hasMore ? posts.slice(0, take) : posts;
+
+    // Fetch current user's reactions for these posts separately
+    const postIds = dataToReturn.map((p) => p.id);
+    let myReactionsMap = new Map();
+    if (userId && postIds.length > 0) {
+      const myReactions = await prisma.postLike.findMany({
+        where: {
+          userId: userId,
+          postId: { in: postIds },
+        },
+        select: { postId: true, type: true },
+      });
+      myReactions.forEach((r) => myReactionsMap.set(r.postId, r.type));
+    }
 
     const formattedPosts = await Promise.all(
       dataToReturn.map(async (post) => {
@@ -614,7 +631,12 @@ export async function GET(request) {
 
         return {
           ...post,
-          likedByCurrentUser: post.likes && post.likes.length > 0,
+          currentUserReaction: myReactionsMap.get(post.id) || null,
+          latestReactions: (post.likes || []).map((l) => ({
+            id: l.id,
+            type: l.type,
+            user: l.user,
+          })),
           author: {
             id: post.author?.id,
             name: post.author?.name,
@@ -736,36 +758,45 @@ export async function PATCH(request) {
         { message: "Post updated successfully." },
         { status: 200 }
       );
-    } else if (action === "like") {
+    } else if (action === "react") {
+      const reactionType = requestBody.reactionType || "LIKE";
       if (!postId) {
         return NextResponse.json(
-          { message: "Post ID is required for liking a post." },
+          { message: "Post ID is required for reacting to a post." },
           { status: 400 }
         );
       }
 
-      // Check if user already liked this post
-      const existingLike = await prisma.postLike.findUnique({
+      // Check if user already reacted to this post
+      const existingReaction = await prisma.postLike.findUnique({
         where: {
           userId_postId: { userId, postId },
         },
       });
 
-      if (existingLike) {
+      if (existingReaction) {
+        // If reaction type is different, update it
+        if (existingReaction.type !== reactionType) {
+          await prisma.postLike.update({
+            where: { id: existingReaction.id },
+            data: { type: reactionType },
+          });
+        }
+
         const post = await prisma.post.findUnique({
           where: { id: postId },
           select: { likesCount: true },
         });
         return NextResponse.json(
-          { message: "Already liked.", likesCount: post.likesCount },
+          { message: "Reaction updated.", likesCount: post.likesCount },
           { status: 200 }
         );
       }
 
-      // Create like record and increment count
+      // Create reaction record and increment count
       await prisma.$transaction([
         prisma.postLike.create({
-          data: { userId, postId },
+          data: { userId, postId, type: reactionType },
         }),
         prisma.post.update({
           where: { id: postId },
@@ -780,38 +811,38 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         {
-          message: "Post liked successfully.",
+          message: "Post reacted successfully.",
           likesCount: updated.likesCount,
         },
         { status: 200 }
       );
-    } else if (action === "unlike") {
+    } else if (action === "unreact") {
       if (!postId) {
         return NextResponse.json(
-          { message: "Post ID is required for unliking a post." },
+          { message: "Post ID is required for removing reaction." },
           { status: 400 }
         );
       }
 
-      // Check if user has liked this post
-      const existingLike = await prisma.postLike.findUnique({
+      // Check if user has reacted
+      const existingReaction = await prisma.postLike.findUnique({
         where: {
           userId_postId: { userId, postId },
         },
       });
 
-      if (!existingLike) {
+      if (!existingReaction) {
         const post = await prisma.post.findUnique({
           where: { id: postId },
           select: { likesCount: true },
         });
         return NextResponse.json(
-          { message: "Not liked.", likesCount: post?.likesCount || 0 },
+          { message: "Not reacted.", likesCount: post?.likesCount || 0 },
           { status: 200 }
         );
       }
 
-      // Delete like record and decrement count
+      // Delete reaction record and decrement count
       await prisma.$transaction([
         prisma.postLike.delete({
           where: { userId_postId: { userId, postId } },
@@ -829,7 +860,7 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         {
-          message: "Post unliked successfully.",
+          message: "Reaction removed successfully.",
           likesCount: Math.max(0, updated.likesCount),
         },
         { status: 200 }
@@ -1483,6 +1514,23 @@ export async function PATCH(request) {
         await prisma.savedPost.delete({ where: { id: existingSave.id } });
       }
       return NextResponse.json({ message: "Post unsaved." }, { status: 200 });
+    } else if (action === "share") {
+      if (!postId) {
+        return NextResponse.json(
+          { message: "Post ID is required." },
+          { status: 400 }
+        );
+      }
+
+      await prisma.post.update({
+        where: { id: postId },
+        data: { sharesCount: { increment: 1 } },
+      });
+
+      return NextResponse.json(
+        { message: "Share count updated." },
+        { status: 200 }
+      );
     } else {
       return NextResponse.json(
         { message: "Invalid action specified." },

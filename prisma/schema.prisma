@@ -156,6 +156,7 @@ model Post {
   originalPostId String?
   originalPost   Post?         @relation("Reposts", fields: [originalPostId], references: [id])
   reposts        Post[]        @relation("Reposts")
+  sharesCount    Int           @default(0)
 
   @@map("posts")
 }
@@ -278,6 +279,7 @@ model PostLike {
   createdAt DateTime @default(now())
   user      User     @relation("UserPostLikes", fields: [userId], references: [id], onDelete: Cascade)
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  type      String   @default("LIKE")
 
   @@unique([userId, postId])
   @@index([postId])

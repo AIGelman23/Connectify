@@ -4,6 +4,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component
 import PostCard from './PostCard';
+import Tooltip from './Tooltip';
 
 const MAX_POST_LENGTH = 2000;
 
@@ -729,61 +730,76 @@ export default function CreatePostCard() {
 				</div>
 			)}
 			<div className="border-t border-gray-200 dark:border-slate-700 mt-2" />
-			<div className="flex items-center justify-between px-4 py-2">
-				<button
-					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-blue-600 dark:text-blue-400 font-semibold"
-					onClick={() => openFileModal("image")}
-				>
-					<i className="fas fa-image text-xl"></i>
-					<span>Photo</span>
-				</button>
-				<button
-					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-green-600 dark:text-green-400 font-semibold"
-					onClick={() => openFileModal("video")}
-				>
-					<i className="fas fa-video text-xl"></i>
-					<span>Video</span>
-				</button>
-				<button
-					type="button"
-					className="flex items-center gap-2 flex-1 justify-center hover:bg-purple-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-purple-600 dark:text-purple-400 font-semibold"
-					onClick={() => setShowGiphyModal(true)}
-				>
-					<i className="fas fa-gift text-xl"></i>
-					<span>GIF</span>
-				</button>
-				<button
-					type="button"
-					className={`flex items-center gap-2 flex-1 justify-center hover:bg-orange-100 dark:hover:bg-slate-700 rounded-lg py-2 transition text-orange-600 dark:text-orange-400 font-semibold ${showPollCreator ? 'bg-orange-50 dark:bg-slate-700' : ''}`}
-					onClick={togglePollCreator}
-				>
-					<i className="fas fa-poll text-xl"></i>
-					<span>Poll</span>
-				</button>
-				<button
-					type="button"
-					className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 font-semibold rounded-lg py-2 ml-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
-					onClick={() => setShowPreview(true)}
-					disabled={!postText && !selectedFile && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
-				>
-					Preview
-				</button>
-				<button
-					className="flex-1 bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg py-2 ml-2 transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#2374e1]"
-					onClick={handlePost}
-					disabled={isUploading}
-				>
-					{isUploading ? (
-						<span>
-							<i className="fas fa-spinner fa-spin mr-2"></i>
-							Posting...
-						</span>
-					) : (
-						"Post"
-					)}
-				</button>
+			<div className="flex flex-wrap items-center justify-between px-4 py-2 gap-2">
+				<div className="flex items-center gap-2">
+					<Tooltip text="Add Photo">
+						<button
+							type="button"
+							className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+							onClick={() => openFileModal("image")}
+							aria-label="Add Photo"
+						>
+							<i className="fas fa-image text-xl"></i>
+						</button>
+					</Tooltip>
+					<Tooltip text="Add Video">
+						<button
+							type="button"
+							className="p-2 rounded-full hover:bg-green-50 dark:hover:bg-slate-700 text-green-600 dark:text-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/50"
+							onClick={() => openFileModal("video")}
+							aria-label="Add Video"
+						>
+							<i className="fas fa-video text-xl"></i>
+						</button>
+					</Tooltip>
+					<Tooltip text="Add GIF">
+						<button
+							type="button"
+							className="p-2 rounded-full hover:bg-purple-50 dark:hover:bg-slate-700 text-purple-600 dark:text-purple-400 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+							onClick={() => setShowGiphyModal(true)}
+							aria-label="Add GIF"
+						>
+							<i className="fas fa-gift text-xl"></i>
+						</button>
+					</Tooltip>
+					<Tooltip text="Create Poll">
+						<button
+							type="button"
+							className={`p-2 rounded-full hover:bg-orange-50 dark:hover:bg-slate-700 text-orange-600 dark:text-orange-400 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${showPollCreator ? 'bg-orange-100 dark:bg-slate-600' : ''}`}
+							onClick={togglePollCreator}
+							aria-label="Create Poll"
+						>
+							<i className="fas fa-poll text-xl"></i>
+						</button>
+					</Tooltip>
+				</div>
+				<div className="flex items-center gap-2 ml-auto sm:ml-0">
+					<Tooltip text="Preview Post">
+						<button
+							type="button"
+							className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+							onClick={() => setShowPreview(true)}
+							disabled={!postText && !selectedFile && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
+							aria-label="Preview Post"
+						>
+							<i className="fas fa-eye text-xl"></i>
+						</button>
+					</Tooltip>
+					<button
+						className="bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg py-2 px-4 transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#2374e1] text-sm sm:text-base"
+						onClick={handlePost}
+						disabled={isUploading}
+					>
+						{isUploading ? (
+							<span>
+								<i className="fas fa-spinner fa-spin mr-2"></i>
+								<span className="hidden sm:inline">Posting...</span>
+							</span>
+						) : (
+							"Post"
+						)}
+					</button>
+				</div>
 			</div>
 			{/* Modern Facebook-style modal for media selection/preview */}
 			<ModernMediaModal
