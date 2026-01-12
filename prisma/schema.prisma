@@ -45,6 +45,7 @@ model User {
   hashedPassword             String?
   image                      String?
   role                       String               @default("USER")
+  isBanned                   Boolean              @default(false)
   createdAt                  DateTime             @default(now())
   resetToken                 String?
   resetTokenExpiry           DateTime?
