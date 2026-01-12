@@ -42,7 +42,8 @@ export default function AdminDashboard() {
             setError("Access Denied. You are not an admin.");
             setTimeout(() => router.push('/dashboard'), 3000);
           } else {
-            throw new Error('Failed to fetch reports');
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.message || `Failed to fetch reports: ${res.status}`);
           }
           return;
         }

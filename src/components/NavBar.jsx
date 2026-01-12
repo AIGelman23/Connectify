@@ -451,6 +451,18 @@ export default function Navbar({ session, router }) {
 												<i className="fas fa-user profile-dropdown-btn-icon w-4"></i>
 												<span>View Profile</span>
 											</button>
+											{session?.user?.role === 'ADMIN' && (
+												<button
+													onClick={() => {
+														router.push("/admin");
+														setIsProfileMenuOpen(false);
+													}}
+													className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm"
+												>
+													<i className="fas fa-shield-alt profile-dropdown-btn-icon w-4"></i>
+													<span>Admin Dashboard</span>
+												</button>
+											)}
 											<button
 												onClick={() => {
 													router.push("/settings");
