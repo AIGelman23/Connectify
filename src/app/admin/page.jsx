@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/NavBar';
 import ConnectifyLogo from "@/components/ConnectifyLogo";
+import UserDetailModal from '@/components/UserDetailModal';
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -16,6 +17,7 @@ export default function AdminDashboard() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   // Debounce search
   useEffect(() => {
@@ -186,10 +188,16 @@ export default function AdminDashboard() {
                             <p className="italic text-gray-500">Content not found or deleted</p>
                           )}
                           {report.targetAuthor && (
-                            <div className="mt-1">
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
                               <p className="text-xs text-gray-500">
                                 Author: <span className="font-medium">{report.targetAuthor.name}</span> ({report.targetAuthor.email})
                               </p>
+                              <button
+                                onClick={() => setSelectedUserId(report.targetAuthor.id)}
+                                className="text-xs text-blue-600 hover:text-blue-800 underline focus:outline-none"
+                              >
+                                View Details
+                              </button>
                               {report.targetAuthor.isBanned && (
                                 <span className="text-xs text-red-600 font-bold uppercase">BANNED</span>
                               )}
@@ -289,6 +297,13 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+
+        {selectedUserId && (
+          <UserDetailModal
+            userId={selectedUserId}
+            onClose={() => setSelectedUserId(null)}
+          />
+        )}
       </div>
     </div>
   );
