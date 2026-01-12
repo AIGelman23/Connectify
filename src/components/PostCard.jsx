@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Comment, Reply } from './Comment';
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component 
@@ -37,6 +38,8 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	const [showReactionMenu, setShowReactionMenu] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(null);
 	const setPostError = propSetPostError || setLocalError;
+	const searchParams = useSearchParams();
+	const targetCommentId = searchParams.get('commentId');
 
 	// Auto-play video when in viewport
 	useEffect(() => {
@@ -68,6 +71,42 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	useEffect(() => {
 		setIsSaved(post.isSaved || false);
 	}, [post.isSaved]);
+
+	// Handle deep linking to comments
+	useEffect(() => {
+		if (!targetCommentId || !post.comments) return;
+
+		const findComment = (comments) => {
+			for (const c of comments) {
+				if (c.id === targetCommentId) return true;
+				if (c.replies) {
+					// Simple check for nested replies in the structure
+					const checkReplies = (replies) => {
+						for (const r of replies) {
+							if (r.id === targetCommentId) return true;
+							if (r.replies && checkReplies(r.replies)) return true;
+						}
+						return false;
+					};
+					if (checkReplies(c.replies)) return true;
+				}
+			}
+			return false;
+		};
+
+		if (findComment(post.comments)) {
+			setActiveCommentForPost(post.id);
+			// Scroll logic is handled via ID in the DOM, wait for render
+			setTimeout(() => {
+				const el = document.getElementById(`comment-${targetCommentId}`);
+				if (el) {
+					el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+					el.classList.add('bg-blue-100', 'dark:bg-blue-900/40');
+					setTimeout(() => el.classList.remove('bg-blue-100', 'dark:bg-blue-900/40'), 3000);
+				}
+			}, 500);
+		}
+	}, [targetCommentId, post.id, post.comments]);
 
 	// Auto-resize comment textarea
 	useEffect(() => {
@@ -616,7 +655,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 	const lightboxImages = post.imageUrls?.length > 0 ? post.imageUrls : (post.imageUrl ? [post.imageUrl] : []);
 
 	return (
-		<div key={post.id} className="post-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-200 dark:border-slate-700 mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg dark:shadow-slate-900/30">
+		<div id={post.id} className="post-card bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-gray-200 dark:border-slate-700 mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg dark:shadow-slate-900/30">
 			{/* Toast Notification */}
 			{showToast && (
 				<div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 backdrop-blur-sm animate-fade-in">
@@ -1183,6 +1222,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 											sessionUserId={sessionUserId}
 											onDeleteComment={handleDeleteComment}
 											postId={post.id}
+											targetCommentId={targetCommentId}
 										/>
 									))
 							) : (
@@ -1200,6 +1240,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 											sessionUserId={sessionUserId}
 											onDeleteComment={handleDeleteComment}
 											postId={post.id}
+											targetCommentId={targetCommentId}
 										/>
 									))
 							)}
@@ -1291,6 +1332,7 @@ export default function PostCard({ post, sessionUserId, setPostError: propSetPos
 				onReply={handleReply}
 				onDeleteComment={handleDeleteComment}
 				onAddComment={handleLightboxComment}
+				onReaction={handleReactionClick}
 			/>
 		</div>
 	);

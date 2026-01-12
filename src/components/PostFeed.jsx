@@ -3,14 +3,17 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import MinimalSpinnerLoader from './MinimalSpinnerLoader'; // Assuming this is in components
 import PostCard from './PostCard';
 import { formatTimestamp } from '../lib/utils'; // Assuming you move formatTimestamp here
 
-export default function PostFeed({ sessionUserId, setPostError, openReplyModal, highlightPostId }) {
+export default function PostFeed({ sessionUserId, setPostError, openReplyModal }) {
 	const mainScrollRef = useRef(null); // Ref for the scrollable container
 	const loaderRef = useRef(null);     // Ref for the element to observe
-	const highlightedPostRef = useRef(null); // Ref for the highlighted post
+	const searchParams = useSearchParams();
+	const postId = searchParams.get('postId');
+	const scrolledRef = useRef(false);
 
 	const {
 		data,
@@ -94,18 +97,24 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal, 
 
 	const posts = data?.pages?.flatMap(page => page.posts) || [];
 
-	// Scroll to highlighted post when it's loaded
+	// Reset scrolledRef when postId changes (e.g. navigating to a different post)
 	useEffect(() => {
-		if (highlightPostId && highlightedPostRef.current) {
-			// Small delay to ensure the DOM is ready
-			setTimeout(() => {
-				highlightedPostRef.current?.scrollIntoView({
-					behavior: 'smooth',
-					block: 'center',
-				});
-			}, 100);
+		scrolledRef.current = false;
+	}, [postId]);
+
+	// Scroll to post if postId is present in URL
+	useEffect(() => {
+		if (postId && !scrolledRef.current && posts.length > 0) {
+			const element = document.getElementById(postId);
+			if (element) {
+				// Use a slight delay to ensure layout is stable
+				setTimeout(() => {
+					element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+					scrolledRef.current = true; // Mark as scrolled so we don't scroll again on re-renders
+				}, 100);
+			}
 		}
-	}, [highlightPostId, posts]);
+	}, [postId, posts]);
 
 	useEffect(() => {
 		const currentLoader = loaderRef.current;
@@ -152,24 +161,15 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal, 
 			)}
 
 			{posts.length > 0 ? (
-				posts.map((post) => {
-					const isHighlighted = highlightPostId === post.id;
-					return (
-						<div
-							key={post.id}
-							ref={isHighlighted ? highlightedPostRef : null}
-							className={isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg animate-pulse-once' : ''}
-						>
-							<PostCard
-								post={post}
-								sessionUserId={sessionUserId}
-								setPostError={setPostError}
-								openReplyModal={openReplyModal}
-								isHighlighted={isHighlighted}
-							/>
-						</div>
-					);
-				})
+				posts.map((post) => (
+					<PostCard
+						key={post.id}
+						post={post}
+						sessionUserId={sessionUserId}
+						setPostError={setPostError}
+						openReplyModal={openReplyModal}
+					/>
+				))
 			) : (
 				!isPostsLoading && !isPostsError && (
 					<p className="text-center text-gray-500 py-10">No posts yet. Start by creating one!</p>

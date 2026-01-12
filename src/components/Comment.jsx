@@ -8,7 +8,47 @@ import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector compone
 
 const MAX_REPLY_LENGTH = 280;
 
-export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, onLike, commentId, depth = 1 }) => {
+// Helper to check if a comment/reply tree contains a specific ID
+const containsId = (items, id) => {
+	if (!items || !id) return false;
+	for (const item of items) {
+		if (item.id === id) return true;
+		if (item.replies && containsId(item.replies, id)) return true;
+	}
+	return false;
+};
+
+const ReportConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
+	if (!isOpen) return null;
+	return (
+		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+			<div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden border border-gray-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+				<div className="p-6">
+					<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Report Content</h3>
+					<p className="text-gray-600 dark:text-slate-300 text-sm mb-6">
+						Are you sure you want to report this content? We will review it shortly.
+					</p>
+					<div className="flex justify-end gap-3">
+						<button
+							onClick={onClose}
+							className="px-4 py-2 text-gray-700 dark:text-slate-200 font-medium hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={onConfirm}
+							className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+						>
+							Report
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+};
+
+export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, onLike, commentId, depth = 1, targetCommentId }) => {
 	const isAuthor = reply.user.id === sessionUserId;
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showNestedReplies, setShowNestedReplies] = useState(false);
@@ -18,6 +58,8 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 	const [isLiking, setIsLiking] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isContentExpanded, setIsContentExpanded] = useState(false);
+	const [isCopied, setIsCopied] = useState(false);
+	const [showReportModal, setShowReportModal] = useState(false);
 	const replyInputRef = useRef(null);
 	const replyContainerRef = useRef(null);
 
@@ -33,6 +75,34 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 			handlePostReply(e);
 		}
 	};
+
+	const handleCopyLink = () => {
+		if (typeof window !== 'undefined') {
+			const url = `${window.location.origin}/dashboard?postId=${postId}&commentId=${reply.id}`;
+			navigator.clipboard.writeText(url)
+				.then(() => {
+					setIsCopied(true);
+					setTimeout(() => setIsCopied(false), 2000);
+				})
+				.catch((err) => console.error("Failed to copy link:", err));
+		}
+	};
+
+	const handleReport = () => {
+		setShowReportModal(true);
+	};
+
+	const confirmReport = () => {
+		setShowReportModal(false);
+		alert("Comment reported. Thank you for your feedback.");
+	};
+
+	// Auto-expand if this reply contains the target comment
+	useEffect(() => {
+		if (targetCommentId && containsId(reply.replies, targetCommentId)) {
+			setShowNestedReplies(true);
+		}
+	}, [targetCommentId, reply.replies]);
 
 	// Format "Liked by X and Y others" text
 	const getLikedByText = () => {
@@ -121,7 +191,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 	const totalNestedReplies = hasNestedReplies ? getRepliesCount(reply) : 0;
 
 	return (
-		<div className="flex items-start space-x-2">
+		<div id={`comment-${reply.id}`} className="flex items-start space-x-2 transition-colors duration-1000 rounded-lg p-1">
 			<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0">
 				<img
 					src={reply.user.imageUrl}
@@ -172,6 +242,18 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 						className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
 					>
 						Reply
+					</button>
+					<button
+						onClick={handleCopyLink}
+						className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:underline"
+					>
+						{isCopied ? "Copied" : "Copy Link"}
+					</button>
+					<button
+						onClick={handleReport}
+						className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:underline"
+					>
+						Report
 					</button>
 					{isAuthor && (
 						<button
@@ -265,6 +347,7 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 											onLike={onLike}
 											commentId={commentId}
 											depth={depth + 1}
+											targetCommentId={targetCommentId}
 										/>
 									))}
 								</div>
@@ -272,12 +355,19 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 						)}
 					</div>
 				)}
+				{showReportModal && (
+					<ReportConfirmationModal
+						isOpen={showReportModal}
+						onClose={() => setShowReportModal(false)}
+						onConfirm={confirmReport}
+					/>
+				)}
 			</div>
 		</div>
 	);
 };
 
-export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComment, postId }) => {
+export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComment, postId, targetCommentId }) => {
 	const isAuthor = comment.user.id === sessionUserId;
 	const [showReplyInput, setShowReplyInput] = useState(false);
 	const [showReplies, setShowReplies] = useState(false);
@@ -287,6 +377,8 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 	const [isLiking, setIsLiking] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isContentExpanded, setIsContentExpanded] = useState(false);
+	const [isCopied, setIsCopied] = useState(false);
+	const [showReportModal, setShowReportModal] = useState(false);
 	const replyInputRef = useRef(null);
 	const replyContainerRef = useRef(null);
 
@@ -294,11 +386,39 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 	const MAX_CONTENT_LENGTH = 200;
 	const shouldTruncate = comment.content && comment.content.length > MAX_CONTENT_LENGTH;
 
+	// Auto-expand if this comment contains the target reply
+	useEffect(() => {
+		if (targetCommentId && containsId(comment.replies, targetCommentId)) {
+			setShowReplies(true);
+		}
+	}, [targetCommentId, comment.replies]);
+
 	const handleKeyDown = (e) => {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			handlePostReply(e);
 		}
+	};
+
+	const handleCopyLink = () => {
+		if (typeof window !== 'undefined') {
+			const url = `${window.location.origin}/dashboard?postId=${postId}&commentId=${comment.id}`;
+			navigator.clipboard.writeText(url)
+				.then(() => {
+					setIsCopied(true);
+					setTimeout(() => setIsCopied(false), 2000);
+				})
+				.catch((err) => console.error("Failed to copy link:", err));
+		}
+	};
+
+	const handleReport = () => {
+		setShowReportModal(true);
+	};
+
+	const confirmReport = () => {
+		setShowReportModal(false);
+		alert("Comment reported. Thank you for your feedback.");
 	};
 
 	// Format "Liked by X and Y others" text
@@ -386,7 +506,7 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 	};
 
 	return (
-		<div className="flex items-start space-x-3 mb-4">
+		<div id={`comment-${comment.id}`} className="flex items-start space-x-3 mb-4 transition-colors duration-1000 rounded-lg p-1">
 			<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
 				<img
 					src={comment.user.imageUrl}
@@ -434,6 +554,18 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 						className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
 					>
 						Reply
+					</button>
+					<button
+						onClick={handleCopyLink}
+						className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:underline"
+					>
+						{isCopied ? "Copied" : "Copy Link"}
+					</button>
+					<button
+						onClick={handleReport}
+						className="text-xs font-medium text-gray-500 dark:text-slate-400 hover:underline"
+					>
+						Report
 					</button>
 					{isAuthor && (
 						<button
@@ -527,12 +659,20 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 											onLike={onLike}
 											commentId={comment.id}
 											depth={1}
+											targetCommentId={targetCommentId}
 										/>
 									))}
 								</div>
 							</>
 						)}
 					</div>
+				)}
+				{showReportModal && (
+					<ReportConfirmationModal
+						isOpen={showReportModal}
+						onClose={() => setShowReportModal(false)}
+						onConfirm={confirmReport}
+					/>
 				)}
 			</div>
 		</div>
