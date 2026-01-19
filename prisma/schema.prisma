@@ -160,6 +160,10 @@ model Post {
   originalPost   Post?         @relation("Reposts", fields: [originalPostId], references: [id])
   reposts        Post[]        @relation("Reposts")
   sharesCount    Int           @default(0)
+  type           String?       @default("post")
+  title          String?
+  newsSource     String?
+  newsLink       String?
 
   @@map("posts")
 }

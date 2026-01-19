@@ -23,7 +23,6 @@ export default function Navbar({ session, router }) {
 
 	const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 	const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
-	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 	const [notifications, setNotifications] = useState([]); // Initialize as empty array
 	const [currentPath, setCurrentPath] = useState('');
 	const [unreadCount, setUnreadCount] = useState(0);
@@ -137,6 +136,17 @@ export default function Navbar({ session, router }) {
 	}, [session?.user?.id]);
 
 	const handleSignOut = async () => {
+		// Unsubscribe from Pusher Beams to stop receiving notifications
+		try {
+			const { Client } = await import("@pusher/push-notifications-web");
+			const beamsClient = new Client({
+				instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID || "9ddc93ef-b40a-4905-adbe-ffad4efce457",
+			});
+			await beamsClient.stop();
+		} catch (error) {
+			console.error("Failed to stop Pusher Beams:", error);
+		}
+
 		await signOut({ callbackUrl: '/auth/login' });
 	};
 
@@ -304,18 +314,13 @@ export default function Navbar({ session, router }) {
 					<div className="navbar-row flex items-center justify-between h-16">
 						<div className="navbar-left flex items-center space-x-3 flex-1">
 							<button
-								onClick={() => setIsMobileMenuOpen(true)}
-								className="navbar-mobile-btn md:hidden p-2 rounded-full"
-							>
-								<i className="fas fa-bars navbar-mobile-icon text-lg"></i>
-							</button>
-							<button
 								onClick={() => router.push("/dashboard")}
 								className="navbar-logo flex items-center transition duration-150 ease-in-out"
 							>
-								<div className="navbar-logo-circle w-8 h-8 rounded-full flex items-center justify-center mr-2">
-									<span className="navbar-logo-text font-bold text-lg">C</span>
-								</div>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" className="navbar-logo-circle w-8 h-8 mr-2">
+									<rect width="16" height="16" fill="#2563eb" rx="8" />
+									<text x="50%" y="50%" fontSize="9" fill="white" textAnchor="middle" dominantBaseline="central">C</text>
+								</svg>
 								<span className="navbar-logo-title text-xl font-bold hidden sm:block">ConnectifAI</span>
 							</button>
 							<div className="navbar-search hidden md:block w-[200px] mx-2">
@@ -400,7 +405,6 @@ export default function Navbar({ session, router }) {
 								>
 									<img
 										src={
-											session?.user?.profilePictureUrl ||
 											session?.user?.image ||
 											`https://placehold.co/40x40/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'
 											}`
@@ -427,7 +431,6 @@ export default function Navbar({ session, router }) {
 											<div className="profile-dropdown-user flex items-center space-x-3">
 												<img
 													src={
-														session?.user?.profilePictureUrl ||
 														session?.user?.image ||
 														`https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
 													}
@@ -443,7 +446,7 @@ export default function Navbar({ session, router }) {
 										<div className="profile-dropdown-actions py-2">
 											<button
 												onClick={() => {
-													router.push("/edit-profile");
+													router.push("/profile");
 													setIsProfileMenuOpen(false);
 												}}
 												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm"
@@ -488,31 +491,13 @@ export default function Navbar({ session, router }) {
 					</div>
 				</div>
 
-				{/* Mobile Search Bar */}
-				<div className="md:hidden px-4 pb-3">
-					<div className="relative">
-						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-							<i className="fas fa-search text-gray-400"></i>
-						</div>
-						<input
-							type="text"
-							placeholder="Search ConnectifAI"
-							className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-full bg-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white sm:text-sm"
-						/>
-					</div>
-				</div>
 			</nav>
 
-			{/* Mobile Menu */}
-			<MobileMenu
-				isOpen={isMobileMenuOpen}
-				onClose={() => setIsMobileMenuOpen(false)}
-				session={session}
+			{/* Mobile Bottom Navigation */}
+			<MobileBottomNav
 				router={router}
-				handleSignOut={handleSignOut}
-				notifications={notifications}
+				currentPath={currentPath}
 				notificationCount={notificationCount}
-				handleMarkAllNotificationsRead={handleMarkAllNotificationsRead}
 			/>
 
 			{/* Add required CSS for animations */}
@@ -873,106 +858,86 @@ function NavLink({ iconClass, text, href, router, children, onClick, isMenuTrigg
 	}
 }
 
-// --- Mobile Menu Component ---
-function MobileMenu({ isOpen, onClose, session, router, handleSignOut, notifications, notificationCount, handleMarkAllNotificationsRead }) {
-	if (!isOpen) return null;
+// --- Mobile Bottom Navigation Component ---
+function MobileBottomNav({ router, currentPath, notificationCount }) {
+	const navItems = [
+		{ icon: 'fas fa-home', href: '/dashboard', label: 'Home' },
+		{ icon: 'fas fa-users', href: '/network', label: 'Network' },
+		{ icon: 'fas fa-briefcase', href: '/jobs', label: 'Jobs' },
+		{ icon: 'fas fa-comment-dots', href: '/messages', label: 'Messages' },
+		{ icon: 'fas fa-bell', href: '/notifications', label: 'Notifications', badge: notificationCount },
+	];
 
 	return (
-		<div className="fixed inset-0 z-50 md:hidden">
-			<div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose}></div>
-			<div className="fixed top-0 left-0 w-80 h-full bg-white shadow-xl">
-				<div className="flex items-center justify-between p-4 border-b border-gray-200">
-					<h2 className="text-lg font-bold text-gray-800">Menu</h2>
-					<button onClick={onClose} className="p-2 rounded-full">
-						<i className="fas fa-times text-gray-600"></i>
-					</button>
-				</div>
+		<nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 md:hidden shadow-lg safe-area-bottom">
+			<div className="flex items-center justify-around h-14">
+				{navItems.map((item) => {
+					const isActive = currentPath === item.href ||
+						(item.href === '/dashboard' && currentPath === '/');
 
-				<div className="p-4">
-					<div className="flex items-center space-x-3 mb-6">
-						<img
-							src={
-								session?.user?.profilePictureUrl ||
-								session?.user?.image ||
-								`https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
-							}
-							alt="User Avatar"
-							className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
-						/>
-						<div>
-							<p className="font-semibold text-gray-800">{session?.user?.name || 'User'}</p>
-							<p className="text-sm text-gray-500">{session?.user?.email}</p>
-						</div>
-					</div>
-
-					<div className="space-y-2">
+					return (
 						<button
-							onClick={() => { router.push('/dashboard'); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 rounded-lg"
+							key={item.href}
+							onClick={() => router.push(item.href)}
+							className={`mobile-nav-item flex flex-col items-center justify-center flex-1 h-full relative transition-colors ${isActive ? 'active' : ''}`}
+							aria-label={item.label}
 						>
-							<i className="fas fa-home text-blue-600 w-5"></i>
-							<span className="text-gray-800">Home</span>
-						</button>
-
-						<button
-							onClick={() => { router.push('/network'); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 rounded-lg"
-						>
-							<i className="fas fa-users text-blue-600 w-5"></i>
-							<span className="text-gray-800">My Network</span>
-						</button>
-
-						<button
-							onClick={() => { router.push('/jobs'); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 rounded-lg"
-						>
-							<i className="fas fa-briefcase text-blue-600 w-5"></i>
-							<span className="text-gray-800">Jobs</span>
-						</button>
-
-						<button
-							onClick={() => { router.push('/messages'); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 rounded-lg"
-						>
-							<i className="fas fa-comment-dots text-blue-600 w-5"></i>
-							<span className="text-gray-800">Messaging</span>
-						</button>
-
-						<button
-							onClick={() => { router.push('/notifications'); onClose(); }}
-							className="flex items-center justify-between w-full p-3 rounded-lg"
-						>
-							<div className="flex items-center space-x-3">
-								<i className="fas fa-bell text-blue-600 w-5"></i>
-								<span className="text-gray-800">Notifications</span>
+							<div className="relative">
+								<i className={`${item.icon} text-xl`}></i>
+								{item.badge > 0 && (
+									<span className="absolute -top-2 -right-2 inline-flex items-center justify-center h-4 w-4 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
+										{item.badge > 9 ? '9+' : item.badge}
+									</span>
+								)}
 							</div>
-							{notificationCount > 0 && (
-								<span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-									{notificationCount}
-								</span>
+							{isActive && (
+								<div className="active-indicator absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 rounded-full"></div>
 							)}
 						</button>
-					</div>
-
-					<div className="border-t border-gray-200 mt-6 pt-6 space-y-2">
-						<button
-							onClick={() => { router.push('/edit-profile'); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 rounded-lg"
-						>
-							<i className="fas fa-user text-gray-600 w-5"></i>
-							<span className="text-gray-800">View Profile</span>
-						</button>
-
-						<button
-							onClick={() => { handleSignOut(); onClose(); }}
-							className="flex items-center space-x-3 w-full p-3 hover:bg-red-50 rounded-lg text-red-600"
-						>
-							<i className="fas fa-sign-out-alt w-5"></i>
-							<span>Sign Out</span>
-						</button>
-					</div>
-				</div>
+					);
+				})}
 			</div>
-		</div>
+
+			{/* Safe area padding for devices with home indicator */}
+			<style jsx>{`
+				.safe-area-bottom {
+					padding-bottom: env(safe-area-inset-bottom, 0px);
+				}
+
+				/* Mobile Nav Styles */
+				.mobile-bottom-nav {
+					background-color: #ffffff;
+					border-top: 1px solid #e5e7eb; /* gray-200 */
+				}
+				:global(.dark) .mobile-bottom-nav {
+					background-color: #1e293b; /* slate-800 */
+					border-top-color: #334155; /* slate-700 */
+				}
+				.mobile-nav-item {
+					color: #6b7280; /* gray-500 */
+				}
+				:global(.dark) .mobile-nav-item {
+					color: #94a3b8; /* gray-400 */
+				}
+				.mobile-nav-item:hover {
+					color: #0f172a; /* slate-900 */
+				}
+				:global(.dark) .mobile-nav-item:hover {
+					color: #f8fafc; /* slate-50 */
+				}
+				.mobile-nav-item.active {
+					color: #2563eb; /* blue-600 */
+				}
+				:global(.dark) .mobile-nav-item.active {
+					color: #60a5fa; /* blue-400 */
+				}
+				.active-indicator {
+					background-color: #2563eb; /* blue-600 */
+				}
+				:global(.dark) .active-indicator {
+					background-color: #60a5fa; /* blue-400 */
+				}
+			`}</style>
+		</nav>
 	);
 }

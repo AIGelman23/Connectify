@@ -24,6 +24,8 @@ export default function EditProfilePage() {
 	const router = useRouter();
 	const [loading, setLoading] = useState(true);
 	const [allConnections, setAllConnections] = useState([]);
+	const [followersCount, setFollowersCount] = useState(0);
+	const [followingCount, setFollowingCount] = useState(0);
 
 	// profileData stores the officially saved/fetched profile data
 	const [profileData, setProfileData] = useState({
@@ -179,6 +181,25 @@ export default function EditProfilePage() {
 		}
 	}, [status]);
 
+	// Fetch followers/following counts for the current user
+	useEffect(() => {
+		if (status === "authenticated" && session?.user?.id) {
+			const fetchFollowCounts = async () => {
+				try {
+					const res = await fetch(`/api/profile/${session.user.id}`);
+					if (res.ok) {
+						const data = await res.json();
+						setFollowersCount(data.followersCount || 0);
+						setFollowingCount(data.followingCount || 0);
+					}
+				} catch (err) {
+					console.error("Error fetching follow counts:", err);
+				}
+			};
+			fetchFollowCounts();
+		}
+	}, [status, session?.user?.id]);
+
 	// Use useMemo to create the 'friendsList' prop.
 	// It will only re-calculate and return a new array reference
 	// if 'allConnections' changes.
@@ -228,7 +249,7 @@ export default function EditProfilePage() {
 		}
 	}, []);
 
-	// Helper function to upload files to S3 (already good)
+	// Helper function to upload files to S3
 	const uploadFileToS3 = useCallback(async (file, fileType) => {
 		if (!file) return null;
 
@@ -236,10 +257,13 @@ export default function EditProfilePage() {
 		formData.append(fileType, file);
 
 		try {
+			console.log(`Starting upload for ${fileType}...`);
 			const response = await fetch('/api/upload', {
 				method: 'POST',
 				body: formData,
 			});
+
+			console.log(`Upload response status for ${fileType}:`, response.status);
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -251,20 +275,29 @@ export default function EditProfilePage() {
 					const errorData = JSON.parse(errorText);
 					errorMessage = errorData.message || errorMessage;
 				} catch (jsonParseError) {
-					console.warn(`Raw response for ${fileType} was not JSON, attempting to extract message:`, jsonParseError);
+					console.warn(`Raw response for ${fileType} was not JSON:`, jsonParseError);
 					errorMessage = errorText;
 				}
-				throw new Error(errorMessage);
+				setFormErrors(prev => ({
+					...prev,
+					[`${fileType}Upload`]: errorMessage,
+				}));
+				return null; // Return null on error
 			}
 
 			const data = await response.json();
+			console.log(`Upload API response for ${fileType}:`, data);
+
 			if (!data.url) {
-				console.error("Upload API response:", data);
-				throw new Error(
-					(data && data.message) ||
-					`Upload failed: missing URL for ${fileType}.`
-				);
+				console.error("Upload API response missing URL:", data);
+				setFormErrors(prev => ({
+					...prev,
+					[`${fileType}Upload`]: `Upload failed: missing URL for ${fileType}.`,
+				}));
+				return null;
 			}
+
+			console.log(`Successfully uploaded ${fileType}, URL:`, data.url);
 			return data.url;
 		} catch (error) {
 			console.error(`Error uploading ${fileType}:`, error);
@@ -272,6 +305,7 @@ export default function EditProfilePage() {
 				...prev,
 				[`${fileType}Upload`]: `Failed to upload ${fileType}: ${error.message}`,
 			}));
+			return null; // Return null on error
 		}
 	}, []);
 
@@ -325,23 +359,37 @@ export default function EditProfilePage() {
 		try {
 			// Handle profile picture upload/removal
 			if (profilePictureFile) {
+				console.log("Uploading profile picture...");
 				finalProfilePictureUrl = await uploadFileToS3(profilePictureFile, 'profilePicture');
-				if (finalProfilePictureUrl === null) { setLoading(false); return; }
+				console.log("Profile picture upload result:", finalProfilePictureUrl);
+				if (finalProfilePictureUrl === null) {
+					console.error("Profile picture upload failed - returned null");
+					setLoading(false);
+					return;
+				}
 			} else if (profileData.profilePicture && draftProfileData.profilePicture === '') {
 				finalProfilePictureUrl = ''; // User explicitly cleared existing image
 			} else {
 				finalProfilePictureUrl = profileData.profilePicture; // Keep existing if not changed/cleared
 			}
+			console.log("Final profile picture URL to save:", finalProfilePictureUrl);
 
 			// Handle cover photo upload/removal
 			if (coverPhotoFile) {
+				console.log("Uploading cover photo...");
 				finalCoverPhotoUrl = await uploadFileToS3(coverPhotoFile, 'coverPhoto');
-				if (finalCoverPhotoUrl === null) { setLoading(false); return; }
+				console.log("Cover photo upload result:", finalCoverPhotoUrl);
+				if (finalCoverPhotoUrl === null) {
+					console.error("Cover photo upload failed - returned null");
+					setLoading(false);
+					return;
+				}
 			} else if (profileData.coverPhoto && draftProfileData.coverPhoto === '') {
 				finalCoverPhotoUrl = ''; // User explicitly cleared existing image
 			} else {
 				finalCoverPhotoUrl = profileData.coverPhoto; // Keep existing if not changed/cleared
 			}
+			console.log("Final cover photo URL to save:", finalCoverPhotoUrl);
 
 			// Handle resume upload/removal
 			if (resumeFile) {
@@ -711,6 +759,8 @@ export default function EditProfilePage() {
 							handleRemoveProfilePicture={handleRemoveProfilePicture}
 							handleRemoveCoverPhoto={handleRemoveCoverPhoto}
 							enterEditMode={enterEditMode}
+							followersCount={followersCount}
+							followingCount={followingCount}
 						/>
 						{/* Friends List Section on Profile Page */}
 						{status === "loading" && <p>Loading friends...</p>}

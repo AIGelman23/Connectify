@@ -166,7 +166,7 @@ export default function ProfilePage() {
 				/>
 
 				{/* Friends List Section */}
-				<FriendsListContainer />
+				<FriendsListContainer profileUserId={id} />
 
 				{/* Tabs */}
 				<div className="flex border-b border-gray-200 dark:border-slate-700 mb-6 overflow-x-auto">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { pusherServer } from "@/lib/pusher";
 
 export async function POST(req) {
   try {
@@ -23,10 +24,7 @@ export async function POST(req) {
     }
 
     // Hash the token to match stored format
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     // Find the reset token in the database - must be verified
     const passwordReset = await prisma.passwordReset.findFirst({
@@ -69,6 +67,17 @@ export async function POST(req) {
         where: { id: passwordReset.id },
       }),
     ]);
+
+    // Trigger a real-time event via Pusher to notify the client
+    try {
+      await pusherServer.trigger(
+        `user-${passwordReset.userId}`, // Channel name
+        "password-reset", // Event name
+        { message: "Your password has been successfully reset." }
+      );
+    } catch (error) {
+      console.error("Pusher trigger error:", error);
+    }
 
     return NextResponse.json(
       { message: "Password has been reset successfully" },

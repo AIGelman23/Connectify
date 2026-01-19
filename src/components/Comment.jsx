@@ -288,7 +288,6 @@ export const Reply = ({ reply, sessionUserId, onDeleteReply, postId, onReply, on
 							</span>
 							<EmojiSelector
 								onEmojiSelect={handleAddEmoji}
-								parentRef={replyContainerRef}
 							/>
 							<button
 								type="submit"
@@ -601,7 +600,6 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, onDeleteComme
 							</span>
 							<EmojiSelector
 								onEmojiSelect={handleAddEmoji}
-								parentRef={replyContainerRef}
 							/>
 							<button
 								type="submit"

@@ -1,49 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import PostCard from './PostCard'; // Fixed import for PostCard component
+import { useQuery } from '@tanstack/react-query';
+import PostCard from './PostCard';
 import { formatTimestamp } from '@/lib/utils';
 
 export default function Posts({ userId, type }) {
   const { data: session } = useSession();
-  const [posts, setPosts] = useState([]); // Initialize as empty array, not undefined
   const [selectedPost, setSelectedPost] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function fetchPosts() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch posts based on userId if provided, otherwise fetch all posts
-        let endpoint = userId ? `/api/posts?userId=${userId}` : '/api/posts';
-        if (type) {
-          endpoint += (endpoint.includes('?') ? '&' : '?') + `type=${type}`;
-        }
-
-        const response = await fetch(endpoint);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch posts: ${response.status}`);
-        }
-
-        const data = await response.json();
-        // Ensure posts is always an array, even if API returns null/undefined
-        setPosts(Array.isArray(data.posts) ? data.posts : []);
-      } catch (err) {
-        console.error('Error loading posts:', err);
-        setError('Error loading posts. Please try again later.');
-        setPosts([]); // Reset to empty array on error
-      } finally {
-        setLoading(false);
+  // Use react-query to fetch posts - this allows PostCard's invalidateQueries to trigger refetch
+  const { data: posts = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['posts', { userId, type }],
+    queryFn: async () => {
+      let endpoint = userId ? `/api/posts?userId=${userId}` : '/api/posts';
+      if (type) {
+        endpoint += (endpoint.includes('?') ? '&' : '?') + `type=${type}`;
       }
-    }
 
-    fetchPosts();
-  }, [userId, type]);
+      const response = await fetch(endpoint);
 
-  if (loading) {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch posts: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return Array.isArray(data.posts) ? data.posts : [];
+    },
+    staleTime: 1000 * 60, // 1 minute
+  });
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center p-6">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -54,10 +40,10 @@ export default function Posts({ userId, type }) {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
-        <p>{error}</p>
+        <p>Error loading posts. Please try again later.</p>
         <button
           className="mt-2 text-sm underline"
-          onClick={() => window.location.reload()}
+          onClick={() => refetch()}
         >
           Try again
         </button>
@@ -65,11 +51,10 @@ export default function Posts({ userId, type }) {
     );
   }
 
-  // Safety check - ensure posts is an array before mapping
   if (!Array.isArray(posts) || posts.length === 0) {
     return (
-      <div className="bg-white shadow rounded-lg p-6 text-center">
-        <p className="text-gray-500">No posts to display.</p>
+      <div className="bg-white dark:bg-slate-800 shadow rounded-lg p-6 text-center">
+        <p className="text-gray-500 dark:text-slate-400">No posts to display.</p>
       </div>
     );
   }
@@ -132,7 +117,7 @@ export default function Posts({ userId, type }) {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <PostCard // Changed from Post to PostCard
+        <PostCard
           key={post.id}
           post={post}
           sessionUserId={session?.user?.id}

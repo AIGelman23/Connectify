@@ -324,6 +324,7 @@ export default function CreatePostCard() {
 	const [showTagDropdown, setShowTagDropdown] = useState(false);
 	const [tagSearch, setTagSearch] = useState("");
 	const tagSearchRef = useRef(null);
+	const emojiButtonRef = useRef(null);
 
 	// Auto-resize textarea
 	useEffect(() => {
@@ -791,10 +792,7 @@ export default function CreatePostCard() {
 								<span className={`text-xs ${postText.length >= MAX_POST_LENGTH ? 'text-red-600 font-bold' : (postText.length > MAX_POST_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400')}`}>
 									{postText.length}/{MAX_POST_LENGTH}
 								</span>
-								<EmojiSelector
-									onEmojiSelect={handleAddEmoji}
-									parentRef={inputContainerRef}
-								/>
+								{/* Emoji selector moved to action bar for better mobile usability */}
 							</div>
 							{postText.length >= MAX_POST_LENGTH && (
 								<div className="absolute top-full right-0 mt-1 text-red-600 text-xs font-medium bg-red-50 px-2 py-1 rounded shadow-sm z-10 border border-red-100">
@@ -880,63 +878,75 @@ export default function CreatePostCard() {
 				</div>
 			)}
 			<div className="border-t border-gray-200 dark:border-slate-700 mt-2" />
-			<div className="flex flex-wrap items-center justify-between px-4 py-2 gap-2">
-				<div className="flex items-center gap-2">
+			<div className="flex flex-nowrap items-center justify-between px-2 sm:px-4 py-2 gap-1 sm:gap-2">
+				<div className="flex items-center gap-0.5 sm:gap-2">
 					<Tooltip text="Add Photo">
 						<button
 							type="button"
-							className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+							className="p-1.5 sm:p-2 rounded-full hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
 							onClick={() => openFileModal("image")}
 							aria-label="Add Photo"
 						>
-							<i className="fas fa-image text-xl"></i>
+							<i className="fas fa-image text-lg sm:text-xl"></i>
 						</button>
 					</Tooltip>
 					<Tooltip text="Add Video">
 						<button
 							type="button"
-							className="p-2 rounded-full hover:bg-green-50 dark:hover:bg-slate-700 text-green-600 dark:text-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/50"
+							className="p-1.5 sm:p-2 rounded-full hover:bg-green-50 dark:hover:bg-slate-700 text-green-600 dark:text-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/50"
 							onClick={() => openFileModal("video")}
 							aria-label="Add Video"
 						>
-							<i className="fas fa-video text-xl"></i>
+							<i className="fas fa-video text-lg sm:text-xl"></i>
 						</button>
 					</Tooltip>
 					<Tooltip text="Add GIF">
 						<button
 							type="button"
-							className="p-2 rounded-full hover:bg-purple-50 dark:hover:bg-slate-700 text-purple-600 dark:text-purple-400 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+							className="p-1.5 sm:p-2 rounded-full hover:bg-purple-50 dark:hover:bg-slate-700 text-purple-600 dark:text-purple-400 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50"
 							onClick={() => setShowGiphyModal(true)}
 							aria-label="Add GIF"
 						>
-							<i className="fas fa-gift text-xl"></i>
+							<i className="fas fa-gift text-lg sm:text-xl"></i>
 						</button>
 					</Tooltip>
 					<Tooltip text="Create Poll">
 						<button
 							type="button"
-							className={`p-2 rounded-full hover:bg-orange-50 dark:hover:bg-slate-700 text-orange-600 dark:text-orange-400 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${showPollCreator ? 'bg-orange-100 dark:bg-slate-600' : ''}`}
+							className={`p-1.5 sm:p-2 rounded-full hover:bg-orange-50 dark:hover:bg-slate-700 text-orange-600 dark:text-orange-400 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${showPollCreator ? 'bg-orange-100 dark:bg-slate-600' : ''}`}
 							onClick={togglePollCreator}
 							aria-label="Create Poll"
 						>
-							<i className="fas fa-poll text-xl"></i>
+							<i className="fas fa-poll text-lg sm:text-xl"></i>
 						</button>
 					</Tooltip>
+					<Tooltip text="Add Emoji">
+						<div
+							ref={emojiButtonRef}
+							className="relative p-1.5 sm:p-2 rounded-full hover:bg-yellow-50 dark:hover:bg-slate-700 text-yellow-500 dark:text-yellow-400 transition-colors"
+						>
+							{/* 
+                The EmojiSelector is now positioned relative to this div, making it more reliable on mobile.
+                It will render its own button icon.
+              */}
+							<EmojiSelector onEmojiSelect={handleAddEmoji} />
+						</div>
+					</Tooltip>
 				</div>
-				<div className="flex items-center gap-2 ml-auto sm:ml-0">
+				<div className="flex items-center gap-1 sm:gap-2 ml-auto sm:ml-0 flex-shrink-0">
 					<Tooltip text="Preview Post">
 						<button
 							type="button"
-							className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+							className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
 							onClick={() => setShowPreview(true)}
 							disabled={!postText && selectedFiles.length === 0 && (!showPollCreator || pollOptions.filter(o => o.trim()).length < 2)}
 							aria-label="Preview Post"
 						>
-							<i className="fas fa-eye text-xl"></i>
+							<i className="fas fa-eye text-lg sm:text-xl"></i>
 						</button>
 					</Tooltip>
 					<button
-						className="bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg py-2 px-4 transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#2374e1] text-sm sm:text-base"
+						className="bg-[#2374e1] hover:bg-[#1b63c9] text-white font-semibold rounded-lg py-1.5 px-3 sm:py-2 sm:px-4 transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#2374e1] text-sm sm:text-base whitespace-nowrap"
 						onClick={handlePost}
 						disabled={isUploading}
 					>

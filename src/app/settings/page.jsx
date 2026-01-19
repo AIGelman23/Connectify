@@ -94,7 +94,6 @@ function AccountSection({ session }) {
 						{/* Show user's profile picture if available */}
 						<img
 							src={
-								session?.user?.profile?.profilePictureUrl ||
 								session?.user?.image ||
 								`https://placehold.co/64x64/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
 							}

@@ -68,12 +68,19 @@ const authOptions = {
 
           console.log("Password matches, authentication successful");
 
+          // Fetch the user's profile image
+          const profile = await prisma.profile.findUnique({
+            where: { userId: user.id },
+            select: { profilePictureUrl: true },
+          });
+
           // Return user object (without hashedPassword)
           return {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
+            image: profile?.profilePictureUrl || null,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -83,17 +90,34 @@ const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: updatedSession }) {
+      // Initial sign in - store user data in token
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name;
+        token.image = user.image;
       }
+
+      // Handle session update from client (when user updates their profile)
+      if (trigger === "update" && updatedSession?.user) {
+        // Update the token with new values from the client
+        if (updatedSession.user.name) {
+          token.name = updatedSession.user.name;
+        }
+        if (updatedSession.user.image !== undefined) {
+          token.image = updatedSession.user.image;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session?.user && token) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.name = token.name || session.user.name;
+        session.user.image = token.image || null;
       }
       return session;
     },

@@ -163,6 +163,11 @@ export async function POST(request) {
     const fileUrl = typeof body.fileUrl === "string" ? body.fileUrl : null;
     const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl : null;
     const content = typeof body.content === "string" ? body.content : "";
+    const title = typeof body.title === "string" ? body.title : null;
+    const newsSource =
+      typeof body.newsSource === "string" ? body.newsSource : null;
+    const newsLink = typeof body.newsLink === "string" ? body.newsLink : null;
+    const type = typeof body.type === "string" ? body.type : "post";
     const originalPostId =
       typeof body.originalPostId === "string" ? body.originalPostId : null;
     const pollOptions = Array.isArray(body.pollOptions)
@@ -227,6 +232,10 @@ export async function POST(request) {
       data: {
         authorId: session.user.id,
         content,
+        title,
+        newsSource,
+        newsLink,
+        type,
         imageUrl,
         imageUrls,
         videoUrl,
@@ -440,11 +449,15 @@ export async function GET(request) {
     const type = searchParams.get("type");
 
     let where = {};
-    let orderBy = [{ isPinned: "desc" }, { createdAt: "desc" }];
+    // Only sort by isPinned when viewing a specific user's profile
+    // On the main feed, don't prioritize other people's pinned posts
+    let orderBy = [{ createdAt: "desc" }];
 
     if (targetUserId) {
       // If userId is provided, fetch posts only for that user
+      // Sort pinned posts first only on their profile page
       where.authorId = targetUserId;
+      orderBy = [{ isPinned: "desc" }, { createdAt: "desc" }];
     } else {
       // 1. Find all accepted connections for the current user
       const connections = await prisma.connectionRequest.findMany({
@@ -476,6 +489,10 @@ export async function GET(request) {
       where.authorId = { in: userIdsToFetchPostsFor };
     }
 
+    if (!type) {
+      where.OR = [{ type: { not: "news" } }, { type: null }];
+    }
+
     if (type === "poll") {
       where.pollOptions = { some: {} };
     } else if (type === "photos") {
@@ -483,7 +500,11 @@ export async function GET(request) {
     } else if (type === "videos") {
       where.videoUrl = { not: null };
     } else if (type === "saved") {
+      // For saved posts, remove the authorId filter - we want ALL posts saved by the user
+      // regardless of who authored them
+      delete where.authorId;
       where.savedBy = { some: { userId: targetUserId || userId } };
+      orderBy = [{ createdAt: "desc" }]; // Sort by when post was created, not pinned
     } else if (type === "trending") {
       orderBy = [{ likesCount: "desc" }, { commentsCount: "desc" }];
     }

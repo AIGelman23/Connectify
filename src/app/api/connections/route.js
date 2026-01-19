@@ -514,3 +514,65 @@ export async function PUT(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user?.id) {
+      return NextResponse.json(
+        { message: "Unauthorized. Please log in." },
+        { status: 401 }
+      );
+    }
+
+    const { requestId } = await request.json();
+    const userId = session.user.id;
+
+    if (!requestId) {
+      return NextResponse.json(
+        { message: "Request ID is required." },
+        { status: 400 }
+      );
+    }
+
+    // Find and verify the connection
+    const connection = await prisma.connectionRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { message: "Connection not found." },
+        { status: 404 }
+      );
+    }
+
+    // Verify user is part of this connection
+    if (connection.senderId !== userId && connection.receiverId !== userId) {
+      return NextResponse.json(
+        { message: "You are not authorized to remove this connection." },
+        { status: 403 }
+      );
+    }
+
+    // Delete the connection
+    await prisma.connectionRequest.delete({
+      where: { id: requestId },
+    });
+
+    return NextResponse.json(
+      { message: "Connection removed successfully." },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("API Error deleting connection:", error);
+    return NextResponse.json(
+      {
+        message: error.message || "Internal server error deleting connection.",
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}

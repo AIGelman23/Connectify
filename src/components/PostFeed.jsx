@@ -1,14 +1,16 @@
 // src/components/PostFeed.jsx
 "use client";
 
-import React, { useRef, useEffect, useCallback } from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import MinimalSpinnerLoader from './MinimalSpinnerLoader'; // Assuming this is in components
-import PostCard from './PostCard';
+import FeedItemCard from './FeedItemCard';
+import { fetchNewsApi } from './newsApi';
 import { formatTimestamp } from '../lib/utils'; // Assuming you move formatTimestamp here
 
 export default function PostFeed({ sessionUserId, setPostError, openReplyModal }) {
+	const [activeTab, setActiveTab] = useState('public');
 	const mainScrollRef = useRef(null); // Ref for the scrollable container
 	const loaderRef = useRef(null);     // Ref for the element to observe
 	const searchParams = useSearchParams();
@@ -97,6 +99,17 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 
 	const posts = data?.pages?.flatMap(page => page.posts) || [];
 
+	const { data: newsData, isError: isNewsError, isLoading: isNewsLoading } = useQuery({
+		queryKey: ['news'],
+		queryFn: () => fetchNewsApi(),
+		staleTime: 1000 * 60 * 15, // 15 minutes
+	});
+
+	const normalizedPosts = React.useMemo(() => posts.map(p => ({ ...p, type: 'post' })), [posts]);
+	const newsItems = newsData || [];
+
+	const feedItems = activeTab === 'public' ? normalizedPosts : newsItems;
+
 	// Reset scrolledRef when postId changes (e.g. navigating to a different post)
 	useEffect(() => {
 		scrolledRef.current = false;
@@ -120,7 +133,7 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 		const currentLoader = loaderRef.current;
 		const currentMainScrollContainer = mainScrollRef.current;
 
-		if (!currentLoader || !currentMainScrollContainer || !hasNextPage) {
+		if (!currentLoader || !currentMainScrollContainer || !hasNextPage || activeTab !== 'public') {
 			return;
 		}
 
@@ -142,7 +155,7 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 				observer.unobserve(currentLoader);
 			}
 		};
-	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+	}, [fetchNextPage, hasNextPage, isFetchingNextPage, activeTab]);
 
 	return (
 		<div
@@ -154,31 +167,66 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 				height: 'calc(100vh - 4rem - 64px)', // Adjust height as needed
 			}}
 		>
-			{isPostsError && (
+			{/* Tabs */}
+			<div className="flex w-full border-b border-gray-200 dark:border-slate-700 mb-4">
+				<button
+					onClick={() => setActiveTab('public')}
+					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'public'
+							? 'text-blue-600 dark:text-blue-400'
+							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+						}`}
+				>
+					Public Feed
+					{activeTab === 'public' && (
+						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+					)}
+				</button>
+				<button
+					onClick={() => setActiveTab('news')}
+					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'news'
+							? 'text-blue-600 dark:text-blue-400'
+							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+						}`}
+				>
+					News Feed
+					{activeTab === 'news' && (
+						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+					)}
+				</button>
+			</div>
+
+			{activeTab === 'public' && isPostsError && (
 				<p className="text-center text-red-600 py-4">
 					Error loading posts: {postsErrorObject?.message || "Unknown error."}
 				</p>
 			)}
+			{activeTab === 'news' && isNewsError && (
+				<p className="text-center text-red-600 py-4">
+					Error loading news.
+				</p>
+			)}
 
-			{posts.length > 0 ? (
-				posts.map((post) => (
-					<PostCard
-						key={post.id}
-						post={post}
+			{feedItems.length > 0 ? (
+				feedItems.map((item) => (
+					<FeedItemCard
+						key={item.id}
+						item={item}
 						sessionUserId={sessionUserId}
 						setPostError={setPostError}
 						openReplyModal={openReplyModal}
 					/>
 				))
 			) : (
-				!isPostsLoading && !isPostsError && (
-					<p className="text-center text-gray-500 py-10">No posts yet. Start by creating one!</p>
+				(activeTab === 'public' ? (!isPostsLoading && !isPostsError) : (!isNewsLoading && !isNewsError)) && (
+					<p className="text-center text-gray-500 py-10">
+						{activeTab === 'public' ? "No posts yet. Start by creating one!" : "No news available."}
+					</p>
 				)
 			)}
-			{hasNextPage && (
+			{activeTab === 'public' && hasNextPage && (
 				<MinimalSpinnerLoader isFetchingNextPage={isFetchingNextPage} loaderRef={loaderRef} />
 			)}
-			{!hasNextPage && posts.length > 0 && (
+			{((activeTab === 'public' && !hasNextPage) || activeTab === 'news') && feedItems.length > 0 && (
 				<p className="text-center text-gray-500 py-4">You've reached the end of the feed!</p>
 			)}
 		</div>

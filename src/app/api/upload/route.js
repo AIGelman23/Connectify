@@ -1,42 +1,28 @@
 // src/app/api/upload/route.js
 
-import { uploadFileToS3 } from "@/lib/s3";
-import formidable from "formidable";
-import fs from "fs";
 import { NextResponse } from "next/server";
-import { Readable } from "stream";
 import { getServerSession } from "next-auth";
 import authOptions from "@/lib/auth";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
 
-// Configure S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+// Disable caching for this route
+export const dynamic = "force-dynamic";
 
-// IMPORTANT: For file uploads, disable Next.js body parser for this route
-// This allows you to handle the FormData manually.
-export const routeSegmentConfig = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Create S3 client lazily to ensure environment variables are loaded
+function getS3Client() {
+  const region = process.env.AWS_REGION || "us-east-2";
 
-// Helper to convert Web API Request to Node.js-like IncomingMessage for formidable
-async function webRequestToNodeRequest(request) {
-  const headers = {};
-  request.headers.forEach((value, key) => {
-    headers[key.toLowerCase()] = value;
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    throw new Error("AWS credentials not configured");
+  }
+
+  return new S3Client({
+    region,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
   });
-  const arrayBuffer = await request.arrayBuffer();
-  const stream = Readable.from(Buffer.from(arrayBuffer));
-  // Mock IncomingMessage: must have headers and .on/.pipe methods
-  return Object.assign(stream, { headers });
 }
 
 export async function POST(request) {
@@ -87,19 +73,26 @@ export async function POST(request) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Upload to S3 - REMOVED the ACL parameter
+    const region = process.env.AWS_REGION || "us-east-2";
+    const bucket = process.env.AWS_S3_BUCKET_NAME;
+
+    if (!bucket) {
+      throw new Error("AWS_S3_BUCKET_NAME not configured");
+    }
+
+    // Upload to S3
     const command = new PutObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Bucket: bucket,
       Key: key,
       Body: buffer,
       ContentType: file.type,
-      // REMOVED: ACL: "public-read", // This was causing the error
     });
 
+    const s3Client = getS3Client();
     await s3Client.send(command);
 
-    // Generate the public URL
-    const url = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+    // Generate the public URL with regional endpoint and cache-busting parameter
+    const url = `https://${bucket}.s3.${region}.amazonaws.com/${key}?t=${Date.now()}`;
 
     console.log(`Successfully uploaded file to S3: ${url}`);
 

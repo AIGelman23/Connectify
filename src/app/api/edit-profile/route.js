@@ -5,6 +5,10 @@ import { getServerSession } from "next-auth";
 import authOptions from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
+// Disable caching for this route
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Helper function to format the profile response consistently
 const formatProfileResponse = (profile) => {
   if (!profile) return null;
