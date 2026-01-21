@@ -129,8 +129,5 @@ export async function POST(req) {
       { message: "An unexpected error occurred" },
       { status: 500 }
     );
-  } finally {
-    // Disconnect Prisma client to avoid hanging connections
-    await prisma.$disconnect();
   }
 }

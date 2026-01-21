@@ -52,6 +52,17 @@ export default function MessageInput({
     };
   }, []);
 
+  // Clean up object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      attachments.forEach((attachment) => {
+        if (attachment.url) {
+          URL.revokeObjectURL(attachment.url);
+        }
+      });
+    };
+  }, [attachments]);
+
   // Handle input change
   const handleChange = (e) => {
     setMessage(e.target.value);
@@ -71,6 +82,7 @@ export default function MessageInput({
     if ((!message.trim() && attachments.length === 0) || disabled) return;
 
     onSendMessage({
+      conversationId,
       content: message.trim(),
       type: attachments.length > 0 ? "image" : "text",
       mediaUrls: attachments.map((a) => a.url),

@@ -3,349 +3,310 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import io from "socket.io-client";
 
-export default function useChat({ userId, jwt, onError }) {
+export default function useChat({
+  userId,
+  jwt,
+  onError,
+  onNewMessageNotification,
+}) {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [messagesByConversation, setMessagesByConversation] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
   const [presenceMap, setPresenceMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [offlineQueue, setOfflineQueue] = useState([]);
+  const [messageStatuses, setMessageStatuses] = useState({});
 
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
+  const isWindowFocusedRef = useRef(true);
+  const hasFetchedConversationsRef = useRef(false);
+  const prevUserIdRef = useRef(null);
+  const onErrorRef = useRef(onError);
+  const onNewMessageNotificationRef = useRef(onNewMessageNotification);
 
-  // Keep ref in sync with state
+  // Synchronize refs with state/props
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
 
-  // Initialize socket connection
   useEffect(() => {
-    if (!userId || !jwt) return;
+    onErrorRef.current = onError;
+  }, [onError]);
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001";
+  useEffect(() => {
+    onNewMessageNotificationRef.current = onNewMessageNotification;
+  }, [onNewMessageNotification]);
 
-    const newSocket = io(socketUrl, {
-      auth: { token: jwt },
-      query: { userId },
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+  // Reset fetch ref when userId changes (e.g., user logs out and logs back in)
+  useEffect(() => {
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== userId) {
+      hasFetchedConversationsRef.current = false;
+    }
+    prevUserIdRef.current = userId;
+  }, [userId]);
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
+  // --- ACTIONS ---
 
-    // Connection events
-    newSocket.on("connect", () => {
-      console.log("Socket connected:", newSocket.id);
-      setIsConnected(true);
-    });
-
-    newSocket.on("disconnect", () => {
-      console.log("Socket disconnected");
-      setIsConnected(false);
-    });
-
-    newSocket.on("connect_error", (err) => {
-      console.error("Socket connection error:", err);
-      setError("Failed to connect to chat server");
-      onError?.("Failed to connect to chat server");
-    });
-
-    // Message events
-    newSocket.on("newMessage", (message) => {
-      console.log("New message received:", message);
-
-      // Update messages if we're in this conversation
-      if (selectedConversationRef.current?.id === message.conversationId) {
-        setMessages((prev) => {
-          // Check for duplicates
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
-      }
-
-      // Update conversation list
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv.id === message.conversationId) {
-            return {
-              ...conv,
-              lastMessage: message.content,
-              timestamp: message.createdAt,
-              unreadCount:
-                message.senderId !== userId
-                  ? (conv.unreadCount || 0) + 1
-                  : conv.unreadCount,
-            };
-          }
-          return conv;
-        }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  const fetchPresence = useCallback(async (userIds) => {
+    if (!userIds || userIds.length === 0) return;
+    try {
+      const res = await fetch(
+        `/api/presence?userIds=${userIds.join(",")}`,
+        { credentials: "include" }
       );
-    });
-
-    // Typing events
-    newSocket.on("user:typing", ({ conversationId, userId: typingUserId, userName, typingUsers: allTyping }) => {
-      setTypingUsers((prev) => ({
-        ...prev,
-        [conversationId]: allTyping,
-      }));
-    });
-
-    newSocket.on("user:stopTyping", ({ conversationId, typingUsers: allTyping }) => {
-      setTypingUsers((prev) => ({
-        ...prev,
-        [conversationId]: allTyping,
-      }));
-    });
-
-    // Read receipt events
-    newSocket.on("message:seen", ({ messageId, conversationId, readBy }) => {
-      if (selectedConversationRef.current?.id === conversationId) {
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === messageId) {
-              const newSeenBy = msg.seenBy || [];
-              if (!newSeenBy.some((s) => s.userId === readBy.userId)) {
-                return {
-                  ...msg,
-                  status: "seen",
-                  seenBy: [...newSeenBy, readBy],
-                };
-              }
-            }
-            return msg;
-          })
-        );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.presence) {
+        setPresenceMap((prev) => ({ ...prev, ...data.presence }));
       }
-    });
+    } catch (err) {
+      // Silently fail - presence is non-critical
+      console.error("Failed to fetch presence:", err);
+    }
+  }, []);
 
-    // Reaction events
-    newSocket.on("message:reaction", ({ messageId, conversationId, emoji, action, user }) => {
-      if (selectedConversationRef.current?.id === conversationId) {
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === messageId) {
-              const newReactions = { ...msg.reactions };
-
-              if (action === "added") {
-                if (!newReactions[emoji]) {
-                  newReactions[emoji] = [];
-                }
-                if (!newReactions[emoji].some((r) => r.userId === user.id)) {
-                  newReactions[emoji].push({
-                    userId: user.id,
-                    userName: user.name,
-                    userImage: user.image,
-                  });
-                }
-              } else if (action === "removed") {
-                if (newReactions[emoji]) {
-                  newReactions[emoji] = newReactions[emoji].filter(
-                    (r) => r.userId !== user.id
-                  );
-                  if (newReactions[emoji].length === 0) {
-                    delete newReactions[emoji];
-                  }
-                }
-              }
-
-              return { ...msg, reactions: newReactions };
-            }
-            return msg;
-          })
-        );
-      }
-    });
-
-    // Presence events
-    newSocket.on("presence:changed", ({ userId: changedUserId, isOnline, lastSeenAt }) => {
-      setPresenceMap((prev) => ({
-        ...prev,
-        [changedUserId]: { isOnline, lastSeenAt },
-      }));
-    });
-
-    // User left event
-    newSocket.on("userLeft", ({ conversationId, userName }) => {
-      if (selectedConversationRef.current?.id === conversationId) {
-        const systemMessage = {
-          id: `system-${Date.now()}`,
-          type: "system",
-          content: "left the group",
-          senderId: "system",
-          sender: { name: userName },
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, systemMessage]);
-      }
-    });
-
-    return () => {
-      newSocket.disconnect();
-      socketRef.current = null;
-    };
-  }, [userId, jwt, onError]);
-
-  // Fetch conversations
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/conversations");
+      const res = await fetch("/api/conversations", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch conversations");
-
       const data = await res.json();
-      setConversations(data.conversations || []);
+      const convs = data.conversations || [];
+      setConversations(convs);
       setError(null);
+
+      // Fetch initial presence for all participants
+      const participantIds = new Set();
+      convs.forEach((conv) => {
+        conv.participants?.forEach((p) => {
+          if (p.id && p.id !== userId) {
+            participantIds.add(p.id);
+          }
+        });
+      });
+      if (participantIds.size > 0) {
+        fetchPresence(Array.from(participantIds));
+      }
     } catch (err) {
-      console.error("Error fetching conversations:", err);
       setError("Failed to load conversations");
-      onError?.("Failed to load conversations");
+      onErrorRef.current?.("Failed to load conversations");
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, [fetchPresence, userId]);
 
-  // Fetch messages for a conversation
   const fetchMessages = useCallback(async (conversationId) => {
     try {
-      const res = await fetch(`/api/conversations/${conversationId}/messages`);
+      const res = await fetch(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          credentials: "include",
+        }
+      );
       if (!res.ok) throw new Error("Failed to fetch messages");
-
       const data = await res.json();
-      setMessages(data.messages || []);
+      const nextMessages = data.messages || [];
 
-      // Join the room
-      if (socketRef.current?.connected) {
-        socketRef.current.emit("joinRoom", conversationId);
+      setMessagesByConversation((prev) => ({
+        ...prev,
+        [conversationId]: nextMessages,
+      }));
+
+      // Only update if this conversation is still selected (prevents race condition)
+      if (selectedConversationRef.current?.id === conversationId) {
+        setMessages(nextMessages);
+        // Join socket room only for the currently selected conversation
+        if (socketRef.current?.connected) {
+          socketRef.current.emit("joinRoom", conversationId);
+        }
       }
     } catch (err) {
-      console.error("Error fetching messages:", err);
-      onError?.("Failed to load messages");
+      onErrorRef.current?.("Failed to load messages");
     }
-  }, [onError]);
-
-  // Select a conversation
-  const selectConversation = useCallback(async (conversation) => {
-    if (!conversation) {
-      setSelectedConversation(null);
-      setMessages([]);
-      return;
-    }
-
-    setSelectedConversation(conversation);
-
-    // Leave previous room
-    if (selectedConversationRef.current && socketRef.current?.connected) {
-      socketRef.current.emit("leaveRoom", selectedConversationRef.current.id);
-    }
-
-    // Fetch messages and join room
-    await fetchMessages(conversation.id);
-
-    // Clear unread count
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv
-      )
-    );
-  }, [fetchMessages]);
-
-  // Send a message
-  const sendMessage = useCallback(async (messageData) => {
-    if (!selectedConversationRef.current || !socketRef.current) return;
-
-    const message = {
-      id: crypto.randomUUID(),
-      conversationId: selectedConversationRef.current.id,
-      senderId: userId,
-      ...messageData,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Optimistic update
-    setMessages((prev) => [...prev, { ...message, status: "sent" }]);
-
-    // Update conversation
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === message.conversationId
-          ? {
-              ...conv,
-              lastMessage: message.content,
-              timestamp: message.createdAt,
-            }
-          : conv
-      ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    );
-
-    // Send via socket
-    socketRef.current.emit("sendMessage", message);
-  }, [userId]);
-
-  // Send typing indicator
-  const sendTyping = useCallback((isTyping) => {
-    if (!selectedConversationRef.current || !socketRef.current) return;
-
-    const event = isTyping ? "typing:start" : "typing:stop";
-    socketRef.current.emit(event, {
-      conversationId: selectedConversationRef.current.id,
-    });
   }, []);
 
-  // Mark message as read
-  const markAsRead = useCallback((messageId) => {
-    if (!selectedConversationRef.current || !socketRef.current) return;
+  const selectConversation = useCallback(
+    async (conversation) => {
+      if (!conversation) {
+        setSelectedConversation(null);
+        setMessages([]);
+        return;
+      }
 
-    socketRef.current.emit("message:read", {
-      messageId,
-      conversationId: selectedConversationRef.current.id,
-    });
-  }, []);
+      const prevId = selectedConversationRef.current?.id;
+      setSelectedConversation(conversation);
 
-  // React to a message
-  const reactToMessage = useCallback((messageId, emoji) => {
-    if (!selectedConversationRef.current || !socketRef.current) return;
+      if (prevId && socketRef.current?.connected) {
+        socketRef.current.emit("leaveRoom", prevId);
+      }
 
-    socketRef.current.emit("message:react", {
-      messageId,
-      conversationId: selectedConversationRef.current.id,
-      emoji,
-    });
-  }, []);
-
-  // Create a new conversation
-  const createConversation = useCallback(async (participantIds, name, imageUrl) => {
-    try {
-      const res = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantIds, name, imageUrl }),
+      // Set messages immediately from cache if available
+      setMessagesByConversation((prevCache) => {
+        setMessages(prevCache[conversation.id] || []);
+        return prevCache;
       });
 
-      if (!res.ok) throw new Error("Failed to create conversation");
+      await fetchMessages(conversation.id);
 
-      const data = await res.json();
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversation.id ? { ...c, unreadCount: 0 } : c
+        )
+      );
+    },
+    [fetchMessages]
+  );
 
-      if (!data.isExisting) {
-        setConversations((prev) => [data.conversation, ...prev]);
+  const sendMessage = useCallback(
+    async (messageData) => {
+      const conversationId =
+        messageData?.conversationId || selectedConversationRef.current?.id;
+      if (!conversationId) return;
+
+      // Validate message content - prevent empty messages
+      const content = messageData?.content?.trim();
+      const hasMedia = messageData?.mediaUrls?.length > 0;
+      if (!content && !hasMedia) return;
+
+      const messageId = crypto.randomUUID();
+      const status = socketRef.current?.connected ? "sending" : "failed";
+
+      const message = {
+        id: messageId,
+        conversationId,
+        senderId: userId,
+        ...messageData,
+        content: content || "", // Use trimmed content
+        createdAt: new Date().toISOString(),
+        status,
+      };
+
+      // 1. Update Status State
+      setMessageStatuses((prev) => ({ ...prev, [messageId]: status }));
+
+      // 2. Update Cache and Active View
+      setMessagesByConversation((prev) => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), message],
+      }));
+
+      if (selectedConversationRef.current?.id === conversationId) {
+        setMessages((prev) => [...prev, message]);
       }
 
-      await selectConversation(data.conversation);
-      return data.conversation;
-    } catch (err) {
-      console.error("Error creating conversation:", err);
-      onError?.("Failed to create conversation");
-      throw err;
-    }
-  }, [selectConversation, onError]);
+      // 3. Update Conversation List
+      setConversations((prev) =>
+        prev
+          .map((c) =>
+            c.id === conversationId
+              ? {
+                  ...c,
+                  lastMessage: message.content,
+                  timestamp: message.createdAt,
+                }
+              : c
+          )
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      );
 
-  // Delete conversations
+      if (socketRef.current?.connected) {
+        // Use socket acknowledgment for reliable status updates
+        socketRef.current.emit("sendMessage", message, (ack) => {
+          // Server acknowledged receipt
+          if (ack?.success) {
+            setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
+          } else {
+            setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
+            setOfflineQueue((prev) => [...prev, message]);
+          }
+        });
+
+        // Fallback timeout in case server doesn't acknowledge (legacy servers)
+        const timeoutId = setTimeout(() => {
+          setMessageStatuses((prev) => {
+            // Only update if still in "sending" state (not already acked)
+            if (prev[messageId] === "sending") {
+              // Check if still connected
+              if (socketRef.current?.connected) {
+                return { ...prev, [messageId]: "sent" };
+              } else {
+                setOfflineQueue((p) => [...p, message]);
+                return { ...prev, [messageId]: "failed" };
+              }
+            }
+            return prev;
+          });
+        }, 5000);
+
+        // Clean up timeout if we get acknowledgment earlier
+        return () => clearTimeout(timeoutId);
+      } else {
+        setOfflineQueue((prev) => [...prev, message]);
+      }
+    },
+    [userId]
+  );
+
+  const sendTyping = useCallback((isTyping, conversationIdArg) => {
+    const conversationId =
+      conversationIdArg || selectedConversationRef.current?.id;
+    if (conversationId && socketRef.current?.connected) {
+      socketRef.current.emit(isTyping ? "typing:start" : "typing:stop", {
+        conversationId,
+      });
+    }
+  }, []);
+
+  const markAsRead = useCallback((messageId, conversationIdArg) => {
+    const conversationId =
+      conversationIdArg || selectedConversationRef.current?.id;
+    if (conversationId && socketRef.current?.connected) {
+      socketRef.current.emit("message:read", { messageId, conversationId });
+    }
+  }, []);
+
+  const reactToMessage = useCallback((messageId, emoji, conversationIdArg) => {
+    const conversationId =
+      conversationIdArg || selectedConversationRef.current?.id;
+    if (conversationId && socketRef.current?.connected) {
+      socketRef.current.emit("message:react", {
+        messageId,
+        conversationId,
+        emoji,
+      });
+    }
+  }, []);
+
+  const createConversation = useCallback(
+    async (participantIds, name, imageUrl) => {
+      try {
+        const res = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participantIds, name, imageUrl }),
+        });
+        if (!res.ok) throw new Error("Failed to create conversation");
+        const data = await res.json();
+
+        if (!data.isExisting) {
+          setConversations((prev) => [data.conversation, ...prev]);
+        }
+        await selectConversation(data.conversation);
+        return data.conversation;
+      } catch (err) {
+        onErrorRef.current?.("Failed to create conversation");
+        throw err;
+      }
+    },
+    [selectConversation]
+  );
+
   const deleteConversations = useCallback(async (conversationIds) => {
     try {
       const res = await fetch("/api/conversations", {
@@ -353,44 +314,186 @@ export default function useChat({ userId, jwt, onError }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId: conversationIds }),
       });
-
       if (!res.ok) throw new Error("Failed to delete conversations");
 
       setConversations((prev) =>
-        prev.filter((conv) => !conversationIds.includes(conv.id))
+        prev.filter((c) => !conversationIds.includes(c.id))
       );
-
-      if (selectedConversationRef.current && conversationIds.includes(selectedConversationRef.current.id)) {
+      if (
+        selectedConversationRef.current &&
+        conversationIds.includes(selectedConversationRef.current.id)
+      ) {
         setSelectedConversation(null);
         setMessages([]);
       }
     } catch (err) {
-      console.error("Error deleting conversations:", err);
-      onError?.("Failed to delete conversations");
+      onErrorRef.current?.("Failed to delete conversations");
     }
-  }, [onError]);
+  }, []);
 
-  // Initial fetch
+  const retryMessage = useCallback((messageId) => {
+    setOfflineQueue((prevQueue) => {
+      const msg = prevQueue.find((m) => m.id === messageId);
+      if (!msg) return prevQueue;
+
+      if (!socketRef.current?.connected) {
+        // Still offline, keep in queue
+        onErrorRef.current?.("Cannot retry: still offline");
+        return prevQueue;
+      }
+
+      setMessageStatuses((prev) => ({ ...prev, [messageId]: "sending" }));
+
+      // Use acknowledgment for reliable status updates
+      socketRef.current.emit("sendMessage", msg, (ack) => {
+        if (ack?.success) {
+          setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
+        } else {
+          setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
+          // Re-add to queue on failure
+          setOfflineQueue((q) => [...q, msg]);
+        }
+      });
+
+      // Fallback timeout for servers without acknowledgment
+      setTimeout(() => {
+        setMessageStatuses((prev) => {
+          if (prev[messageId] === "sending") {
+            if (socketRef.current?.connected) {
+              return { ...prev, [messageId]: "sent" };
+            } else {
+              setOfflineQueue((q) => [...q, msg]);
+              return { ...prev, [messageId]: "failed" };
+            }
+          }
+          return prev;
+        });
+      }, 5000);
+
+      return prevQueue.filter((m) => m.id !== messageId);
+    });
+  }, []);
+
+  // --- CORE EFFECTS ---
+
+  // Socket Lifecycle
   useEffect(() => {
-    if (userId) {
+    if (!userId) return;
+
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001";
+    const newSocket = io(socketUrl, {
+      auth: jwt ? { token: jwt } : undefined,
+      query: { userId },
+      transports: ["websocket"],
+    });
+
+    socketRef.current = newSocket;
+    setSocket(newSocket);
+
+    // Event handlers - defined separately for proper cleanup
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => {
+      setIsConnected(false);
+      // Clear typing indicators on disconnect
+      setTypingUsers({});
+    };
+
+    const handleNewMessage = (message) => {
+      // Functional updates prevent 'conversations' and 'messages' from being dependencies
+      setMessagesByConversation((prev) => {
+        const existing = prev[message.conversationId] || [];
+        if (existing.some((m) => m.id === message.id)) return prev;
+        return { ...prev, [message.conversationId]: [...existing, message] };
+      });
+
+      if (selectedConversationRef.current?.id === message.conversationId) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === message.id) ? prev : [...prev, message]
+        );
+      }
+
+      setConversations((prev) => {
+        const updated = prev.map((c) =>
+          c.id === message.conversationId
+            ? {
+                ...c,
+                lastMessage: message.content,
+                timestamp: message.createdAt,
+                unreadCount:
+                  message.senderId !== userId
+                    ? (c.unreadCount || 0) + 1
+                    : c.unreadCount,
+              }
+            : c
+        );
+        return [...updated].sort(
+          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+        );
+      });
+
+      // Notify about new message from others (not from self)
+      if (message.senderId !== userId && onNewMessageNotificationRef.current) {
+        const senderName = message.sender?.name || "Someone";
+        const preview = message.content?.substring(0, 50) || "New message";
+        onNewMessageNotificationRef.current(senderName, preview, message.conversationId);
+      }
+    };
+
+    const handleTyping = ({ conversationId, typingUsers: allTyping }) => {
+      setTypingUsers((prev) => ({ ...prev, [conversationId]: allTyping }));
+    };
+
+    const handlePresenceChanged = ({ userId: uId, isOnline, lastSeenAt }) => {
+      setPresenceMap((prev) => ({
+        ...prev,
+        [uId]: { isOnline, lastSeenAt },
+      }));
+    };
+
+    // Register event listeners
+    newSocket.on("connect", handleConnect);
+    newSocket.on("disconnect", handleDisconnect);
+    newSocket.on("newMessage", handleNewMessage);
+    newSocket.on("user:typing", handleTyping);
+    newSocket.on("presence:changed", handlePresenceChanged);
+
+    return () => {
+      // Remove all listeners before disconnecting
+      newSocket.off("connect", handleConnect);
+      newSocket.off("disconnect", handleDisconnect);
+      newSocket.off("newMessage", handleNewMessage);
+      newSocket.off("user:typing", handleTyping);
+      newSocket.off("presence:changed", handlePresenceChanged);
+      newSocket.disconnect();
+      socketRef.current = null;
+    };
+  }, [userId, jwt]); // Minimal dependencies to prevent socket flapping
+
+  // Initialization - fetch conversations once when userId is available
+  useEffect(() => {
+    if (userId && !hasFetchedConversationsRef.current) {
+      hasFetchedConversationsRef.current = true;
       fetchConversations();
     }
   }, [userId, fetchConversations]);
 
   return {
-    // State
     socket,
     isConnected,
     conversations,
     selectedConversation,
     messages,
+    messagesByConversation,
     typingUsers: typingUsers[selectedConversation?.id] || [],
+    typingUsersByConversation: typingUsers,
     presenceMap,
     loading,
     error,
-
-    // Actions
+    messageStatuses,
+    offlineQueue,
     fetchConversations,
+    fetchPresence,
     selectConversation,
     sendMessage,
     sendTyping,
@@ -398,5 +501,6 @@ export default function useChat({ userId, jwt, onError }) {
     reactToMessage,
     createConversation,
     deleteConversations,
+    retryMessage,
   };
 }

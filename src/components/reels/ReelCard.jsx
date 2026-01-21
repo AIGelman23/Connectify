@@ -56,29 +56,34 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 		}
 	}, [reel.id]);
 
-	// Handle play/pause based on visibility
+	// Handle play/pause based on visibility (TikTok-like autoplay)
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
 
 		if (isActive) {
-			video.play().then(() => {
-				setIsPlaying(true);
-			}).catch(() => {
-				// Autoplay was prevented, video is muted by default
-				video.muted = true;
-				video.play().then(() => setIsPlaying(true)).catch(() => { });
-			});
-
-			// Track view after 2 seconds
-			const viewTimer = setTimeout(() => {
-				trackView(2000);
-			}, 2000);
-
-			return () => clearTimeout(viewTimer);
+			// TikTok-style: always muted autoplay
+			video.muted = true;
+			setIsMuted(true);
+			
+			const playPromise = video.play();
+			if (playPromise !== undefined) {
+				playPromise
+					.then(() => {
+						setIsPlaying(true);
+						// Track view after 2 seconds
+						const viewTimer = setTimeout(() => {
+							trackView(2000);
+						}, 2000);
+						return () => clearTimeout(viewTimer);
+					})
+					.catch(() => {
+						// Autoplay was prevented, try again after user interaction
+						setIsPlaying(false);
+					});
+			}
 		} else {
 			video.pause();
-			video.currentTime = 0;
 			setIsPlaying(false);
 			setProgress(0);
 			watchTimeRef.current = 0;
@@ -200,18 +205,21 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 	};
 
 	return (
-		<div className="relative h-full w-full bg-black">
-			{/* Video */}
+		<div className="relative h-full w-full bg-black overflow-hidden">
+			{/* Video - TikTok-style full-screen */}
 			<video
 				ref={videoRef}
 				src={reel.videoUrl}
-				className="absolute inset-0 w-full h-full object-contain"
+				className="absolute inset-0 w-full h-full object-cover"
 				loop
 				muted={isMuted}
 				playsInline
 				preload="auto"
 				poster={reel.thumbnailUrl}
 				onClick={handleDoubleTap}
+				style={{
+					transition: 'opacity 0.3s ease-in-out',
+				}}
 			/>
 
 			{/* Gradient overlays */}

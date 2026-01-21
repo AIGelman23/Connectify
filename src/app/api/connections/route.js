@@ -266,27 +266,10 @@ export async function GET(request) {
   } catch (error) {
     console.error("API Error fetching connections:", error);
 
-    // Fallback to mock data in case of error
     return NextResponse.json(
-      {
-        message: "Using fallback mock data (database connection error)",
-        users: [
-          // Mock data as fallback
-          {
-            id: "mock1",
-            name: "John Developer",
-            email: "john@example.com",
-            imageUrl: "https://randomuser.me/api/portraits/men/41.jpg",
-            headline: "Senior Developer",
-            connectionStatus: "NOT_CONNECTED",
-          },
-          // ... other mock users
-        ],
-      },
-      { status: 200 }
+      { message: "Internal server error.", error: error.message },
+      { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

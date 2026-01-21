@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Add this function to check if a route should be public
+// Configuration for public routes
 function isPublicRoute(pathname) {
   const publicRoutes = [
     "/auth/login",
@@ -13,18 +13,24 @@ function isPublicRoute(pathname) {
     "/api/auth/validate-reset-token",
   ];
 
+  // Also allow static files and images
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/auth") || // Essential for NextAuth internal routes
+    pathname.includes(".") // favicon, images, etc.
+  ) {
+    return true;
+  }
+
   return publicRoutes.some((route) => pathname.startsWith(route));
 }
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
-  console.log(`Middleware: Processing ${pathname}`);
 
-  // Special case for reset password
+  // 1. Special case for Reset Password Page
   if (pathname.startsWith("/auth/reset-password")) {
-    console.log("Middleware: Bypassing all checks for reset password page");
     const response = NextResponse.next();
-    // Add headers to prevent caching
     response.headers.set(
       "Cache-Control",
       "no-cache, no-store, must-revalidate"
@@ -34,21 +40,46 @@ export async function middleware(request) {
     return response;
   }
 
-  // Check if it's a public route
+  // 2. Allow Public Routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // For non-public paths, continue with your existing auth logic
-  // ...existing auth logic for protected routes...
+  // 3. Auth Check for Protected Routes
+  // This uses the JWT from the cookie, so it doesn't hit Prisma/Database.
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
 
+  if (!token) {
+    // If user tries to hit an API route without a token, return JSON
+    if (pathname.startsWith("/api")) {
+      return new NextResponse(
+        JSON.stringify({ message: "Authentication required" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // If user tries to hit a Page route, redirect to Login
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // 4. Authorized - Proceed
   return NextResponse.next();
 }
 
-// Optionally configure matching paths
+// Ensure the middleware runs on all routes except specific static assets
 export const config = {
   matcher: [
-    // Match all paths except static files
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

@@ -53,7 +53,5 @@ export async function GET(request) {
       { message: "Something went wrong. Please try again later." },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

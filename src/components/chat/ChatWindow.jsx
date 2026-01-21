@@ -24,6 +24,9 @@ export default function ChatWindow({
   sendingMessage = false,
   replyingTo = null,
   onCancelReply,
+  messageStatuses = {},
+  onRetry,
+  hideHeader = false,
 }) {
   const messagesEndRef = useRef(null);
 
@@ -74,13 +77,15 @@ export default function ChatWindow({
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
-      <ChatHeader
-        conversation={conversation}
-        currentUserId={currentUserId}
-        isOnline={isOnline}
-        lastSeen={lastSeen}
-        onBack={onBack}
-      />
+      {!hideHeader && (
+        <ChatHeader
+          conversation={conversation}
+          currentUserId={currentUserId}
+          isOnline={isOnline}
+          lastSeen={lastSeen}
+          onBack={onBack}
+        />
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-900">
@@ -96,7 +101,9 @@ export default function ChatWindow({
             onReply={onReply}
             onEdit={onEditMessage}
             onDelete={onDeleteMessage}
-            onMarkAsRead={onMarkAsRead}
+            onMarkAsRead={(messageId) => onMarkAsRead?.(messageId, conversation.id)}
+            messageStatuses={messageStatuses}
+            onRetry={onRetry}
           />
         )}
         <div ref={messagesEndRef} />
@@ -112,7 +119,7 @@ export default function ChatWindow({
       {/* Input */}
       <MessageInput
         onSendMessage={onSendMessage}
-        onTyping={onTyping}
+        onTyping={(isTyping) => onTyping?.(isTyping, conversation.id)}
         replyingTo={replyingTo}
         onCancelReply={onCancelReply}
         disabled={sendingMessage}

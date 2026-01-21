@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { ChatProvider } from "@/context/ChatContext";
 import QueryProvider from '@/components/QueryProvider';
 import ApolloClientProvider from '@/components/ApolloProvider';
+import ChatDock from "@/components/chat/ChatDock";
 
 export function Providers({ children }) {
 	return (
@@ -15,6 +16,7 @@ export function Providers({ children }) {
 					<QueryProvider>
 						<ChatProvider>
 							{children}
+							<ChatDock />
 						</ChatProvider>
 					</QueryProvider>
 				</ApolloClientProvider>

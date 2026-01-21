@@ -83,8 +83,6 @@ export async function GET(request) {
       { message: "Failed to load friends data.", error: error.message },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

@@ -39,87 +39,86 @@ export default function QueryProvider({ children }) {
   const { data: session } = useSession();
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    if (!("serviceWorker" in navigator)) return;
+
+    // In development, service workers frequently cause stale chunk/caching issues
+    // (e.g. 404s for /_next/static/chunks/*). Keep dev predictable by unregistering.
+    if (process.env.NODE_ENV !== "production") {
       navigator.serviceWorker
-        .register("/service-worker.js")
-        .then((registration) => {
-          console.log(
-            "Service Worker registered with scope:",
-            registration.scope
-          );
-
-          // Clear any active notifications in the system tray
-          registration.getNotifications().then((notifications) => {
-            notifications.forEach((notification) => notification.close());
-          });
-
-          // Clear the app icon badge if supported
-          if ("clearAppBadge" in navigator) {
-            navigator
-              .clearAppBadge()
-              .catch((err) => console.error("Failed to clear badge", err));
-          }
-
-          // Initialize Pusher Beams
-          // Ensure you have installed: npm install @pusher/push-notifications-web
-          import("@pusher/push-notifications-web")
-            .then(({ Client }) => {
-              const beamsClient = new Client({
-                instanceId: "9ddc93ef-b40a-4905-adbe-ffad4efce457",
-              });
-
-              // Check if permission is already denied to avoid the error
-              if (window.Notification && Notification.permission === "denied") {
-                console.warn(
-                  "Pusher Beams: Notifications are blocked. Please enable them in your browser settings."
-                );
-                return;
-              }
-
-              beamsClient
-                .start()
-                .then(() => beamsClient.addDeviceInterest("hello"))
-                .then(() =>
-                  console.log(
-                    "Successfully registered and subscribed to Pusher Beams!"
-                  )
-                )
-                .catch((error) => {
-                  if (error.name === "NotAllowedError") {
-                    console.warn(
-                      "Pusher Beams: Notification permission denied. Reset browser permissions to enable."
-                    );
-                  } else if (
-                    error.message &&
-                    error.message.includes("Could not add Device Interest")
-                  ) {
-                    console.warn(
-                      "Pusher Beams: Device interest update skipped (SDK not ready)."
-                    );
-                  } else {
-                    console.error("Pusher Beams error:", error);
-                  }
-                });
-            })
-            .catch((e) =>
-              console.log(
-                "Pusher Beams library not installed or failed to load."
-              )
-            );
-        })
-        .catch((error) => {
-          if (
-            error.name === "NotAllowedError" ||
-            error.message.includes("denied")
-          ) {
-            console.warn(
-              "Service Worker registration skipped: Permission denied"
-            );
-          } else {
-            console.error("Service Worker registration failed:", error);
-          }
-        });
+        .getRegistrations()
+        .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+        .catch(() => {});
+      return;
     }
+
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((registration) => {
+        console.log("Service Worker registered with scope:", registration.scope);
+
+        // Clear any active notifications in the system tray
+        registration.getNotifications().then((notifications) => {
+          notifications.forEach((notification) => notification.close());
+        });
+
+        // Clear the app icon badge if supported
+        if ("clearAppBadge" in navigator) {
+          navigator.clearAppBadge().catch((err) =>
+            console.error("Failed to clear badge", err)
+          );
+        }
+
+        // Initialize Pusher Beams
+        import("@pusher/push-notifications-web")
+          .then(({ Client }) => {
+            const beamsClient = new Client({
+              instanceId: "9ddc93ef-b40a-4905-adbe-ffad4efce457",
+            });
+
+            // Check if permission is already denied to avoid the error
+            if (window.Notification && Notification.permission === "denied") {
+              console.warn(
+                "Pusher Beams: Notifications are blocked. Please enable them in your browser settings."
+              );
+              return;
+            }
+
+            beamsClient
+              .start()
+              .then(() => beamsClient.addDeviceInterest("hello"))
+              .then(() =>
+                console.log(
+                  "Successfully registered and subscribed to Pusher Beams!"
+                )
+              )
+              .catch((error) => {
+                if (error.name === "NotAllowedError") {
+                  console.warn(
+                    "Pusher Beams: Notification permission denied. Reset browser permissions to enable."
+                  );
+                } else if (
+                  error.message &&
+                  error.message.includes("Could not add Device Interest")
+                ) {
+                  console.warn(
+                    "Pusher Beams: Device interest update skipped (SDK not ready)."
+                  );
+                } else {
+                  console.error("Pusher Beams error:", error);
+                }
+              });
+          })
+          .catch(() =>
+            console.log("Pusher Beams library not installed or failed to load.")
+          );
+      })
+      .catch((error) => {
+        if (error.name === "NotAllowedError" || error.message.includes("denied")) {
+          console.warn("Service Worker registration skipped: Permission denied");
+        } else {
+          console.error("Service Worker registration failed:", error);
+        }
+      });
   }, []);
 
   // Subscribe to the user's specific interest when they are logged in
@@ -153,6 +152,8 @@ export default function QueryProvider({ children }) {
 
       // --- Pusher Channels (Real-time in-app events) ---
       const userChannelName = `user-${session.user.id}`;
+      if (!pusherClient) return;
+
       pusherClient.subscribe(userChannelName);
 
       const handlePasswordReset = (data) => {

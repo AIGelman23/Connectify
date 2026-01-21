@@ -889,9 +889,9 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 		: (post.imageUrl && !isGiphyImage(post.imageUrl) ? [post.imageUrl] : []);
 
 	return (
-		<div id={post.id} className={`post-card rounded-2xl shadow-md border mb-6 w-full max-w-2xl mx-auto transition hover:shadow-lg ${isNews
-			? 'bg-slate-50 dark:bg-slate-900 border-blue-200 dark:border-blue-900/50'
-			: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 dark:shadow-slate-900/30'
+		<div id={post.id} className={`post-card rounded-2xl shadow-sm border mb-6 w-full max-w-2xl mx-auto transition-all duration-200 hover:shadow-xl hover:scale-[1.01] ${isNews
+			? 'bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-900 dark:to-blue-950/20 border-blue-200 dark:border-blue-900/50'
+			: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 dark:shadow-slate-900/30 backdrop-blur-sm'
 			}`}>
 			{/* Toast Notification */}
 			{showToast && (

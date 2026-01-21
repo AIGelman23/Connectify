@@ -45,32 +45,50 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 
 	const reels = data?.pages?.flatMap(page => page.reels) || [];
 
-	// Handle scroll snapping
+	// Handle scroll snapping with improved TikTok-like behavior
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
+		let scrollTimeout;
 		const handleScroll = () => {
-			const scrollTop = container.scrollTop;
-			const reelHeight = container.clientHeight;
-			const newIndex = Math.round(scrollTop / reelHeight);
+			clearTimeout(scrollTimeout);
 
-			if (newIndex !== activeIndex && newIndex >= 0 && newIndex < reels.length) {
-				setActiveIndex(newIndex);
-			}
+			// Debounce scroll handling for better performance
+			scrollTimeout = setTimeout(() => {
+				const scrollTop = container.scrollTop;
+				const reelHeight = container.clientHeight;
+				const newIndex = Math.round(scrollTop / reelHeight);
 
-			// Load more when near the end
-			if (
-				hasNextPage &&
-				!isFetchingNextPage &&
-				newIndex >= reels.length - 2
-			) {
-				fetchNextPage();
-			}
+				if (newIndex !== activeIndex && newIndex >= 0 && newIndex < reels.length) {
+					setActiveIndex(newIndex);
+
+					// Smooth snap to exact position
+					const targetScroll = newIndex * reelHeight;
+					if (Math.abs(scrollTop - targetScroll) > 10) {
+						container.scrollTo({
+							top: targetScroll,
+							behavior: 'smooth',
+						});
+					}
+				}
+
+				// Load more when near the end (TikTok-style prefetch)
+				if (
+					hasNextPage &&
+					!isFetchingNextPage &&
+					newIndex >= reels.length - 2
+				) {
+					fetchNextPage();
+				}
+			}, 100);
 		};
 
 		container.addEventListener('scroll', handleScroll, { passive: true });
-		return () => container.removeEventListener('scroll', handleScroll);
+		return () => {
+			container.removeEventListener('scroll', handleScroll);
+			clearTimeout(scrollTimeout);
+		};
 	}, [activeIndex, reels.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 	// Keyboard navigation
@@ -150,6 +168,7 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 				style={{
 					scrollSnapType: 'y mandatory',
 					WebkitOverflowScrolling: 'touch',
+					scrollBehavior: 'smooth',
 				}}
 			>
 				{reels.map((reel, index) => (

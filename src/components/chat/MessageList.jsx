@@ -11,6 +11,8 @@ export default function MessageList({
   onEdit,
   onDelete,
   onMarkAsRead,
+  messageStatuses = {},
+  onRetry,
 }) {
   const observerRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -120,6 +122,8 @@ export default function MessageList({
                     onReply={onReply}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    status={messageStatuses[message.id]}
+                    onRetry={onRetry}
                   />
                 </div>
               );

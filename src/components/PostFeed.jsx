@@ -164,7 +164,7 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 
 	return (
 		<div
-			className="feed space-y-6"
+			className="feed space-y-4 px-2 md:px-4 py-4 bg-gradient-to-b from-gray-50 to-white dark:from-slate-900 dark:to-slate-800"
 			ref={mainScrollRef}
 			style={{
 				overflowY: 'scroll',
@@ -173,42 +173,33 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 			}}
 		>
 			{/* Tabs */}
-			<div className="flex w-full border-b border-gray-200 dark:border-slate-700 mb-4">
+			<div className="flex w-full bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-4 p-1">
 				<button
 					onClick={() => setActiveTab('public')}
-					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'public'
-							? 'text-blue-600 dark:text-blue-400'
-							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+					className={`flex-1 py-2.5 px-4 text-sm font-semibold text-center transition-all duration-200 rounded-xl relative ${activeTab === 'public'
+						? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md'
+						: 'text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-700'
 						}`}
 				>
-					Public Feed
-					{activeTab === 'public' && (
-						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
-					)}
+					<i className="fas fa-home mr-2"></i> Feed
 				</button>
 				<button
 					onClick={() => setActiveTab('videos')}
-					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'videos'
-							? 'text-blue-600 dark:text-blue-400'
-							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+					className={`flex-1 py-2.5 px-4 text-sm font-semibold text-center transition-all duration-200 rounded-xl relative ${activeTab === 'videos'
+						? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md'
+						: 'text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-700'
 						}`}
 				>
-					Videos
-					{activeTab === 'videos' && (
-						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
-					)}
+					<i className="fas fa-video mr-2"></i> Videos
 				</button>
 				<button
 					onClick={() => setActiveTab('news')}
-					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'news'
-							? 'text-blue-600 dark:text-blue-400'
-							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+					className={`flex-1 py-2.5 px-4 text-sm font-semibold text-center transition-all duration-200 rounded-xl relative ${activeTab === 'news'
+						? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md'
+						: 'text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-700'
 						}`}
 				>
-					News Feed
-					{activeTab === 'news' && (
-						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
-					)}
+					<i className="fas fa-newspaper mr-2"></i> News
 				</button>
 			</div>
 
