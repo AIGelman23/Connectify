@@ -6,7 +6,7 @@ export async function GET(request) {
 
   // Check for the API key in environment variables
   const API_KEY = process.env.NEWS_API_KEY || process.env.NEWS_KEY;
-  const BASE_URL = "https://newsapi.org/v2/top-headlines?country=us";
+  const BASE_URL = "https://newsapi.org/v2/top-headlines?country=us&pageSize=50";
 
   if (!API_KEY) {
     return NextResponse.json(

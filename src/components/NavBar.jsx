@@ -374,6 +374,7 @@ export default function Navbar({ session, router }) {
 						</div>
 						<div className="hidden md:flex items-center space-x-4 flex-1 justify-center pl-8">
 							<NavLink iconClass="fas fa-home" text="Home" href="/dashboard" router={router} isActive={currentPath === '/dashboard'} />
+							<NavLink iconClass="fas fa-play-circle" text="Reels" href="/reels" router={router} isActive={currentPath === '/reels' || currentPath.startsWith('/reels/')} />
 							<NavLink iconClass="fas fa-users" text="Network" href="/network" router={router} isActive={currentPath === '/network'} />
 							<NavLink iconClass="fas fa-briefcase" text="Jobs" href="/jobs" router={router} isActive={currentPath === '/jobs'} />
 							<NavLink iconClass="fas fa-comment-dots" text="Messages" href="/messages" router={router} isActive={currentPath === '/messages'} />
@@ -862,8 +863,8 @@ function NavLink({ iconClass, text, href, router, children, onClick, isMenuTrigg
 function MobileBottomNav({ router, currentPath, notificationCount }) {
 	const navItems = [
 		{ icon: 'fas fa-home', href: '/dashboard', label: 'Home' },
+		{ icon: 'fas fa-play-circle', href: '/reels', label: 'Reels' },
 		{ icon: 'fas fa-users', href: '/network', label: 'Network' },
-		{ icon: 'fas fa-briefcase', href: '/jobs', label: 'Jobs' },
 		{ icon: 'fas fa-comment-dots', href: '/messages', label: 'Messages' },
 		{ icon: 'fas fa-bell', href: '/notifications', label: 'Notifications', badge: notificationCount },
 	];

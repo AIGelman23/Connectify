@@ -107,8 +107,13 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 
 	const normalizedPosts = React.useMemo(() => posts.map(p => ({ ...p, type: 'post' })), [posts]);
 	const newsItems = newsData || [];
+	const videoPosts = React.useMemo(() => posts.filter(p => p.videoUrl || p.isReel), [posts]);
 
-	const feedItems = activeTab === 'public' ? normalizedPosts : newsItems;
+	const feedItems = activeTab === 'public'
+		? normalizedPosts
+		: activeTab === 'videos'
+			? videoPosts
+			: newsItems;
 
 	// Reset scrolledRef when postId changes (e.g. navigating to a different post)
 	useEffect(() => {
@@ -133,7 +138,7 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 		const currentLoader = loaderRef.current;
 		const currentMainScrollContainer = mainScrollRef.current;
 
-		if (!currentLoader || !currentMainScrollContainer || !hasNextPage || activeTab !== 'public') {
+		if (!currentLoader || !currentMainScrollContainer || !hasNextPage || (activeTab !== 'public' && activeTab !== 'videos')) {
 			return;
 		}
 
@@ -178,6 +183,18 @@ export default function PostFeed({ sessionUserId, setPostError, openReplyModal }
 				>
 					Public Feed
 					{activeTab === 'public' && (
+						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+					)}
+				</button>
+				<button
+					onClick={() => setActiveTab('videos')}
+					className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${activeTab === 'videos'
+							? 'text-blue-600 dark:text-blue-400'
+							: 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+						}`}
+				>
+					Videos
+					{activeTab === 'videos' && (
 						<div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
 					)}
 				</button>

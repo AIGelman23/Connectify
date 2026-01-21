@@ -37,16 +37,28 @@ export const fetchNewsApi = async (category) => {
       return cache[cacheKey]?.data || [];
     }
 
-    const newsItems = (data.articles || []).map((article) => ({
-      id: createId(),
-      type: "news",
-      title: article.title,
-      link: article.url,
-      pubDate: article.publishedAt,
-      source: article.source.name,
-      imageUrl: article.urlToImage || undefined,
-      contentSnippet: article.description,
-    }));
+    const now = Date.now();
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const newsItems = (data.articles || [])
+      // Filter out articles older than 7 days
+      .filter((article) => {
+        if (!article.publishedAt) return false;
+        const pubTime = new Date(article.publishedAt).getTime();
+        return pubTime >= sevenDaysAgo;
+      })
+      // Sort by publication date (newest first)
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .map((article) => ({
+        id: createId(),
+        type: "news",
+        title: article.title,
+        link: article.url,
+        pubDate: article.publishedAt,
+        source: article.source.name,
+        imageUrl: article.urlToImage || undefined,
+        contentSnippet: article.description,
+      }));
 
     cache[cacheKey] = {
       timestamp: now,

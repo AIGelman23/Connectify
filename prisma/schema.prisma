@@ -13,16 +13,126 @@ model Message {
   senderId       String
   content        String
   createdAt      DateTime     @default(now())
+
+  // Message type: text, image, video, file, voice, gif
+  type           String       @default("text")
+
+  // Media attachments
+  mediaUrls      String[]     @default([])
+  fileName       String?
+  fileSize       Int?
+  mimeType       String?
+  duration       Int?         // For voice/video messages
+
+  // Reply threading
+  replyToId      String?
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]    @relation("MessageReplies")
+
+  // Edit/Delete
+  editedAt       DateTime?
+  isDeleted      Boolean      @default(false)
+  deletedForAll  Boolean      @default(false)
+
+  // Status
+  status         String       @default("sent") // sent, delivered, seen
+
   sender         User         @relation(fields: [senderId], references: [id])
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reactions      MessageReaction[]
+  readReceipts   MessageReadReceipt[]
+
+  @@index([conversationId])
+  @@index([senderId])
 }
 
 model Conversation {
   id           String    @id @default(uuid())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  // Group chat settings
+  name         String?   // null for 1-on-1 chats
+  imageUrl     String?   // Group photo
+  isGroup      Boolean   @default(false)
+
+  // Last message preview
+  lastMessageId      String?
+  lastMessageContent String?
+  lastMessageAt      DateTime?
+
   messages     Message[]
-  participants User[]    @relation("ConversationParticipants")
+  participants ConversationParticipant[]
+  users        User[]    @relation("ConversationParticipants")
+
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?
+
+  // Role in group
+  role           String       @default("member") // admin, member
+
+  // Nickname in this conversation
+  nickname       String?
+
+  // Read tracking
+  lastReadAt     DateTime?
+  lastReadMessageId String?
+
+  // Notification settings
+  isMuted        Boolean      @default(false)
+  mutedUntil     DateTime?
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String   // 👍 ❤️ 😂 😮 😢 😠
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model MessageReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
+model UserPresence {
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  isOnline   Boolean   @default(false)
+  lastSeenAt DateTime  @default(now())
+  socketId   String?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isOnline])
 }
 
 model ConnectionRequest {
@@ -54,6 +164,10 @@ model User {
   receivedConnectionRequests ConnectionRequest[]  @relation("ReceivedConnectionRequests")
   sentConnectionRequests     ConnectionRequest[]  @relation("SentConnectionRequests")
   sentMessages               Message[]
+  conversationParticipants   ConversationParticipant[]
+  messageReactions           MessageReaction[]
+  messageReadReceipts        MessageReadReceipt[]
+  presence                   UserPresence?
   taggedInPosts              TaggedFriend[]       @relation("UserTaggedFriends")
   comments                   Comment[]
   notificationsSent          Notification[]       @relation("SenderNotifications")
@@ -72,6 +186,9 @@ model User {
   followedBy                 Follows[]            @relation("following")
   following                  Follows[]            @relation("follower")
   reports                    Report[]
+  videoViews                 VideoView[]
+  liveStreams                LiveStream[]
+  liveComments               LiveComment[]
 }
 
 model Skill {
@@ -164,6 +281,21 @@ model Post {
   title          String?
   newsSource     String?
   newsLink       String?
+  // Video/Reel fields
+  videoDuration Int?
+  videoWidth    Int?
+  videoHeight   Int?
+  thumbnailUrl  String?
+  isReel        Boolean        @default(false)
+  viewsCount    Int            @default(0)
+  videoViews    VideoView[]
+  // Duet fields (Phase 5)
+  duetParentId  String?
+  duetLayout    String?
+  duetParent    Post?          @relation("Duets", fields: [duetParentId], references: [id])
+  duets         Post[]         @relation("Duets")
+  soundId       String?
+  sound         Sound?         @relation(fields: [soundId], references: [id])
 
   @@map("posts")
 }
@@ -345,4 +477,55 @@ model Report {
   reason     String?
   createdAt  DateTime @default(now())
   reporter   User     @relation(fields: [reporterId], references: [id])
+}
+
+model VideoView {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  watchTime Int      @default(0)
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Sound {
+  id         String @id @default(uuid())
+  name       String
+  audioUrl   String
+  duration   Int
+  usageCount Int    @default(0)
+  createdAt  DateTime @default(now())
+  posts      Post[]
+}
+
+model LiveStream {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  status      String    @default("idle")
+  streamKey   String    @unique
+  playbackId  String?
+  viewerCount Int       @default(0)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+  comments    LiveComment[]
+}
+
+model LiveComment {
+  id        String     @id @default(uuid())
+  streamId  String
+  userId    String
+  content   String
+  createdAt DateTime   @default(now())
+
+  stream    LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

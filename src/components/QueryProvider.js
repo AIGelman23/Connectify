@@ -108,7 +108,16 @@ export default function QueryProvider({ children }) {
             );
         })
         .catch((error) => {
-          console.error("Service Worker registration failed:", error);
+          if (
+            error.name === "NotAllowedError" ||
+            error.message.includes("denied")
+          ) {
+            console.warn(
+              "Service Worker registration skipped: Permission denied"
+            );
+          } else {
+            console.error("Service Worker registration failed:", error);
+          }
         });
     }
   }, []);
@@ -117,16 +126,30 @@ export default function QueryProvider({ children }) {
   useEffect(() => {
     if (session?.user?.id) {
       // --- Pusher Beams (Push Notifications) ---
-      import("@pusher/push-notifications-web").then(({ Client }) => {
-        const beamsClient = new Client({
-          instanceId: "9ddc93ef-b40a-4905-adbe-ffad4efce457",
-        });
+      // Skip if notifications are blocked
+      if (window.Notification && Notification.permission === "denied") {
+        // Silently skip - user has denied notifications
+      } else {
+        import("@pusher/push-notifications-web")
+          .then(({ Client }) => {
+            const beamsClient = new Client({
+              instanceId: "9ddc93ef-b40a-4905-adbe-ffad4efce457",
+            });
 
-        beamsClient
-          .start()
-          .then(() => beamsClient.addDeviceInterest(`user-${session.user.id}`))
-          .catch(console.error);
-      });
+            beamsClient
+              .start()
+              .then(() => beamsClient.addDeviceInterest(`user-${session.user.id}`))
+              .catch((error) => {
+                // Silently handle permission errors - user has denied notifications
+                if (error.name !== "NotAllowedError") {
+                  console.error("Pusher Beams error:", error);
+                }
+              });
+          })
+          .catch(() => {
+            // Library not installed or failed to load - silent fail
+          });
+      }
 
       // --- Pusher Channels (Real-time in-app events) ---
       const userChannelName = `user-${session.user.id}`;
