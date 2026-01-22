@@ -172,6 +172,10 @@ export default function FacebookEmojiSelector({ onEmojiSelect }) {
     if (!emojiData.recent.includes(emoji)) {
       emojiData.recent = [emoji, ...emojiData.recent.slice(0, 7)];
     }
+    // Close picker after selection on mobile for better UX
+    if (isMobile) {
+      setIsOpen(false);
+    }
   };
 
   const handleCategoryClick = (category, e) => {
@@ -207,7 +211,7 @@ export default function FacebookEmojiSelector({ onEmojiSelect }) {
               : 'fixed rounded-xl shadow-2xl'
             }
             bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700
-            overflow-hidden flex flex-col z-[60]
+            overflow-hidden flex flex-col z-[100]
           `}
           style={!isMobile ? {
             top: pickerPosition.top,

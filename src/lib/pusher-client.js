@@ -1,9 +1,7 @@
 import PusherClient from "pusher-js";
 
-// Enable pusher logging - don't include this in production
-if (process.env.NODE_ENV === "development") {
-  PusherClient.logToConsole = true;
-}
+// Enable pusher logging for debugging
+PusherClient.logToConsole = process.env.NODE_ENV === "development";
 
 const pusherKey = process.env.NEXT_PUBLIC_PUSHER;
 const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
@@ -13,6 +11,9 @@ const isConfigured =
   !!pusherCluster &&
   !pusherKey.includes("your-public-key") &&
   !pusherCluster.includes("your-cluster");
+
+// Log configuration status
+console.log("[Pusher] Configured:", isConfigured, "Key:", pusherKey ? "set" : "missing", "Cluster:", pusherCluster || "missing");
 
 // IMPORTANT:
 // Do not throw during import. This file is imported by global providers; throwing here
@@ -24,9 +25,8 @@ export const pusherClient = isConfigured
     })
   : null;
 
-if (!isConfigured && process.env.NODE_ENV === "development") {
+if (!isConfigured) {
   console.warn(
-    "Pusher is not configured (NEXT_PUBLIC_PUSHER / NEXT_PUBLIC_PUSHER_CLUSTER). " +
-      "Real-time Pusher Channels events will be disabled."
+    "[Pusher] Not configured. Real-time events disabled. Check NEXT_PUBLIC_PUSHER and NEXT_PUBLIC_PUSHER_CLUSTER env vars."
   );
 }

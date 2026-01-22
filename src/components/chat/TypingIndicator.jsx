@@ -5,13 +5,15 @@ export default function TypingIndicator({ users = [] }) {
 
   // Format the typing text
   const getTypingText = () => {
+    const getName = (user) => user?.name || user?.userName || "Someone";
+
     if (users.length === 1) {
-      return `${users[0].userName || "Someone"} is typing`;
+      return `${getName(users[0])} is typing`;
     }
     if (users.length === 2) {
-      return `${users[0].userName || "Someone"} and ${users[1].userName || "someone"} are typing`;
+      return `${getName(users[0])} and ${getName(users[1])} are typing`;
     }
-    return `${users[0].userName || "Someone"} and ${users.length - 1} others are typing`;
+    return `${getName(users[0])} and ${users.length - 1} others are typing`;
   };
 
   return (

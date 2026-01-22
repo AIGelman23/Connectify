@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import authOptions from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { pusherServer } from "@/lib/pusher";
 
 // GET /api/conversations/[conversationId]/messages - Get paginated messages
 export async function GET(request, { params }) {
@@ -267,6 +268,29 @@ export async function POST(request, { params }) {
         lastReadMessageId: message.id,
       },
     });
+
+    // Trigger Pusher event to other participants (non-blocking)
+    if (pusherServer) {
+      try {
+        const participants = await prisma.conversationParticipant.findMany({
+          where: { conversationId, leftAt: null },
+          select: { userId: true },
+        });
+
+        const otherParticipants = participants.filter((p) => p.userId !== userId);
+        if (otherParticipants.length > 0) {
+          Promise.all(
+            otherParticipants.map((p) =>
+              pusherServer.trigger(`private-user-${p.userId}`, "new-message", {
+                message,
+              })
+            )
+          ).catch((err) => console.error("[Messages] Pusher broadcast error:", err));
+        }
+      } catch (broadcastErr) {
+        console.error("[Messages] Error broadcasting:", broadcastErr);
+      }
+    }
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

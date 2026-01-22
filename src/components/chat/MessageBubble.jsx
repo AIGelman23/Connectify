@@ -92,12 +92,19 @@ export default function MessageBubble({
       case "video":
         return (
           <div className="space-y-1">
-            <video
-              src={message.mediaUrls?.[0]}
-              controls
-              className="rounded-lg max-w-xs"
-              poster={message.thumbnailUrl}
-            />
+            <div className="grid gap-1" style={{
+              gridTemplateColumns: message.mediaUrls?.length > 1 ? "repeat(2, 1fr)" : "1fr",
+            }}>
+              {message.mediaUrls?.map((url, i) => (
+                <video
+                  key={i}
+                  src={url}
+                  controls
+                  className="rounded-lg max-w-xs w-full"
+                  poster={message.thumbnailUrl}
+                />
+              ))}
+            </div>
             {message.content && <p>{message.content}</p>}
           </div>
         );

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import authOptions from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { pusherServer } from "@/lib/pusher";
 
 // GET /api/presence - Get presence status for users
 export async function GET(request) {
@@ -105,6 +106,45 @@ export async function POST(request) {
         socketId: socketId || null,
       },
     });
+
+    // Broadcast presence change to all users in shared conversations
+    const conversations = await prisma.conversationParticipant.findMany({
+      where: { userId, leftAt: null },
+      select: { conversationId: true },
+    });
+
+    const convIds = conversations.map((c) => c.conversationId);
+
+    // Broadcast presence change (non-blocking - don't fail if Pusher has issues)
+    if (convIds.length > 0) {
+      try {
+        // Get all other participants in those conversations
+        const otherParticipants = await prisma.conversationParticipant.findMany({
+          where: {
+            conversationId: { in: convIds },
+            userId: { not: userId },
+            leftAt: null,
+          },
+          select: { userId: true },
+          distinct: ["userId"],
+        });
+
+        // Broadcast to each unique user (fire and forget)
+        if (pusherServer && otherParticipants.length > 0) {
+          Promise.all(
+            otherParticipants.map((p) =>
+              pusherServer.trigger(`private-user-${p.userId}`, "presence-update", {
+                userId,
+                isOnline: presence.isOnline,
+                lastSeenAt: presence.lastSeenAt,
+              })
+            )
+          ).catch((err) => console.error("[Presence] Pusher broadcast error:", err));
+        }
+      } catch (broadcastErr) {
+        console.error("[Presence] Error fetching participants for broadcast:", broadcastErr);
+      }
+    }
 
     return NextResponse.json({
       presence: {

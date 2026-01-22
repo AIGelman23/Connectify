@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import io from "socket.io-client";
+import { pusherClient } from "@/lib/pusher-client";
 
 export default function useChat({
   userId,
@@ -9,7 +9,6 @@ export default function useChat({
   onError,
   onNewMessageNotification,
 }) {
-  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -22,13 +21,13 @@ export default function useChat({
   const [offlineQueue, setOfflineQueue] = useState([]);
   const [messageStatuses, setMessageStatuses] = useState({});
 
-  const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const isWindowFocusedRef = useRef(true);
   const hasFetchedConversationsRef = useRef(false);
   const prevUserIdRef = useRef(null);
   const onErrorRef = useRef(onError);
   const onNewMessageNotificationRef = useRef(onNewMessageNotification);
+  const subscribedChannelsRef = useRef(new Set());
 
   // Synchronize refs with state/props
   useEffect(() => {
@@ -43,7 +42,7 @@ export default function useChat({
     onNewMessageNotificationRef.current = onNewMessageNotification;
   }, [onNewMessageNotification]);
 
-  // Reset fetch ref when userId changes (e.g., user logs out and logs back in)
+  // Reset fetch ref when userId changes
   useEffect(() => {
     if (prevUserIdRef.current !== null && prevUserIdRef.current !== userId) {
       hasFetchedConversationsRef.current = false;
@@ -66,7 +65,6 @@ export default function useChat({
         setPresenceMap((prev) => ({ ...prev, ...data.presence }));
       }
     } catch (err) {
-      // Silently fail - presence is non-critical
       console.error("Failed to fetch presence:", err);
     }
   }, []);
@@ -105,9 +103,7 @@ export default function useChat({
     try {
       const res = await fetch(
         `/api/conversations/${conversationId}/messages`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
@@ -118,13 +114,9 @@ export default function useChat({
         [conversationId]: nextMessages,
       }));
 
-      // Only update if this conversation is still selected (prevents race condition)
+      // Only update if this conversation is still selected
       if (selectedConversationRef.current?.id === conversationId) {
         setMessages(nextMessages);
-        // Join socket room only for the currently selected conversation
-        if (socketRef.current?.connected) {
-          socketRef.current.emit("joinRoom", conversationId);
-        }
       }
     } catch (err) {
       onErrorRef.current?.("Failed to load messages");
@@ -139,12 +131,7 @@ export default function useChat({
         return;
       }
 
-      const prevId = selectedConversationRef.current?.id;
       setSelectedConversation(conversation);
-
-      if (prevId && socketRef.current?.connected) {
-        socketRef.current.emit("leaveRoom", prevId);
-      }
 
       // Set messages immediately from cache if available
       setMessagesByConversation((prevCache) => {
@@ -169,28 +156,25 @@ export default function useChat({
         messageData?.conversationId || selectedConversationRef.current?.id;
       if (!conversationId) return;
 
-      // Validate message content - prevent empty messages
+      // Validate message content
       const content = messageData?.content?.trim();
       const hasMedia = messageData?.mediaUrls?.length > 0;
       if (!content && !hasMedia) return;
 
       const messageId = crypto.randomUUID();
-      const status = socketRef.current?.connected ? "sending" : "failed";
 
       const message = {
         id: messageId,
         conversationId,
         senderId: userId,
         ...messageData,
-        content: content || "", // Use trimmed content
+        content: content || "",
         createdAt: new Date().toISOString(),
-        status,
+        status: "sending",
       };
 
-      // 1. Update Status State
-      setMessageStatuses((prev) => ({ ...prev, [messageId]: status }));
-
-      // 2. Update Cache and Active View
+      // Optimistic update
+      setMessageStatuses((prev) => ({ ...prev, [messageId]: "sending" }));
       setMessagesByConversation((prev) => ({
         ...prev,
         [conversationId]: [...(prev[conversationId] || []), message],
@@ -200,86 +184,99 @@ export default function useChat({
         setMessages((prev) => [...prev, message]);
       }
 
-      // 3. Update Conversation List
       setConversations((prev) =>
         prev
           .map((c) =>
             c.id === conversationId
-              ? {
-                  ...c,
-                  lastMessage: message.content,
-                  timestamp: message.createdAt,
-                }
+              ? { ...c, lastMessage: message.content, timestamp: message.createdAt }
               : c
           )
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       );
 
-      if (socketRef.current?.connected) {
-        // Use socket acknowledgment for reliable status updates
-        socketRef.current.emit("sendMessage", message, (ack) => {
-          // Server acknowledged receipt
-          if (ack?.success) {
-            setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
-          } else {
-            setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
-            setOfflineQueue((prev) => [...prev, message]);
-          }
+      // Send via REST API (Pusher will broadcast to other clients)
+      try {
+        const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            content: content || "",
+            type: messageData?.type || "text",
+            mediaUrls: messageData?.mediaUrls,
+            replyToId: messageData?.replyToId,
+            clientMessageId: messageId,
+          }),
         });
 
-        // Fallback timeout in case server doesn't acknowledge (legacy servers)
-        const timeoutId = setTimeout(() => {
-          setMessageStatuses((prev) => {
-            // Only update if still in "sending" state (not already acked)
-            if (prev[messageId] === "sending") {
-              // Check if still connected
-              if (socketRef.current?.connected) {
-                return { ...prev, [messageId]: "sent" };
-              } else {
-                setOfflineQueue((p) => [...p, message]);
-                return { ...prev, [messageId]: "failed" };
-              }
-            }
-            return prev;
-          });
-        }, 5000);
+        if (!res.ok) throw new Error("Failed to send message");
 
-        // Clean up timeout if we get acknowledgment earlier
-        return () => clearTimeout(timeoutId);
-      } else {
+        const data = await res.json();
+        setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
+
+        // Update with server-assigned ID if different
+        if (data.message?.id && data.message.id !== messageId) {
+          setMessagesByConversation((prev) => ({
+            ...prev,
+            [conversationId]: prev[conversationId].map((m) =>
+              m.id === messageId ? { ...m, ...data.message } : m
+            ),
+          }));
+        }
+      } catch (err) {
+        setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
         setOfflineQueue((prev) => [...prev, message]);
+        onErrorRef.current?.("Failed to send message");
       }
     },
     [userId]
   );
 
-  const sendTyping = useCallback((isTyping, conversationIdArg) => {
-    const conversationId =
-      conversationIdArg || selectedConversationRef.current?.id;
-    if (conversationId && socketRef.current?.connected) {
-      socketRef.current.emit(isTyping ? "typing:start" : "typing:stop", {
-        conversationId,
+  const sendTyping = useCallback(async (isTyping, conversationIdArg) => {
+    const conversationId = conversationIdArg || selectedConversationRef.current?.id;
+    if (!conversationId) return;
+
+    try {
+      await fetch(`/api/conversations/${conversationId}/typing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isTyping }),
       });
+    } catch (err) {
+      // Silent fail for typing indicators
     }
   }, []);
 
-  const markAsRead = useCallback((messageId, conversationIdArg) => {
-    const conversationId =
-      conversationIdArg || selectedConversationRef.current?.id;
-    if (conversationId && socketRef.current?.connected) {
-      socketRef.current.emit("message:read", { messageId, conversationId });
+  const markAsRead = useCallback(async (messageId, conversationIdArg) => {
+    const conversationId = conversationIdArg || selectedConversationRef.current?.id;
+    if (!conversationId || !messageId) return;
+
+    try {
+      await fetch(`/api/conversations/${conversationId}/read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ messageId }),
+      });
+    } catch (err) {
+      // Silent fail
     }
   }, []);
 
-  const reactToMessage = useCallback((messageId, emoji, conversationIdArg) => {
-    const conversationId =
-      conversationIdArg || selectedConversationRef.current?.id;
-    if (conversationId && socketRef.current?.connected) {
-      socketRef.current.emit("message:react", {
-        messageId,
-        conversationId,
-        emoji,
+  const reactToMessage = useCallback(async (messageId, emoji, conversationIdArg) => {
+    const conversationId = conversationIdArg || selectedConversationRef.current?.id;
+    if (!conversationId) return;
+
+    try {
+      await fetch(`/api/messages/${messageId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ emoji }),
       });
+    } catch (err) {
+      onErrorRef.current?.("Failed to add reaction");
     }
   }, []);
 
@@ -331,76 +328,68 @@ export default function useChat({
     }
   }, []);
 
-  const retryMessage = useCallback((messageId) => {
-    setOfflineQueue((prevQueue) => {
-      const msg = prevQueue.find((m) => m.id === messageId);
-      if (!msg) return prevQueue;
+  const retryMessage = useCallback(async (messageId) => {
+    const msg = offlineQueue.find((m) => m.id === messageId);
+    if (!msg) return;
 
-      if (!socketRef.current?.connected) {
-        // Still offline, keep in queue
-        onErrorRef.current?.("Cannot retry: still offline");
-        return prevQueue;
-      }
+    setOfflineQueue((prev) => prev.filter((m) => m.id !== messageId));
+    setMessageStatuses((prev) => ({ ...prev, [messageId]: "sending" }));
 
-      setMessageStatuses((prev) => ({ ...prev, [messageId]: "sending" }));
-
-      // Use acknowledgment for reliable status updates
-      socketRef.current.emit("sendMessage", msg, (ack) => {
-        if (ack?.success) {
-          setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
-        } else {
-          setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
-          // Re-add to queue on failure
-          setOfflineQueue((q) => [...q, msg]);
-        }
+    try {
+      const res = await fetch(`/api/conversations/${msg.conversationId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: msg.content,
+          type: msg.type || "text",
+          mediaUrls: msg.mediaUrls,
+          replyToId: msg.replyToId,
+          clientMessageId: messageId,
+        }),
       });
 
-      // Fallback timeout for servers without acknowledgment
-      setTimeout(() => {
-        setMessageStatuses((prev) => {
-          if (prev[messageId] === "sending") {
-            if (socketRef.current?.connected) {
-              return { ...prev, [messageId]: "sent" };
-            } else {
-              setOfflineQueue((q) => [...q, msg]);
-              return { ...prev, [messageId]: "failed" };
-            }
-          }
-          return prev;
-        });
-      }, 5000);
+      if (!res.ok) throw new Error("Failed to send");
+      setMessageStatuses((prev) => ({ ...prev, [messageId]: "sent" }));
+    } catch (err) {
+      setMessageStatuses((prev) => ({ ...prev, [messageId]: "failed" }));
+      setOfflineQueue((prev) => [...prev, msg]);
+    }
+  }, [offlineQueue]);
 
-      return prevQueue.filter((m) => m.id !== messageId);
-    });
-  }, []);
+  // --- PUSHER SUBSCRIPTION ---
 
-  // --- CORE EFFECTS ---
-
-  // Socket Lifecycle
+  // Subscribe to user's private channel for all their conversations
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !pusherClient) return;
 
-    const socketUrl =
-      process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001";
-    const newSocket = io(socketUrl, {
-      auth: jwt ? { token: jwt } : undefined,
-      query: { userId },
-      transports: ["websocket"],
+    // Subscribe to user's private channel
+    const userChannel = pusherClient.subscribe(`private-user-${userId}`);
+    subscribedChannelsRef.current.add(`private-user-${userId}`);
+
+    userChannel.bind("pusher:subscription_succeeded", () => {
+      setIsConnected(true);
+      // Update presence to online
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isOnline: true }),
+      }).catch(() => {});
     });
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
-
-    // Event handlers - defined separately for proper cleanup
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => {
+    userChannel.bind("pusher:subscription_error", () => {
       setIsConnected(false);
-      // Clear typing indicators on disconnect
-      setTypingUsers({});
-    };
+    });
 
-    const handleNewMessage = (message) => {
-      // Functional updates prevent 'conversations' and 'messages' from being dependencies
+    // New message event
+    userChannel.bind("new-message", (data) => {
+      const { message } = data;
+      if (!message) return;
+
+      // Skip if it's our own message (we already have it via optimistic update)
+      if (message.senderId === userId) return;
+
       setMessagesByConversation((prev) => {
         const existing = prev[message.conversationId] || [];
         if (existing.some((m) => m.id === message.id)) return prev;
@@ -420,10 +409,7 @@ export default function useChat({
                 ...c,
                 lastMessage: message.content,
                 timestamp: message.createdAt,
-                unreadCount:
-                  message.senderId !== userId
-                    ? (c.unreadCount || 0) + 1
-                    : c.unreadCount,
+                unreadCount: (c.unreadCount || 0) + 1,
               }
             : c
         );
@@ -432,45 +418,107 @@ export default function useChat({
         );
       });
 
-      // Notify about new message from others (not from self)
-      if (message.senderId !== userId && onNewMessageNotificationRef.current) {
+      // Notification
+      if (onNewMessageNotificationRef.current) {
         const senderName = message.sender?.name || "Someone";
         const preview = message.content?.substring(0, 50) || "New message";
         onNewMessageNotificationRef.current(senderName, preview, message.conversationId);
       }
-    };
+    });
 
-    const handleTyping = ({ conversationId, typingUsers: allTyping }) => {
-      setTypingUsers((prev) => ({ ...prev, [conversationId]: allTyping }));
-    };
+    // Typing indicator with auto-clear timeout
+    const typingTimeouts = {};
+    userChannel.bind("user-typing", (data) => {
+      const { conversationId, user, isTyping } = data;
 
-    const handlePresenceChanged = ({ userId: uId, isOnline, lastSeenAt }) => {
+      // Clear existing timeout for this user
+      const timeoutKey = `${conversationId}-${user.id}`;
+      if (typingTimeouts[timeoutKey]) {
+        clearTimeout(typingTimeouts[timeoutKey]);
+        delete typingTimeouts[timeoutKey];
+      }
+
+      setTypingUsers((prev) => {
+        const current = prev[conversationId] || [];
+        if (isTyping) {
+          // Auto-clear after 5 seconds if no update
+          typingTimeouts[timeoutKey] = setTimeout(() => {
+            setTypingUsers((p) => ({
+              ...p,
+              [conversationId]: (p[conversationId] || []).filter((u) => u.id !== user.id),
+            }));
+          }, 5000);
+
+          if (!current.some((u) => u.id === user.id)) {
+            return { ...prev, [conversationId]: [...current, user] };
+          }
+        } else {
+          return { ...prev, [conversationId]: current.filter((u) => u.id !== user.id) };
+        }
+        return prev;
+      });
+    });
+
+    // Presence update
+    userChannel.bind("presence-update", (data) => {
+      const { userId: uId, isOnline, lastSeenAt } = data;
       setPresenceMap((prev) => ({
         ...prev,
         [uId]: { isOnline, lastSeenAt },
       }));
-    };
+    });
 
-    // Register event listeners
-    newSocket.on("connect", handleConnect);
-    newSocket.on("disconnect", handleDisconnect);
-    newSocket.on("newMessage", handleNewMessage);
-    newSocket.on("user:typing", handleTyping);
-    newSocket.on("presence:changed", handlePresenceChanged);
+    // New conversation
+    userChannel.bind("new-conversation", (data) => {
+      const { conversation } = data;
+      if (conversation) {
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === conversation.id)) return prev;
+          return [conversation, ...prev];
+        });
+      }
+    });
+
+    // Connection state
+    pusherClient.connection.bind("connected", () => setIsConnected(true));
+    pusherClient.connection.bind("disconnected", () => {
+      setIsConnected(false);
+      setTypingUsers({});
+    });
+
+    // Set offline when page unloads
+    const handleBeforeUnload = () => {
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOnline: false }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
 
     return () => {
-      // Remove all listeners before disconnecting
-      newSocket.off("connect", handleConnect);
-      newSocket.off("disconnect", handleDisconnect);
-      newSocket.off("newMessage", handleNewMessage);
-      newSocket.off("user:typing", handleTyping);
-      newSocket.off("presence:changed", handlePresenceChanged);
-      newSocket.disconnect();
-      socketRef.current = null;
-    };
-  }, [userId, jwt]); // Minimal dependencies to prevent socket flapping
+      // Set offline on cleanup
+      fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isOnline: false }),
+        keepalive: true,
+      }).catch(() => {});
 
-  // Initialization - fetch conversations once when userId is available
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+      userChannel.unbind_all();
+      pusherClient.unsubscribe(`private-user-${userId}`);
+      subscribedChannelsRef.current.delete(`private-user-${userId}`);
+      pusherClient.connection.unbind("connected");
+      pusherClient.connection.unbind("disconnected");
+    };
+  }, [userId]);
+
+  // Initialization
   useEffect(() => {
     if (userId && !hasFetchedConversationsRef.current) {
       hasFetchedConversationsRef.current = true;
@@ -478,8 +526,14 @@ export default function useChat({
     }
   }, [userId, fetchConversations]);
 
+  // Handle Pusher not configured
+  useEffect(() => {
+    if (!pusherClient) {
+      setIsConnected(false);
+    }
+  }, []);
+
   return {
-    socket,
     isConnected,
     conversations,
     selectedConversation,

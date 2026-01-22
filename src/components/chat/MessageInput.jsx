@@ -15,9 +15,37 @@ export default function MessageInput({
 }) {
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // Helper to determine file type
+  const getFileType = (file) => {
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type.startsWith("video/")) return "video";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "file";
+  };
+
+  // Upload file to S3
+  const uploadFile = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Upload failed");
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
 
   // Focus input when replying
   useEffect(() => {
@@ -56,8 +84,8 @@ export default function MessageInput({
   useEffect(() => {
     return () => {
       attachments.forEach((attachment) => {
-        if (attachment.url) {
-          URL.revokeObjectURL(attachment.url);
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
         }
       });
     };
@@ -76,20 +104,54 @@ export default function MessageInput({
   };
 
   // Handle submit
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if ((!message.trim() && attachments.length === 0) || disabled) return;
+    if ((!message.trim() && attachments.length === 0) || disabled || isUploading) return;
+
+    let mediaUrls = [];
+    let messageType = "text";
+
+    // Upload attachments if any
+    if (attachments.length > 0) {
+      setIsUploading(true);
+      try {
+        // Upload all files and get URLs
+        const uploadPromises = attachments.map(async (attachment) => {
+          if (attachment.file) {
+            return await uploadFile(attachment.file);
+          }
+          return attachment.url; // Already uploaded URL
+        });
+
+        mediaUrls = await Promise.all(uploadPromises);
+
+        // Determine message type based on first attachment
+        const firstType = getFileType(attachments[0].file || { type: attachments[0].mimeType || "" });
+        messageType = firstType;
+      } catch (error) {
+        console.error("Failed to upload files:", error);
+        setIsUploading(false);
+        return; // Don't send if upload failed
+      }
+      setIsUploading(false);
+    }
 
     onSendMessage({
       conversationId,
       content: message.trim(),
-      type: attachments.length > 0 ? "image" : "text",
-      mediaUrls: attachments.map((a) => a.url),
+      type: messageType,
+      mediaUrls,
       replyToId: replyingTo?.id,
     });
 
     setMessage("");
+    // Clean up object URLs before clearing attachments
+    attachments.forEach((attachment) => {
+      if (attachment.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+      }
+    });
     setAttachments([]);
     if (onCancelReply) onCancelReply();
 
@@ -107,12 +169,11 @@ export default function MessageInput({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // For now, create object URLs for preview
-    // In production, upload to S3 and get URLs
     const newAttachments = files.map((file) => ({
       file,
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith("image/") ? "image" : "file",
+      previewUrl: URL.createObjectURL(file), // Local preview only
+      type: getFileType(file),
+      mimeType: file.type,
       name: file.name,
       size: file.size,
     }));
@@ -129,7 +190,9 @@ export default function MessageInput({
   const removeAttachment = (index) => {
     setAttachments((prev) => {
       const newAttachments = [...prev];
-      URL.revokeObjectURL(newAttachments[index].url);
+      if (newAttachments[index].previewUrl) {
+        URL.revokeObjectURL(newAttachments[index].previewUrl);
+      }
       newAttachments.splice(index, 1);
       return newAttachments;
     });
@@ -178,15 +241,31 @@ export default function MessageInput({
               <div key={index} className="relative flex-shrink-0">
                 {attachment.type === "image" ? (
                   <img
-                    src={attachment.url}
+                    src={attachment.previewUrl}
                     alt="Attachment"
                     className="h-20 w-20 object-cover rounded-lg"
                   />
+                ) : attachment.type === "video" ? (
+                  <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-black">
+                    <video
+                      src={attachment.previewUrl}
+                      className="h-full w-full object-cover"
+                      muted
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="h-20 w-20 bg-gray-200 dark:bg-slate-600 rounded-lg flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="h-20 w-20 bg-gray-200 dark:bg-slate-600 rounded-lg flex flex-col items-center justify-center p-1">
+                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
+                    <span className="text-xs text-gray-500 truncate w-full text-center mt-1">
+                      {attachment.name?.slice(0, 8)}...
+                    </span>
                   </div>
                 )}
                 <button
@@ -251,14 +330,21 @@ export default function MessageInput({
         {/* Send button */}
         <button
           type="submit"
-          disabled={(!message.trim() && attachments.length === 0) || disabled}
+          disabled={(!message.trim() && attachments.length === 0) || disabled || isUploading}
           className="p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700
             disabled:opacity-50 disabled:cursor-not-allowed transition"
-          title="Send message"
+          title={isUploading ? "Uploading..." : "Send message"}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
+          {isUploading ? (
+            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          )}
         </button>
       </form>
     </div>
