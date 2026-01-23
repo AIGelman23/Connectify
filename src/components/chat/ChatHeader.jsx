@@ -100,14 +100,6 @@ export default function ChatHeader({
               e.target.src = `https://placehold.co/40x40/6366F1/ffffff?text=${displayInfo.name[0].toUpperCase()}`;
             }}
           />
-          {!displayInfo.isGroup && (
-            <OnlineStatus
-              isOnline={isOnline}
-              lastSeen={lastSeen}
-              size="small"
-              className="absolute -bottom-0.5 -right-0.5"
-            />
-          )}
         </div>
 
         {/* Name and status */}

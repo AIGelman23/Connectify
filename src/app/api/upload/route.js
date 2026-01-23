@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 // Create S3 client lazily to ensure environment variables are loaded
 function getS3Client() {
-  const region = process.env.AWS_REGION || "us-east-2";
+  const region = process.env.AWS_S3_REGION || "us-east-2";
 
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     throw new Error("AWS credentials not configured");
@@ -73,7 +73,7 @@ export async function POST(request) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const region = process.env.AWS_REGION || "us-east-2";
+    const region = process.env.AWS_S3_REGION || "us-east-2";
     const bucket = process.env.AWS_S3_BUCKET_NAME;
 
     if (!bucket) {

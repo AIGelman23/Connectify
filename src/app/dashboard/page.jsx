@@ -10,6 +10,8 @@ import Navbar from '../../components/NavBar';
 import PostFeed from '../../components/PostFeed';
 import CreatePostCard from '../../components/CreatePostCard'; // <-- Make sure this import is at the top level
 import ConnectifyLogo from "@/components/ConnectifyLogo";
+import LocalWidgets from "../../components/LocalWidgets";
+import Sidebar from "../../components/Sidebar";
 
 export default function HomePage() {
 	const { data: session, status } = useSession();
@@ -245,20 +247,41 @@ export default function HomePage() {
 	}
 
 	return (
-		<div className="min-h-screen flex flex-col bg-gray-100 dark:bg-slate-900">
+		<div className="min-h-screen flex flex-col bg-[#f0f2f5] dark:bg-slate-900">
 			<Navbar session={session} router={router} />
-			<main className="flex-1 overflow-hidden">
-				<div className="max-w-lg mx-auto py-8 px-4">
-					{/* Post Creation Section */}
-					<CreatePostCard onCreatePost={handleCreatePost} />
-					{/* Posts Feed Component */}
-					<PostFeed
-						sessionUserId={session?.user?.id}
-						setPostError={setPostError}
-						onReply={handleInlineReply} // <-- Pass the inline reply handler
-						onLikeReply={handleLikeReply} // <-- Pass the like reply handler
-						highlightPostId={highlightPostId} // <-- Pass post ID to highlight/scroll to
-					/>
+			<main className="flex-1">
+				<div className="max-w-[1920px] mx-auto flex justify-between px-0 sm:px-4 lg:px-6 py-6 gap-6">
+
+					{/* Left Sidebar (Navigation) - Desktop Only */}
+					<div className="hidden lg:block w-[280px] xl:w-[320px] flex-shrink-0">
+						<div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+							<Sidebar user={session?.user} />
+						</div>
+					</div>
+
+					{/* Main Feed Area - Centered & Flexible */}
+					<div className="flex-1 max-w-[700px] mx-auto w-full min-w-0">
+						{/* Mobile: Show widgets at top */}
+						<div className="lg:hidden mb-6 px-4 sm:px-0">
+							<LocalWidgets />
+						</div>
+
+						<CreatePostCard onCreatePost={handleCreatePost} />
+						<PostFeed
+							sessionUserId={session?.user?.id}
+							setPostError={setPostError}
+							onReply={handleInlineReply}
+							onLikeReply={handleLikeReply}
+							highlightPostId={highlightPostId}
+						/>
+					</div>
+
+					{/* Right Sidebar (Widgets) - Desktop Only */}
+					<div className="hidden lg:block w-[280px] xl:w-[320px] flex-shrink-0">
+						<div className="sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+							<LocalWidgets />
+						</div>
+					</div>
 				</div>
 			</main>
 		</div>

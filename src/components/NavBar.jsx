@@ -77,36 +77,25 @@ export default function Navbar({ session, router }) {
 	// Dummy suggestions for the dropdown
 	const dummySuggestions = ["Alice Johnson", "Bob Smith", "Charlie Brown", "Dave Lee"];
 
+	// Single unified click outside handler for all dropdowns - uses 'click' instead of 'mousedown'
 	useEffect(() => {
 		function handleClickOutside(event) {
+			// Close profile menu if clicking outside
 			if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
 				setIsProfileMenuOpen(false);
 			}
-		}
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	// Close the dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(e) {
-			if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target)) {
+			// Close search dropdown if clicking outside
+			if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target)) {
 				setShowSearchDropdown(false);
 			}
-		}
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	// Close notification dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(event) {
+			// Close notification dropdown if clicking outside
 			if (notificationRef.current && !notificationRef.current.contains(event.target)) {
 				setNotificationsOpen(false);
 			}
 		}
-		document.addEventListener('mousedown', handleClickOutside);
-		return () => document.removeEventListener('mousedown', handleClickOutside);
+		// Use 'click' instead of 'mousedown' to allow button clicks to complete first
+		document.addEventListener("click", handleClickOutside);
+		return () => document.removeEventListener("click", handleClickOutside);
 	}, []);
 
 	// Fetch notifications
@@ -135,19 +124,21 @@ export default function Navbar({ session, router }) {
 		return () => clearInterval(intervalId);
 	}, [session?.user?.id]);
 
-	const handleSignOut = async () => {
-		// Unsubscribe from Pusher Beams to stop receiving notifications
-		try {
-			const { Client } = await import("@pusher/push-notifications-web");
-			const beamsClient = new Client({
-				instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID || "9ddc93ef-b40a-4905-adbe-ffad4efce457",
-			});
-			await beamsClient.stop();
-		} catch (error) {
-			console.error("Failed to stop Pusher Beams:", error);
-		}
+	const handleSignOut = () => {
+		// Sign out immediately - don't wait for Pusher cleanup
+		signOut({ callbackUrl: '/auth/login' });
 
-		await signOut({ callbackUrl: '/auth/login' });
+		// Try to unsubscribe from Pusher Beams in the background (non-blocking)
+		import("@pusher/push-notifications-web")
+			.then(({ Client }) => {
+				const beamsClient = new Client({
+					instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID || "9ddc93ef-b40a-4905-adbe-ffad4efce457",
+				});
+				return beamsClient.stop();
+			})
+			.catch((error) => {
+				console.error("Failed to stop Pusher Beams:", error);
+			});
 	};
 
 	// Handler to clear a notification by calling DELETE API
@@ -274,39 +265,6 @@ export default function Navbar({ session, router }) {
 		return date.toLocaleDateString();
 	};
 
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(event) {
-			if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-				setIsProfileMenuOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	// Close the dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(e) {
-			if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target)) {
-				setShowSearchDropdown(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
-
-	// Close notification dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(event) {
-			if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-				setNotificationsOpen(false);
-			}
-		}
-		document.addEventListener('mousedown', handleClickOutside);
-		return () => document.removeEventListener('mousedown', handleClickOutside);
-	}, []);
-
 	return (
 		<>
 			<nav className="navbar-root shadow-sm border-b sticky top-0 z-40">
@@ -377,7 +335,6 @@ export default function Navbar({ session, router }) {
 							<NavLink iconClass="fas fa-play-circle" text="Reels" href="/reels" router={router} isActive={currentPath === '/reels' || currentPath.startsWith('/reels/')} />
 							<NavLink iconClass="fas fa-users" text="Network" href="/network" router={router} isActive={currentPath === '/network'} />
 							<NavLink iconClass="fas fa-briefcase" text="Jobs" href="/jobs" router={router} isActive={currentPath === '/jobs'} />
-							<NavLink iconClass="fas fa-comment-dots" text="Messages" href="/messages" router={router} isActive={currentPath === '/messages'} />
 							<NavLink
 								iconClass="fas fa-bell"
 								text="Notifications"
@@ -427,7 +384,7 @@ export default function Navbar({ session, router }) {
 								</button>
 
 								{isProfileMenuOpen && (
-									<div className="profile-dropdown absolute right-0 mt-2 w-64 z-20 animate-fade-in-down">
+									<div className="profile-dropdown absolute right-0 mt-2 w-64 z-50 animate-fade-in-down">
 										<div className="profile-dropdown-header p-4 border-b">
 											<div className="profile-dropdown-user flex items-center space-x-3">
 												<img
@@ -446,40 +403,51 @@ export default function Navbar({ session, router }) {
 										</div>
 										<div className="profile-dropdown-actions py-2">
 											<button
-												onClick={() => {
+												type="button"
+												onClick={(e) => {
+													e.stopPropagation();
 													router.push("/profile");
 													setIsProfileMenuOpen(false);
 												}}
-												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm"
+												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
 											>
 												<i className="fas fa-user profile-dropdown-btn-icon w-4"></i>
 												<span>View Profile</span>
 											</button>
 											{session?.user?.role === 'ADMIN' && (
 												<button
-													onClick={() => {
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
 														router.push("/admin");
 														setIsProfileMenuOpen(false);
 													}}
-													className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm"
+													className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
 												>
 													<i className="fas fa-shield-alt profile-dropdown-btn-icon w-4"></i>
 													<span>Admin Dashboard</span>
 												</button>
 											)}
 											<button
-												onClick={() => {
+												type="button"
+												onClick={(e) => {
+													e.stopPropagation();
 													router.push("/settings");
 													setIsProfileMenuOpen(false);
 												}}
-												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm"
+												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
 											>
 												<i className="fas fa-cog profile-dropdown-btn-icon w-4"></i>
 												<span>Settings</span>
 											</button>
 											<button
-												onClick={handleSignOut}
-												className="profile-dropdown-btn profile-dropdown-signout flex items-center space-x-3 w-full px-4 py-3 text-sm border-t mt-2 pt-3"
+												type="button"
+												onClick={(e) => {
+													e.preventDefault();
+													e.stopPropagation();
+													handleSignOut();
+												}}
+												className="profile-dropdown-btn profile-dropdown-signout flex items-center space-x-3 w-full px-4 py-3 text-sm border-t mt-2 pt-3 cursor-pointer"
 											>
 												<i className="fas fa-sign-out-alt w-4"></i>
 												<span>Sign Out</span>
@@ -865,7 +833,6 @@ function MobileBottomNav({ router, currentPath, notificationCount }) {
 		{ icon: 'fas fa-home', href: '/dashboard', label: 'Home' },
 		{ icon: 'fas fa-play-circle', href: '/reels', label: 'Reels' },
 		{ icon: 'fas fa-users', href: '/network', label: 'Network' },
-		{ icon: 'fas fa-comment-dots', href: '/messages', label: 'Messages' },
 		{ icon: 'fas fa-bell', href: '/notifications', label: 'Notifications', badge: notificationCount },
 	];
 

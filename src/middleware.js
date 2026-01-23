@@ -9,6 +9,7 @@ function isPublicRoute(pathname) {
     "/auth/forgot-password",
     "/auth/reset-password",
     "/api/auth/forgot-password",
+    "/api/auth/verify-reset-code",
     "/api/auth/reset-password",
     "/api/auth/validate-reset-token",
   ];

@@ -69,14 +69,16 @@ export async function POST(req) {
     ]);
 
     // Trigger a real-time event via Pusher to notify the client
-    try {
-      await pusherServer.trigger(
-        `user-${passwordReset.userId}`, // Channel name
-        "password-reset", // Event name
-        { message: "Your password has been successfully reset." }
-      );
-    } catch (error) {
-      console.error("Pusher trigger error:", error);
+    if (pusherServer) {
+      try {
+        await pusherServer.trigger(
+          `user-${passwordReset.userId}`, // Channel name
+          "password-reset", // Event name
+          { message: "Your password has been successfully reset." }
+        );
+      } catch (error) {
+        console.error("Pusher trigger error:", error);
+      }
     }
 
     return NextResponse.json(

@@ -94,6 +94,54 @@ export const resolvers = {
         return [];
       }
     },
+    nearbyUsers: (parent, { city, currentUserId }) => {
+      if (!city) return [];
+
+      const where = {
+        profile: {
+          location: {
+            contains: city,
+            mode: "insensitive",
+          },
+        },
+      };
+
+      if (currentUserId) {
+        where.id = { not: currentUserId };
+      }
+
+      return prisma.user.findMany({
+        where,
+        include: { profile: true },
+      });
+    },
+    posts: (parent, { city }) => {
+      const where = city
+        ? {
+            author: {
+              profile: {
+                location: {
+                  contains: city,
+                  mode: "insensitive",
+                },
+              },
+            },
+          }
+        : {};
+
+      return prisma.post.findMany({
+        where,
+        include: {
+          author: {
+            include: { profile: true },
+          },
+          comments: {
+            include: { author: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    },
   },
 
   // ... your existing Mutation resolvers ...

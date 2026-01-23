@@ -1,5 +1,5 @@
 // src/schema.js
-import gql from 'graphql-tag';
+import gql from "graphql-tag";
 
 export const typeDefs = gql`
   # ====================================================================
@@ -33,23 +33,23 @@ export const typeDefs = gql`
   # ====================================================================
 
   type User {
-  id: ID!
-  name: String
-  email: String!
-  profile: Profile
-  sentConnectionRequests: [ConnectionRequest!]!
-  receivedConnectionRequests: [ConnectionRequest!]!
-  connections: [User!]!
-  mutualFriends(targetUserId: ID!): [User!]!
-  mutualFriendsCount(targetUserId: ID!): Int!
-  posts: [Post!]!
-  comments: [Comment!]!
-  notificationsReceived: [Notification!]!
-  notificationsSent: [Notification!]!
-  createdAt: String!
-  imageUrl: String # Add this line.  Make it nullable if it can be empty
-  isOnline: Boolean # Add this line.  Choose Boolean or another appropriate type
-}
+    id: ID!
+    name: String
+    email: String!
+    profile: Profile
+    sentConnectionRequests: [ConnectionRequest!]!
+    receivedConnectionRequests: [ConnectionRequest!]!
+    connections: [User!]!
+    mutualFriends(targetUserId: ID!): [User!]!
+    mutualFriendsCount(targetUserId: ID!): Int!
+    posts: [Post!]!
+    comments: [Comment!]!
+    notificationsReceived: [Notification!]!
+    notificationsSent: [Notification!]!
+    createdAt: String!
+    imageUrl: String # Add this line.  Make it nullable if it can be empty
+    isOnline: Boolean # Add this line.  Choose Boolean or another appropriate type
+  }
 
   type Profile {
     id: ID!
@@ -177,18 +177,19 @@ export const typeDefs = gql`
   # Query Type: Entry points for reading data
   # ====================================================================
   type Query {
-  users: [User!]!
-  user(id: ID!): User
-  connectionRequestsSent(userId: ID!): [ConnectionRequest!]!
-  connectionRequestsReceived(userId: ID!): [ConnectionRequest!]!
-  myConnections(currentUserId: ID!): [User!]! # Accepts currentUserId as argument
-  posts: [Post!]!
-  post(id: ID!): Post
-  comments: [Comment!]!
-  comment(id: ID!): Comment
-  notifications(recipientId: ID!): [Notification!]!
-  profile(userId: ID!): Profile
-}
+    users: [User!]!
+    user(id: ID!): User
+    connectionRequestsSent(userId: ID!): [ConnectionRequest!]!
+    connectionRequestsReceived(userId: ID!): [ConnectionRequest!]!
+    myConnections(currentUserId: ID!): [User!]! # Accepts currentUserId as argument
+    nearbyUsers(city: String, currentUserId: ID): [User!]!
+    posts(city: String): [Post!]!
+    post(id: ID!): Post
+    comments: [Comment!]!
+    comment(id: ID!): Comment
+    notifications(recipientId: ID!): [Notification!]!
+    profile(userId: ID!): Profile
+  }
 
   # ====================================================================
   # Mutation Type: Entry points for writing/modifying data
@@ -210,16 +211,21 @@ export const typeDefs = gql`
       coverPhotoUrl: String
     ): Profile!
 
-	# Created User Mutation
-	 createUser(name: String, email: String!, hashedPassword: String): User!
-    
+    # Created User Mutation
+    createUser(name: String, email: String!, hashedPassword: String): User!
+
     # Post Mutations
     createPost(authorId: ID!, content: String!): Post!
     updatePost(id: ID!, content: String!): Post!
     deletePost(id: ID!): Post!
 
     # Comment Mutations
-    createComment(authorId: ID!, postId: ID!, content: String!, parentCommentId: ID): Comment!
+    createComment(
+      authorId: ID!
+      postId: ID!
+      content: String!
+      parentCommentId: ID
+    ): Comment!
     updateComment(id: ID!, content: String!): Comment!
     deleteComment(id: ID!): Comment!
 

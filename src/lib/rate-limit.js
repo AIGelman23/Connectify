@@ -27,7 +27,12 @@ export function rateLimit({ interval = 60000, maxRequests = 3 }) {
 
       // Check if limit exceeded
       if (currentCount >= maxRequests) {
-        return { success: false, limit: maxRequests, remaining: 0 };
+        return {
+          success: false,
+          limit: maxRequests,
+          remaining: 0,
+          resetAt: rateLimitStore.resetTimers.get(identifier) || now + interval,
+        };
       }
 
       // Increment count
