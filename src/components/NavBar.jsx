@@ -6,6 +6,7 @@ import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from 'next/link';
+import SearchDropdown from '@/components/search/SearchDropdown';
 
 export default function Navbar({ session, router }) {
 	// --- Ensure FontAwesome CSS is loaded ---
@@ -44,38 +45,11 @@ export default function Navbar({ session, router }) {
 		setCurrentPath(path);
 	}, [router?.pathname]);
 
-	const [searchText, setSearchText] = useState("");
-	const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-	const [friendResults, setFriendResults] = useState([]);
-	const searchDropdownRef = useRef(null);
-
-	// Fetch friends as user types
+	// Session for user data
 	const { data: sessionData } = useSession();
-	useEffect(() => {
-		if (!searchText.trim() || !sessionData?.user?.id) {
-			setFriendResults([]);
-			return;
-		}
-		const fetchFriends = async () => {
-			try {
-				const res = await fetch(`/api/friends?userId=${sessionData.user.id}`);
-				const data = await res.json();
-				const filtered = (data.friends || []).filter(f =>
-					(f.name || "").toLowerCase().includes(searchText.toLowerCase())
-				);
-				setFriendResults(filtered);
-			} catch {
-				setFriendResults([]);
-			}
-		};
-		fetchFriends();
-	}, [searchText, sessionData?.user?.id]);
 
 	// Add safety check for notifications before calling filter
 	const notificationCount = Array.isArray(notifications) ? notifications.filter(notif => notif && !notif.read).length : 0;
-
-	// Dummy suggestions for the dropdown
-	const dummySuggestions = ["Alice Johnson", "Bob Smith", "Charlie Brown", "Dave Lee"];
 
 	// Single unified click outside handler for all dropdowns - uses 'click' instead of 'mousedown'
 	useEffect(() => {
@@ -83,10 +57,6 @@ export default function Navbar({ session, router }) {
 			// Close profile menu if clicking outside
 			if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
 				setIsProfileMenuOpen(false);
-			}
-			// Close search dropdown if clicking outside
-			if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target)) {
-				setShowSearchDropdown(false);
 			}
 			// Close notification dropdown if clicking outside
 			if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -281,53 +251,8 @@ export default function Navbar({ session, router }) {
 								</svg>
 								<span className="navbar-logo-title text-xl font-bold hidden sm:block">ConnectifAI</span>
 							</button>
-							<div className="navbar-search hidden md:block w-[200px] mx-2">
-								<div className="relative" ref={searchDropdownRef}>
-									<div className="navbar-search-icon absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<i className="fas fa-search"></i>
-									</div>
-									<input
-										type="text"
-										placeholder="Search friends..."
-										value={searchText}
-										onChange={(e) => {
-											setSearchText(e.target.value);
-											setShowSearchDropdown(true);
-										}}
-										onFocus={() => setShowSearchDropdown(true)}
-										className="navbar-search-input block w-full pl-10 pr-3 py-2 rounded-full text-sm"
-									/>
-									{showSearchDropdown && searchText && (
-										<ul className="navbar-search-dropdown absolute z-10 mt-1 w-full rounded-md shadow-lg max-h-64 overflow-y-auto">
-											{friendResults.length > 0 ? (
-												friendResults.map(friend => (
-													<li
-														key={friend.id}
-														onMouseDown={() => {
-															setSearchText("");
-															setShowSearchDropdown(false);
-															router.push(`/profile/${friend.id}`);
-														}}
-														className="cursor-pointer px-3 py-2 flex items-center hover:bg-blue-50 dark:hover:bg-slate-700"
-													>
-														<img
-															src={
-																friend.profile?.profilePictureUrl ||
-																friend.imageUrl ||
-																`https://placehold.co/32x32/1877F2/ffffff?text=${friend.name ? friend.name[0].toUpperCase() : 'U'}`
-															}
-															alt={friend.name}
-															className="w-7 h-7 rounded-full object-cover mr-2"
-														/>
-														<span className="font-medium">{friend.name}</span>
-													</li>
-												))
-											) : (
-												<li className="cursor-pointer px-3 py-2 text-gray-500 dark:text-gray-400">No friends found</li>
-											)}
-										</ul>
-									)}
-								</div>
+							<div className="navbar-search hidden md:block w-[280px] mx-2">
+								<SearchDropdown />
 							</div>
 						</div>
 						<div className="hidden md:flex items-center space-x-4 flex-1 justify-center pl-8">
