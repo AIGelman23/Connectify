@@ -8,6 +8,8 @@ export default function Sidebar({ user }) {
 
   const items = [
     { label: user?.name || 'Profile', icon: 'fas fa-user-circle', href: '/profile', color: 'text-blue-600' },
+    { label: 'Explore', icon: 'fas fa-compass', href: '/explore', color: 'text-pink-500' },
+    { label: 'Reels', icon: 'fas fa-video', href: '/reels', color: 'text-orange-500' },
     { label: 'Saved', icon: 'fas fa-bookmark', href: '/saved', color: 'text-purple-500' },
     { label: 'Groups', icon: 'fas fa-users', href: '/groups', color: 'text-blue-500' },
     { label: 'Events', icon: 'fas fa-calendar-alt', href: '/dashboard/events', color: 'text-red-500' },

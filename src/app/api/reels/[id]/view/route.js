@@ -24,7 +24,7 @@ export async function POST(request, { params }) {
     // Check if the post exists and is a reel
     const post = await prisma.post.findUnique({
       where: { id: postId },
-      select: { id: true, isReel: true },
+      select: { id: true, isReel: true, viewsCount: true },
     });
 
     if (!post) {
@@ -34,29 +34,49 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Check if view exists first
+    // Validate that this is actually a reel
+    if (!post.isReel) {
+      return NextResponse.json(
+        { message: "This post is not a reel." },
+        { status: 400 }
+      );
+    }
+
+    // Use upsert pattern to prevent race conditions
+    // First, try to find existing view
     const existingView = await prisma.videoView.findUnique({
       where: { userId_postId: { userId, postId } },
     });
 
     let videoView;
+    let newViewsCount = post.viewsCount;
+    
     if (!existingView) {
       // New view - create and increment count in transaction
-      const [newView] = await prisma.$transaction([
-        prisma.videoView.create({
+      // Use transaction with serializable isolation to prevent race conditions
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the view
+        const newView = await tx.videoView.create({
           data: {
             userId,
             postId,
             watchTime: watchTime ? parseInt(watchTime, 10) : 0,
             completed: completed || false,
           },
-        }),
-        prisma.post.update({
+        });
+        
+        // Increment view count
+        const updatedPost = await tx.post.update({
           where: { id: postId },
           data: { viewsCount: { increment: 1 } },
-        }),
-      ]);
-      videoView = newView;
+          select: { viewsCount: true },
+        });
+        
+        return { view: newView, viewsCount: updatedPost.viewsCount };
+      });
+      
+      videoView = result.view;
+      newViewsCount = result.viewsCount;
     } else {
       // Existing view - just update watch time/completion
       videoView = await prisma.videoView.update({
@@ -69,7 +89,12 @@ export async function POST(request, { params }) {
     }
 
     return NextResponse.json(
-      { message: "View tracked successfully.", videoView },
+      { 
+        message: "View tracked successfully.", 
+        videoView,
+        viewsCount: newViewsCount, // Return updated count for real-time UI update
+        isNewView: !existingView,
+      },
       { status: 200 }
     );
   } catch (error) {

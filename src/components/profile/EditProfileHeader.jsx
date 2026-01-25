@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { VerifiedBadge } from "@/components/ui/Badge";
 
 export default function EditProfileHeader({
 	currentProfileState,
@@ -14,6 +15,7 @@ export default function EditProfileHeader({
 	onFollowToggle,
 	followersCount = 0,
 	followingCount = 0,
+	subscriptionPlan = null,
 }) {
 
 	// Debug logging to track state
@@ -145,9 +147,18 @@ export default function EditProfileHeader({
 				</div>
 
 				<div className="text-center">
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
-						{currentProfileState.name || "Your Name"}
-					</h1>
+					<div className="flex items-center justify-center gap-1.5">
+						<h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
+							{currentProfileState.name || "Your Name"}
+						</h1>
+						{subscriptionPlan && (
+							<VerifiedBadge 
+								plan={subscriptionPlan.toLowerCase()} 
+								size="lg"
+								showTooltip={true}
+							/>
+						)}
+					</div>
 					<p className="mt-1 text-gray-700 dark:text-slate-300">
 						{currentProfileState.headline || "Your Headline"}
 					</p>

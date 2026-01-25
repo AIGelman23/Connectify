@@ -5,6 +5,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { formatTimestamp } from '../lib/utils';
 import EmojiSelector from './EmojiSelector';
+import { Avatar, ConfirmModal, Button, Spinner } from '@/components/ui';
+import { VerifiedBadge, AdminBadge } from '@/components/ui/Badge';
 
 const MAX_REPLY_LENGTH = 280;
 
@@ -19,32 +21,16 @@ const containsId = (items, id) => {
 };
 
 const ReportConfirmationModal = ({ isOpen, onClose, onConfirm }) => {
-	if (!isOpen) return null;
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-			<div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden border border-gray-200 dark:border-slate-700 animate-scale-in" onClick={e => e.stopPropagation()}>
-				<div className="p-6">
-					<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Report Content</h3>
-					<p className="text-gray-600 dark:text-slate-300 text-sm mb-6">
-						Are you sure you want to report this content? We will review it shortly.
-					</p>
-					<div className="flex justify-end gap-3">
-						<button
-							onClick={onClose}
-							className="px-4 py-2 text-gray-700 dark:text-slate-200 font-medium hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-						>
-							Cancel
-						</button>
-						<button
-							onClick={onConfirm}
-							className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-						>
-							Report
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
+		<ConfirmModal
+			isOpen={isOpen}
+			onClose={onClose}
+			onConfirm={onConfirm}
+			title="Report Content"
+			message="Are you sure you want to report this content? We will review it shortly."
+			confirmText="Report"
+			confirmVariant="danger"
+		/>
 	);
 };
 
@@ -76,10 +62,11 @@ const ReplyInput = ({ currentUser, replyText, setReplyText, onSubmit, onCancel, 
 
 	return (
 		<div className="flex items-start gap-2 mt-2 animate-slide-down">
-			<img
-				src={currentUser?.image || `https://placehold.co/24x24/6366F1/ffffff?text=${currentUser?.name?.[0] || 'U'}`}
-				alt=""
-				className="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5"
+			<Avatar
+				src={currentUser?.image}
+				name={currentUser?.name}
+				size="xs"
+				className="flex-shrink-0 mt-0.5"
 			/>
 			<form onSubmit={onSubmit} className="flex-1 relative">
 				<textarea
@@ -108,10 +95,7 @@ const ReplyInput = ({ currentUser, replyText, setReplyText, onSubmit, onCancel, 
 							} ${isSubmitting ? 'opacity-50' : ''}`}
 					>
 						{isSubmitting ? (
-							<svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-								<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-								<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-							</svg>
+							<Spinner size="xs" />
 						) : (
 							<i className="fas fa-paper-plane text-sm"></i>
 						)}
@@ -201,25 +185,42 @@ export const Reply = ({ reply, sessionUserId, currentUser, onDeleteReply, postId
 				<div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200 dark:bg-slate-600 -translate-x-4" />
 			)}
 
-			<div className="flex items-start gap-2 py-1">
-				<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0">
-					<img
-						src={reply.user.imageUrl}
-						alt=""
-						className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover hover:ring-2 hover:ring-blue-400 transition-all"
-					/>
-				</Link>
+		<div className="flex items-start gap-2 py-1">
+			<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0">
+				<Avatar
+					src={reply.user.imageUrl}
+					name={reply.user.name}
+					size="xs"
+					className="hover:ring-2 hover:ring-blue-400 transition-all"
+				/>
+			</Link>
 
 				<div className="flex-1 min-w-0">
 					{/* Reply bubble */}
 					<div className="relative w-fit max-w-full">
 						<div className="bg-gray-100 dark:bg-slate-700 rounded-2xl px-3 sm:px-3.5 py-1.5 sm:py-2 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-							<Link
-								href={`/profile/${reply.user.id}`}
-								className="font-semibold text-[13px] text-gray-900 dark:text-slate-100 hover:underline"
-							>
-								{reply.user.name}
-							</Link>
+							<span className="inline-flex items-center gap-1">
+								<Link
+									href={`/profile/${reply.user.id}`}
+									className="font-semibold text-[13px] text-gray-900 dark:text-slate-100 hover:underline"
+								>
+									{reply.user.name}
+								</Link>
+								{reply.user.subscriptionPlan && (
+									<VerifiedBadge 
+										plan={reply.user.subscriptionPlan.toLowerCase()} 
+										size="xs"
+										showTooltip={true}
+									/>
+								)}
+								{reply.user.role && reply.user.role !== 'USER' && (
+									<AdminBadge 
+										role={reply.user.role.toLowerCase()} 
+										size="xs"
+										showTooltip={true}
+									/>
+								)}
+							</span>
 							{isAuthor && (
 								<span className="ml-1.5 text-[10px] text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
 									Author
@@ -434,26 +435,41 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, currentUser, 
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
-			<div className="flex items-start gap-2.5">
-				<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
-					<img
-						src={comment.user.imageUrl}
-						alt=""
-						className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover hover:ring-2 hover:ring-blue-400 transition-all"
-					/>
-				</Link>
+		<div className="flex items-start gap-2.5">
+			<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
+				<Avatar
+					src={comment.user.imageUrl}
+					name={comment.user.name}
+					size="sm"
+					className="hover:ring-2 hover:ring-blue-400 transition-all"
+				/>
+			</Link>
 
 				<div className="flex-1 min-w-0">
 					{/* Comment bubble */}
 					<div className="relative w-fit max-w-full">
 						<div className="bg-gray-100 dark:bg-slate-700 rounded-2xl px-3 sm:px-3.5 py-1.5 sm:py-2 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-							<div className="flex items-center gap-2 flex-wrap">
+							<div className="flex items-center gap-1 flex-wrap">
 								<Link
 									href={`/profile/${comment.user.id}`}
 									className="font-semibold text-[13px] text-gray-900 dark:text-slate-100 hover:underline"
 								>
 									{comment.user.name}
 								</Link>
+								{comment.user.subscriptionPlan && (
+									<VerifiedBadge 
+										plan={comment.user.subscriptionPlan.toLowerCase()} 
+										size="xs"
+										showTooltip={true}
+									/>
+								)}
+								{comment.user.role && comment.user.role !== 'USER' && (
+									<AdminBadge 
+										role={comment.user.role.toLowerCase()} 
+										size="xs"
+										showTooltip={true}
+									/>
+								)}
 								{isAuthor && (
 									<span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
 										Author

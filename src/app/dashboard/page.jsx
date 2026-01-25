@@ -12,6 +12,8 @@ import CreatePostCard from '../../components/CreatePostCard'; // <-- Make sure t
 import ConnectifyLogo from "@/components/ConnectifyLogo";
 import LocalWidgets from "../../components/LocalWidgets";
 import Sidebar from "../../components/Sidebar";
+import StoriesBar from "../../components/stories/StoriesBar";
+import { Button, Spinner } from '@/components/ui';
 
 export default function HomePage() {
 	const { data: session, status } = useSession();
@@ -235,12 +237,13 @@ export default function HomePage() {
 							? "Please complete your professional profile to unlock the full ConnectifAI experience."
 							: "It looks like you haven't set up your professional profile yet. Please create one to get started."}
 					</p>
-					<button
-						onClick={() => router.push("/edit-profile")}
-						className="w-full sm:w-auto flex-shrink-0 flex justify-center py-2.5 px-6 border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out"
-					>
-						{profile ? "Complete Profile" : "Create Profile"}
-					</button>
+				<Button
+					onClick={() => router.push("/edit-profile")}
+					size="lg"
+					className="w-full sm:w-auto"
+				>
+					{profile ? "Complete Profile" : "Create Profile"}
+				</Button>
 				</div>
 			</div>
 		);
@@ -266,6 +269,7 @@ export default function HomePage() {
 							<LocalWidgets />
 						</div>
 
+						<StoriesBar userId={session?.user?.id} />
 						<CreatePostCard onCreatePost={handleCreatePost} />
 						<PostFeed
 							sessionUserId={session?.user?.id}

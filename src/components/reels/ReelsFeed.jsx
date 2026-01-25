@@ -10,6 +10,8 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [showComments, setShowComments] = useState(false);
 	const [selectedReelId, setSelectedReelId] = useState(null);
+	const [feedType, setFeedType] = useState('foryou'); // 'foryou' or 'following'
+	const [isInitialized, setIsInitialized] = useState(false);
 	const containerRef = useRef(null);
 	const reelRefs = useRef([]);
 
@@ -20,12 +22,14 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 		isFetchingNextPage,
 		isLoading,
 		isError,
+		refetch,
 	} = useInfiniteQuery({
-		queryKey: ['reels', initialReelId],
+		queryKey: ['reels', feedType, initialReelId],
 		queryFn: async ({ pageParam = 0 }) => {
 			const params = new URLSearchParams({
 				take: '5',
 				skip: String(pageParam),
+				feed: feedType,
 			});
 			if (initialReelId && pageParam === 0) {
 				params.set('startFrom', initialReelId);
@@ -44,6 +48,31 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 	});
 
 	const reels = data?.pages?.flatMap(page => page.reels) || [];
+
+	// Mark as initialized once we have reels (allows first video to play)
+	useEffect(() => {
+		if (reels.length > 0 && !isInitialized) {
+			// Small delay to ensure DOM is ready
+			setTimeout(() => {
+				setIsInitialized(true);
+				// Force a re-render of active index to trigger video play
+				setActiveIndex(0);
+			}, 100);
+		}
+	}, [reels.length, isInitialized]);
+
+	// Reset to first reel when feed type changes
+	const handleFeedChange = (newFeedType) => {
+		if (newFeedType !== feedType) {
+			setFeedType(newFeedType);
+			setActiveIndex(0);
+			setIsInitialized(false);
+			// Scroll to top
+			if (containerRef.current) {
+				containerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+			}
+		}
+	};
 
 	// Handle scroll snapping with improved TikTok-like behavior
 	useEffect(() => {
@@ -162,6 +191,33 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 
 	return (
 		<>
+			{/* Feed Type Toggle - Fixed at top */}
+			<div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-safe-top">
+				<div className="flex gap-4 pt-4 pb-2 px-4">
+					<button
+						onClick={() => handleFeedChange('following')}
+						className={`text-lg font-semibold transition-all ${
+							feedType === 'following'
+								? 'text-white'
+								: 'text-white/60 hover:text-white/80'
+						}`}
+					>
+						Following
+					</button>
+					<span className="text-white/40">|</span>
+					<button
+						onClick={() => handleFeedChange('foryou')}
+						className={`text-lg font-semibold transition-all ${
+							feedType === 'foryou'
+								? 'text-white'
+								: 'text-white/60 hover:text-white/80'
+						}`}
+					>
+						For You
+					</button>
+				</div>
+			</div>
+
 			<div
 				ref={containerRef}
 				className="h-screen w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
@@ -180,7 +236,7 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 					>
 						<ReelCard
 							reel={reel}
-							isActive={index === activeIndex}
+							isActive={isInitialized && index === activeIndex}
 							sessionUserId={sessionUserId}
 							onOpenComments={() => handleOpenComments(reel.id)}
 						/>
@@ -210,6 +266,9 @@ export default function ReelsFeed({ sessionUserId, initialReelId }) {
 				}
 				.scrollbar-hide::-webkit-scrollbar {
 					display: none;
+				}
+				.pt-safe-top {
+					padding-top: env(safe-area-inset-top, 0);
 				}
 			`}</style>
 		</>

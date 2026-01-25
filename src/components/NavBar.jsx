@@ -7,6 +7,16 @@ import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
 import Link from 'next/link';
 import SearchDropdown from '@/components/search/SearchDropdown';
+import { 
+	Avatar, 
+	Dropdown, 
+	DropdownTrigger, 
+	DropdownMenu, 
+	DropdownItem, 
+	DropdownSeparator,
+	CountBadge,
+	Button 
+} from '@/components/ui';
 
 export default function Navbar({ session, router }) {
 	// --- Ensure FontAwesome CSS is loaded ---
@@ -30,7 +40,6 @@ export default function Navbar({ session, router }) {
 	const [notificationsOpen, setNotificationsOpen] = useState(false);
 
 	// Add this line to define the missing ref
-	const profileMenuRef = useRef(null);
 	const notificationRef = useRef(null);
 
 	// Track current path for active states
@@ -51,13 +60,9 @@ export default function Navbar({ session, router }) {
 	// Add safety check for notifications before calling filter
 	const notificationCount = Array.isArray(notifications) ? notifications.filter(notif => notif && !notif.read).length : 0;
 
-	// Single unified click outside handler for all dropdowns - uses 'click' instead of 'mousedown'
+	// Single unified click outside handler for notification dropdown
 	useEffect(() => {
 		function handleClickOutside(event) {
-			// Close profile menu if clicking outside
-			if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-				setIsProfileMenuOpen(false);
-			}
 			// Close notification dropdown if clicking outside
 			if (notificationRef.current && !notificationRef.current.contains(event.target)) {
 				setNotificationsOpen(false);
@@ -276,111 +281,84 @@ export default function Navbar({ session, router }) {
 							/>
 						</div>
 
-						{/* Right Section - Profile Menu */}
+					{/* Right Section - Profile Menu */}
 						<div className="flex items-center justify-end flex-1">
-							<div className="relative" ref={profileMenuRef}>
-								<button
-									onClick={() => {
-										setIsProfileMenuOpen(!isProfileMenuOpen);
-										setIsNotificationMenuOpen(false);
-									}}
-									className="flex items-center space-x-2 p-1 rounded-full transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500"
-								>
-									<img
-										src={
-											session?.user?.image ||
-											`https://placehold.co/40x40/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'
-											}`
-										}
-										alt="Profile"
-										className="w-10 h-10 rounded-full object-cover border border-gray-200"
-										onError={(e) => {
-											e.target.onerror = null;
-											e.target.src = `https://placehold.co/40x40/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'
-												}`;
+							<Dropdown align="end" open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
+								<DropdownTrigger asChild>
+									<button
+										onClick={() => {
+											setIsNotificationMenuOpen(false);
 										}}
-									/>
-									<span className="hidden lg:block font-medium text-sm">
-										{session?.user?.name?.split(' ')[0] || 'User'}
-									</span>
-									<svg className="w-4 h-4 text-gray-500 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path>
-									</svg>
-								</button>
-
-								{isProfileMenuOpen && (
-									<div className="profile-dropdown absolute right-0 mt-2 w-64 z-50 animate-fade-in-down">
-										<div className="profile-dropdown-header p-4 border-b">
-											<div className="profile-dropdown-user flex items-center space-x-3">
-												<img
-													src={
-														session?.user?.image ||
-														`https://placehold.co/48x48/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`
-													}
-													alt="Profile"
-													className="profile-dropdown-avatar w-12 h-12 rounded-full object-cover"
-												/>
-												<div>
-													<p className="profile-dropdown-name font-bold">{session?.user?.name || 'User'}</p>
-													<p className="profile-dropdown-email text-sm truncate">{session?.user?.email}</p>
-												</div>
+										className="flex items-center space-x-2 p-1 rounded-full transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500"
+									>
+										<Avatar
+											src={session?.user?.image}
+											name={session?.user?.name || 'User'}
+											alt="Profile"
+											size="md"
+											className="border border-gray-200"
+										/>
+										<span className="hidden lg:block font-medium text-sm">
+											{session?.user?.name?.split(' ')[0] || 'User'}
+										</span>
+										<svg className="w-4 h-4 text-gray-500 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"></path>
+										</svg>
+									</button>
+								</DropdownTrigger>
+								<DropdownMenu width="lg" className="profile-dropdown">
+									{/* Profile Header */}
+									<div className="profile-dropdown-header p-4 border-b dark:border-slate-700">
+										<div className="profile-dropdown-user flex items-center space-x-3">
+											<Avatar
+												src={session?.user?.image}
+												name={session?.user?.name || 'User'}
+												alt="Profile"
+												size="lg"
+											/>
+											<div>
+												<p className="profile-dropdown-name font-bold">{session?.user?.name || 'User'}</p>
+												<p className="profile-dropdown-email text-sm truncate">{session?.user?.email}</p>
 											</div>
 										</div>
-										<div className="profile-dropdown-actions py-2">
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													router.push("/profile");
-													setIsProfileMenuOpen(false);
-												}}
-												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
-											>
-												<i className="fas fa-user profile-dropdown-btn-icon w-4"></i>
-												<span>View Profile</span>
-											</button>
-											{session?.user?.role === 'ADMIN' && (
-												<button
-													type="button"
-													onClick={(e) => {
-														e.stopPropagation();
-														router.push("/admin");
-														setIsProfileMenuOpen(false);
-													}}
-													className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
-												>
-													<i className="fas fa-shield-alt profile-dropdown-btn-icon w-4"></i>
-													<span>Admin Dashboard</span>
-												</button>
-											)}
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													router.push("/settings");
-													setIsProfileMenuOpen(false);
-												}}
-												className="profile-dropdown-btn flex items-center space-x-3 w-full px-4 py-3 text-sm cursor-pointer"
-											>
-												<i className="fas fa-cog profile-dropdown-btn-icon w-4"></i>
-												<span>Settings</span>
-											</button>
-											<button
-												type="button"
-												onClick={(e) => {
-													e.preventDefault();
-													e.stopPropagation();
-													handleSignOut();
-												}}
-												className="profile-dropdown-btn profile-dropdown-signout flex items-center space-x-3 w-full px-4 py-3 text-sm border-t mt-2 pt-3 cursor-pointer"
-											>
-												<i className="fas fa-sign-out-alt w-4"></i>
-												<span>Sign Out</span>
-											</button>
-										</div>
 									</div>
-								)}
-							</div>
+									<DropdownItem
+										icon="fas fa-user"
+										onClick={() => router.push("/profile")}
+									>
+										View Profile
+									</DropdownItem>
+									{session?.user?.role === 'ADMIN' && (
+										<DropdownItem
+											icon="fas fa-shield-alt"
+											onClick={() => router.push("/admin")}
+										>
+											Admin Dashboard
+										</DropdownItem>
+									)}
+								<DropdownItem
+									icon="fas fa-cog"
+									onClick={() => router.push("/settings")}
+								>
+									Settings
+								</DropdownItem>
+								<DropdownItem
+									icon="fas fa-crown"
+									onClick={() => router.push("/pricing")}
+									className="text-amber-600 dark:text-amber-400"
+								>
+									Upgrade to Premium
+								</DropdownItem>
+								<DropdownSeparator />
+									<DropdownItem
+										icon="fas fa-sign-out-alt"
+										danger
+										onClick={handleSignOut}
+									>
+										Sign Out
+									</DropdownItem>
+								</DropdownMenu>
+							</Dropdown>
 						</div>
 					</div>
 				</div>
@@ -684,20 +662,23 @@ function ConnectionRequestActions({ notificationId, targetId, onClearNotificatio
 
 	return (
 		<div className="flex gap-2 mt-2">
-			<button
-				className={`px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
+			<Button
+				variant="primary"
+				size="xs"
 				onClick={() => handleConnectionAction('accept')}
+				loading={isProcessing}
 				disabled={isProcessing}
 			>
-				{isProcessing ? 'Processing...' : 'Accept'}
-			</button>
-			<button
-				className={`px-3 py-1 rounded hover:bg-gray-400 text-xs ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
+				Accept
+			</Button>
+			<Button
+				variant="secondary"
+				size="xs"
 				onClick={() => handleConnectionAction('reject')}
 				disabled={isProcessing}
 			>
-				{isProcessing ? 'Processing...' : 'Ignore'}
-			</button>
+				Ignore
+			</Button>
 		</div>
 	);
 }
@@ -714,15 +695,13 @@ function NavLink({ iconClass, text, href, router, children, onClick, isMenuTrigg
 					onClick={onClick}
 					className={`${baseClasses} ${activeClasses} cursor-pointer`}
 					tabIndex={0}
-					role="button"
+				role="button"
 					aria-expanded={isNotificationMenuOpen ? "true" : "false"}
 				>
 					<div className="relative md:flex items-center space-x-4 flex-1 justify-center">
 						<i className={`${iconClass} text-xl`}></i>
 						{notificationCount > 0 && (
-							<span className="absolute -top-2 -right-2 inline-flex items-center justify-center h-5 w-5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-								{notificationCount > 9 ? '9+' : notificationCount}
-							</span>
+							<CountBadge count={notificationCount} className="absolute -top-2 -right-2" />
 						)}
 					</div>
 					<span className="text-xs mt-1 hidden sm:block">{text}</span>
@@ -778,9 +757,7 @@ function MobileBottomNav({ router, currentPath, notificationCount }) {
 							<div className="relative">
 								<i className={`${item.icon} text-xl`}></i>
 								{item.badge > 0 && (
-									<span className="absolute -top-2 -right-2 inline-flex items-center justify-center h-4 w-4 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
-										{item.badge > 9 ? '9+' : item.badge}
-									</span>
+									<CountBadge count={item.badge} size="sm" className="absolute -top-2 -right-2" />
 								)}
 							</div>
 							{isActive && (

@@ -28,6 +28,13 @@ export async function GET(request) {
             name: true,
             email: true,
             image: true,
+            role: true,
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
           },
         },
         experiences: {
@@ -57,9 +64,19 @@ export async function GET(request) {
       prisma.follows.count({ where: { followerId: userId } }),
     ]);
 
+    // Get subscription plan (active subscriptions only)
+    const subscriptionPlan = profile.user.subscription?.status === 'active' 
+      ? profile.user.subscription.plan 
+      : null;
+
+    // Get user role for admin badge
+    const userRole = profile.user.role;
+
     // Return the profile data
     return NextResponse.json({
       profile,
+      subscriptionPlan,
+      userRole,
       isFollowing: false, // Can't follow yourself
       followersCount,
       followingCount,

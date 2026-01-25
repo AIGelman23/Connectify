@@ -10,6 +10,7 @@ import { useAdvancedSearch } from "@/hooks/useAdvancedSearch";
 import UserSearchResult from "@/components/search/UserSearchResult";
 import PostSearchResult from "@/components/search/PostSearchResult";
 import GroupSearchResult from "@/components/search/GroupSearchResult";
+import HashtagSearchResult from "@/components/search/HashtagSearchResult";
 import SearchFilters from "@/components/search/SearchFilters";
 import EmptySearchState from "@/components/search/EmptySearchState";
 
@@ -19,6 +20,7 @@ const CATEGORIES = [
   { key: "users", label: "People", icon: "fas fa-user" },
   { key: "posts", label: "Posts", icon: "fas fa-file-alt" },
   { key: "groups", label: "Groups", icon: "fas fa-users" },
+  { key: "hashtags", label: "Hashtags", icon: "fas fa-hashtag" },
 ];
 
 function SearchPageContent() {
@@ -47,6 +49,7 @@ function SearchPageContent() {
     usersTotal,
     postsTotal,
     groupsTotal,
+    hashtagsTotal,
     totalResults,
   } = useAdvancedSearch(query, {
     type: typeParam,
@@ -147,6 +150,8 @@ function SearchPageContent() {
         return postsTotal;
       case "groups":
         return groupsTotal;
+      case "hashtags":
+        return hashtagsTotal;
       case "all":
       default:
         return totalResults;
@@ -176,6 +181,14 @@ function SearchPageContent() {
             group={item}
             query={query}
             onJoin={handleJoinGroup}
+          />
+        );
+      case "hashtag":
+        return (
+          <HashtagSearchResult
+            key={`hashtag-${item.id}`}
+            hashtag={item}
+            query={query}
           />
         );
       default:

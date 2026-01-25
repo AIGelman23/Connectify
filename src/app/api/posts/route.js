@@ -73,6 +73,13 @@ async function getNestedReplies(commentId, currentUserId = null) {
           id: true,
           name: true,
           image: true,
+          role: true,
+          subscription: {
+            select: {
+              plan: true,
+              status: true,
+            },
+          },
         },
       },
       likes: {
@@ -114,6 +121,10 @@ async function getNestedReplies(commentId, currentUserId = null) {
           `https://placehold.co/32x32/3B82F6/FFFFFF?text=${
             reply.author.name ? reply.author.name[0].toUpperCase() : "U"
           }`,
+        subscriptionPlan: reply.author.subscription?.status === 'active' 
+          ? reply.author.subscription.plan 
+          : null,
+        role: reply.author.role,
       },
       replies: [],
     });
@@ -617,9 +628,16 @@ export async function GET(request) {
             id: true,
             name: true,
             image: true,
+            role: true,
             profile: {
               select: {
                 headline: true,
+              },
+            },
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
               },
             },
           },
@@ -634,6 +652,13 @@ export async function GET(request) {
                 id: true,
                 name: true,
                 image: true,
+                role: true,
+                subscription: {
+                  select: {
+                    plan: true,
+                    status: true,
+                  },
+                },
               },
             },
             likes: {
@@ -767,6 +792,10 @@ export async function GET(request) {
                       ? comment.author.name[0].toUpperCase()
                       : "U"
                   }`,
+                subscriptionPlan: comment.author.subscription?.status === 'active' 
+                  ? comment.author.subscription.plan 
+                  : null,
+                role: comment.author.role,
               },
               timestamp: formatTimestamp(comment.createdAt),
               replies,
@@ -794,6 +823,10 @@ export async function GET(request) {
                 post.author?.name ? post.author.name[0].toUpperCase() : "U"
               }`,
             headline: post.author?.profile?.headline || "No headline available",
+            subscriptionPlan: post.author?.subscription?.status === 'active' 
+              ? post.author.subscription.plan 
+              : null,
+            role: post.author?.role,
           },
           comments,
           taggedFriends: formattedTaggedFriends,

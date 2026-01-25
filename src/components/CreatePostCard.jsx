@@ -7,6 +7,7 @@ import PostCard from './PostCard';
 import Tooltip from './Tooltip';
 import Cropper from 'react-easy-crop';
 import confetti from 'canvas-confetti';
+import { Avatar, Button, Spinner, Modal } from '@/components/ui';
 
 const MAX_POST_LENGTH = 2000;
 
@@ -976,15 +977,11 @@ export default function CreatePostCard({ groupId = null, postType = 'post', plac
 	return (
 		<div className="create-post-card bg-white dark:bg-slate-800 shadow-md border border-gray-200 dark:border-slate-700 mb-4 sm:mb-6 w-full max-w-3xl mx-auto p-0">
 			<div className="flex items-start px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
-				<img
-					src={
-						session?.user?.profile?.profilePictureUrl ||
-						session?.user?.image ||
-						`https://placehold.co/40x40/1877F2/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'
-						}`
-					}
-					alt="Your avatar"
-					className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 mt-1"
+				<Avatar
+					src={session?.user?.profile?.profilePictureUrl || session?.user?.image}
+					name={session?.user?.name}
+					size="md"
+					className="border border-gray-200 mt-1"
 				/>
 				<div className="flex-1 ml-2 sm:ml-3">
 					{/* Tag friends UI */}
@@ -1041,13 +1038,11 @@ export default function CreatePostCard({ groupId = null, postType = 'post', plac
 													className="px-3 py-2 hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer flex items-center text-gray-900 dark:text-slate-100"
 													onClick={() => handleAddTag(friend)}
 												>
-													<img
-														src={
-															friend.imageUrl ||
-															`https://placehold.co/32x32/1877F2/ffffff?text=${friend.name ? friend.name[0].toUpperCase() : 'U'}`
-														}
-														alt={friend.name}
-														className="w-6 h-6 rounded-full object-cover mr-2"
+													<Avatar
+														src={friend.imageUrl}
+														name={friend.name}
+														size="xs"
+														className="mr-2"
 													/>
 													<span>{friend.name}</span>
 												</div>

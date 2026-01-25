@@ -4,10 +4,13 @@ import { ThemeContext } from "@/theme/ThemeProvider";
 import Navbar from '../../components/NavBar';
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { Avatar, Button, VerifiedBadge } from '@/components/ui';
+import { useSubscription } from '@/hooks/useSubscription';
 
 const SECTIONS = [
   { key: "appearance", label: "Appearance", icon: "fas fa-palette", color: "from-purple-500 to-pink-500" },
   { key: "account", label: "Account", icon: "fas fa-user", color: "from-blue-500 to-cyan-500" },
+  { key: "billing", label: "Billing & Plans", icon: "fas fa-credit-card", color: "from-emerald-500 to-teal-500" },
   { key: "privacy", label: "Privacy", icon: "fas fa-lock", color: "from-green-500 to-emerald-500" },
   { key: "notifications", label: "Notifications", icon: "fas fa-bell", color: "from-yellow-500 to-orange-500" },
   { key: "accessibility", label: "Accessibility", icon: "fas fa-universal-access", color: "from-indigo-500 to-purple-500" },
@@ -171,10 +174,10 @@ function AccountSection({ session, router }) {
       {/* Profile Card */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-gray-100 dark:border-slate-700">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-          <img
-            src={session?.user?.image || `https://placehold.co/80x80/1877F2/ffffff?text=${session?.user?.name?.[0]?.toUpperCase() || 'U'}`}
-            alt="Profile"
-            className="w-20 h-20 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-gray-200 dark:border-slate-600"
+          <Avatar
+            src={session?.user?.image}
+            name={session?.user?.name || "User"}
+            size="xl"
           />
           <div className="flex-1 text-center sm:text-left space-y-2">
             <div>
@@ -186,12 +189,12 @@ function AccountSection({ session, router }) {
               <p className="text-gray-600 dark:text-gray-300 break-all">{session?.user?.email}</p>
             </div>
           </div>
-          <button
+          <Button
             onClick={() => router.push('/edit-profile')}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors w-full sm:w-auto"
+            className="w-full sm:w-auto"
           >
             <i className="fas fa-edit mr-2"></i>Edit Profile
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -273,6 +276,305 @@ function AccountSection({ session, router }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function BillingSection({ router }) {
+  const {
+    subscription,
+    plan,
+    planDetails,
+    isLoading,
+    isPaid,
+    isActive,
+    isCanceled,
+    currentPeriodEnd,
+    openBillingPortal,
+    isPortalLoading,
+  } = useSubscription();
+
+  // Plan display info
+  const planInfo = {
+    free: {
+      name: 'Free',
+      color: 'from-gray-400 to-gray-500',
+      icon: 'fas fa-user',
+      price: '$0',
+      badge: null,
+    },
+    basic: {
+      name: 'Basic',
+      color: 'from-blue-500 to-blue-600',
+      icon: 'fas fa-star',
+      price: '$4.99/mo',
+      badge: 'basic',
+    },
+    pro: {
+      name: 'Pro',
+      color: 'from-amber-500 to-yellow-500',
+      icon: 'fas fa-crown',
+      price: '$9.99/mo',
+      badge: 'pro',
+    },
+    business: {
+      name: 'Business',
+      color: 'from-purple-500 to-violet-600',
+      icon: 'fas fa-building',
+      price: '$19.99/mo',
+      badge: 'business',
+    },
+  };
+
+  const currentPlanInfo = planInfo[plan] || planInfo.free;
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <SectionHeader
+        icon="fas fa-credit-card"
+        iconColor="from-emerald-500 to-teal-500"
+        title="Billing & Plans"
+        description="Manage your subscription and billing"
+      />
+
+      {/* Current Plan Card */}
+      <div className={`bg-gradient-to-br ${currentPlanInfo.color} rounded-xl p-6 text-white relative overflow-hidden`}>
+        {/* Background decoration */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+        
+        <div className="relative">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-white/80 text-sm font-medium mb-1">Current Plan</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-2xl font-bold">{currentPlanInfo.name}</h3>
+                {currentPlanInfo.badge && (
+                  <VerifiedBadge plan={currentPlanInfo.badge} size="lg" showTooltip={false} />
+                )}
+              </div>
+            </div>
+            <div className={`p-3 rounded-xl bg-white/20`}>
+              <i className={`${currentPlanInfo.icon} text-2xl`}></i>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1 mb-4">
+            <span className="text-3xl font-bold">{currentPlanInfo.price}</span>
+            {plan !== 'free' && <span className="text-white/70">billed monthly</span>}
+          </div>
+
+          {isActive && currentPeriodEnd && (
+            <p className="text-sm text-white/80">
+              {isCanceled ? (
+                <>
+                  <i className="fas fa-exclamation-circle mr-1"></i>
+                  Cancels on {formatDate(currentPeriodEnd)}
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-sync-alt mr-1"></i>
+                  Renews on {formatDate(currentPeriodEnd)}
+                </>
+              )}
+            </p>
+          )}
+
+          {isCanceled && (
+            <div className="mt-3 p-3 bg-white/20 rounded-lg">
+              <p className="text-sm">
+                <i className="fas fa-info-circle mr-2"></i>
+                Your subscription will remain active until the end of the billing period.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {plan === 'free' ? (
+          <button
+            onClick={() => router.push('/pricing')}
+            className="flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-[1.02]"
+          >
+            <i className="fas fa-rocket"></i>
+            Upgrade to Premium
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => router.push('/pricing')}
+              className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl font-semibold hover:shadow-md transition-all text-gray-700 dark:text-gray-200"
+            >
+              <i className="fas fa-exchange-alt"></i>
+              Change Plan
+            </button>
+            <button
+              onClick={openBillingPortal}
+              disabled={isPortalLoading}
+              className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl font-semibold hover:shadow-md transition-all text-gray-700 dark:text-gray-200 disabled:opacity-50"
+            >
+              {isPortalLoading ? (
+                <i className="fas fa-spinner fa-spin"></i>
+              ) : (
+                <i className="fas fa-cog"></i>
+              )}
+              Manage Billing
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Features List */}
+      <div className="space-y-3 sm:space-y-4">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-300 px-1">Your Plan Features</h3>
+        
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-gray-100 dark:border-slate-700">
+          <ul className="space-y-3">
+            {plan === 'free' && (
+              <>
+                <FeatureItem icon="fas fa-check" text="Create posts and stories" included />
+                <FeatureItem icon="fas fa-check" text="Connect with friends" included />
+                <FeatureItem icon="fas fa-check" text="Basic messaging" included />
+                <FeatureItem icon="fas fa-check" text="5 reels per day" included />
+                <FeatureItem icon="fas fa-times" text="Verified badge" />
+                <FeatureItem icon="fas fa-times" text="Ad-free experience" />
+                <FeatureItem icon="fas fa-times" text="Analytics & insights" />
+              </>
+            )}
+            {plan === 'basic' && (
+              <>
+                <FeatureItem icon="fas fa-check" text="Everything in Free" included />
+                <FeatureItem icon="fas fa-check" text="Blue verified badge" included />
+                <FeatureItem icon="fas fa-check" text="Ad-free experience" included />
+                <FeatureItem icon="fas fa-check" text="20 reels per day" included />
+                <FeatureItem icon="fas fa-check" text="Story analytics" included />
+                <FeatureItem icon="fas fa-times" text="Advanced analytics" />
+                <FeatureItem icon="fas fa-times" text="Post scheduling" />
+              </>
+            )}
+            {plan === 'pro' && (
+              <>
+                <FeatureItem icon="fas fa-check" text="Everything in Basic" included />
+                <FeatureItem icon="fas fa-check" text="Gold verified badge" included />
+                <FeatureItem icon="fas fa-check" text="Advanced analytics & insights" included />
+                <FeatureItem icon="fas fa-check" text="Boosted post visibility" included />
+                <FeatureItem icon="fas fa-check" text="Unlimited reels" included />
+                <FeatureItem icon="fas fa-check" text="Schedule posts & stories" included />
+                <FeatureItem icon="fas fa-times" text="Team collaboration tools" />
+              </>
+            )}
+            {plan === 'business' && (
+              <>
+                <FeatureItem icon="fas fa-check" text="Everything in Pro" included />
+                <FeatureItem icon="fas fa-check" text="Purple verified badge" included />
+                <FeatureItem icon="fas fa-check" text="Team collaboration tools" included />
+                <FeatureItem icon="fas fa-check" text="API access" included />
+                <FeatureItem icon="fas fa-check" text="Dedicated account manager" included />
+                <FeatureItem icon="fas fa-check" text="White-label options" included />
+                <FeatureItem icon="fas fa-check" text="Advanced security" included />
+              </>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      {/* Billing History */}
+      {isPaid && (
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300 px-1">Billing</h3>
+          
+          <SettingCard
+            icon="fas fa-file-invoice text-blue-500"
+            iconBg="bg-blue-100 dark:bg-blue-900/30"
+            title="Billing History"
+            description="View your invoices and receipts"
+          >
+            <button
+              onClick={openBillingPortal}
+              disabled={isPortalLoading}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {isPortalLoading ? 'Loading...' : 'View'}
+            </button>
+          </SettingCard>
+
+          <SettingCard
+            icon="fas fa-credit-card text-green-500"
+            iconBg="bg-green-100 dark:bg-green-900/30"
+            title="Payment Method"
+            description="Update your payment information"
+          >
+            <button
+              onClick={openBillingPortal}
+              disabled={isPortalLoading}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {isPortalLoading ? 'Loading...' : 'Update'}
+            </button>
+          </SettingCard>
+
+          {!isCanceled && (
+            <SettingCard
+              icon="fas fa-times-circle text-red-500"
+              iconBg="bg-red-100 dark:bg-red-900/30"
+              title="Cancel Subscription"
+              description="Cancel your premium subscription"
+            >
+              <button
+                onClick={openBillingPortal}
+                disabled={isPortalLoading}
+                className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {isPortalLoading ? 'Loading...' : 'Cancel'}
+              </button>
+            </SettingCard>
+          )}
+        </div>
+      )}
+
+      {/* Upgrade CTA for free users */}
+      {plan === 'free' && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl text-white flex-shrink-0">
+              <i className="fas fa-gem text-xl"></i>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Unlock Premium Features</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                Get verified, remove ads, and access powerful creator tools starting at just $4.99/month.
+              </p>
+              <button
+                onClick={() => router.push('/pricing')}
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium hover:shadow-md transition-all text-sm"
+              >
+                View Plans
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Feature item component for billing section
+function FeatureItem({ icon, text, included = false }) {
+  return (
+    <li className={`flex items-center gap-3 ${included ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
+      <i className={`${icon} ${included ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'}`}></i>
+      <span className={included ? '' : 'line-through'}>{text}</span>
+    </li>
   );
 }
 
@@ -1066,6 +1368,8 @@ export default function SettingsPage() {
         return <AppearanceSection theme={theme} handleToggle={handleToggle} status={status} settings={settings} updateSetting={updateSetting} />;
       case "account":
         return <AccountSection session={session} router={router} />;
+      case "billing":
+        return <BillingSection router={router} />;
       case "privacy":
         return <PrivacySection settings={settings} updateSetting={updateSetting} />;
       case "notifications":

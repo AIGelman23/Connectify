@@ -9,8 +9,10 @@ import EditProfileExperience from "../../../components/profile/EditProfileExperi
 import EditProfileEducation from "../../../components/profile/EditProfileEducation";
 import EditProfileSkills from "../../../components/profile/EditProfileSkills";
 import FriendsListContainer from "../../../components/profile/FriendsListContainer";
+import ProfileReelsGrid from "../../../components/profile/ProfileReelsGrid";
 import Posts from "../../../components/Posts";
 import ConnectifyLogo from "../../../components/ConnectifyLogo";
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 
 export default function ProfilePage() {
 	const { id } = useParams();
@@ -25,6 +27,7 @@ export default function ProfilePage() {
 	const [isFollowing, setIsFollowing] = useState(false);
 	const [followersCount, setFollowersCount] = useState(0);
 	const [followingCount, setFollowingCount] = useState(0);
+	const [subscriptionPlan, setSubscriptionPlan] = useState(null);
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -59,6 +62,7 @@ export default function ProfilePage() {
 				setIsFollowing(data.isFollowing || false);
 				setFollowersCount(data.followersCount || 0);
 				setFollowingCount(data.followingCount || 0);
+				setSubscriptionPlan(data.subscriptionPlan || null);
 			} catch (err) {
 				console.error("Failed to fetch profile:", err);
 				setError(err.message || "Failed to load profile");
@@ -73,7 +77,7 @@ export default function ProfilePage() {
 	// Handle tab change from URL
 	useEffect(() => {
 		const tab = searchParams.get('tab');
-		if (tab && ['profile', 'posts', 'saved'].includes(tab)) {
+		if (tab && ['profile', 'posts', 'reels', 'saved'].includes(tab)) {
 			setActiveTab(tab);
 		}
 	}, [searchParams]);
@@ -111,12 +115,12 @@ export default function ProfilePage() {
 				<div className="p-8 rounded-lg shadow-md bg-white dark:bg-slate-800 max-w-md">
 					<h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Error</h2>
 					<p className="text-gray-700 dark:text-slate-300">{error}</p>
-					<button
+					<Button
 						onClick={() => router.push('/dashboard')}
-						className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+						className="mt-6"
 					>
 						Go to Dashboard
-					</button>
+					</Button>
 				</div>
 			</div>
 		);
@@ -146,7 +150,7 @@ export default function ProfilePage() {
 		<div className="min-h-screen font-sans antialiased text-gray-900 dark:text-slate-100 bg-gray-100 dark:bg-slate-900">
 			<Navbar session={session} router={router} />
 			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-				<EditProfileHeader
+			<EditProfileHeader
 					currentProfileState={formattedProfile}
 					viewMode="view"
 					handleFileChange={() => { }} // Empty function as we're in view mode
@@ -163,39 +167,28 @@ export default function ProfilePage() {
 					onFollowToggle={handleFollowToggle}
 					followersCount={followersCount}
 					followingCount={followingCount}
+					subscriptionPlan={subscriptionPlan}
 				/>
 
-				{/* Friends List Section */}
-				<FriendsListContainer profileUserId={id} />
+			{/* Friends List Section */}
+			<FriendsListContainer profileUserId={id} />
 
-				{/* Tabs */}
-				<div className="flex border-b border-gray-200 dark:border-slate-700 mb-6 overflow-x-auto">
-					<button
-						className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'profile' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-						onClick={() => setActiveTab('profile')}
-					>
-						Profile
-					</button>
-					<button
-						className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'posts' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-						onClick={() => setActiveTab('posts')}
-					>
-						Posts
-					</button>
-					{/* Only show Saved tab on own profile */}
+			{/* Tabs */}
+			<Tabs value={activeTab} onValueChange={setActiveTab}>
+				<TabsList className="mb-6">
+					<TabsTrigger value="profile">Profile</TabsTrigger>
+					<TabsTrigger value="posts">Posts</TabsTrigger>
+					<TabsTrigger value="reels">
+						<i className="fas fa-video mr-1.5"></i>
+						Reels
+					</TabsTrigger>
 					{isOwnProfile && (
-						<button
-							className={`px-4 py-2 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'saved' ? 'text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-							onClick={() => setActiveTab('saved')}
-						>
-							Saved
-						</button>
+						<TabsTrigger value="saved">Saved</TabsTrigger>
 					)}
-				</div>
+				</TabsList>
 
-				{/* Profile sections in view mode */}
-				{activeTab === 'profile' && (
-					<>
+				<TabsContent value="profile">
+					<div className="space-y-8">
 						<EditProfileExperience
 							currentProfileState={formattedProfile}
 							formErrors={{}}
@@ -213,16 +206,23 @@ export default function ProfilePage() {
 							formErrors={{}}
 							isEditable={false}
 						/>
-					</>
-				)}
+					</div>
+				</TabsContent>
 
-				{activeTab === 'posts' && (
+				<TabsContent value="posts">
 					<Posts userId={id} />
-				)}
+				</TabsContent>
 
-				{activeTab === 'saved' && isOwnProfile && (
-					<Posts userId={id} type="saved" />
+				<TabsContent value="reels">
+					<ProfileReelsGrid userId={id} />
+				</TabsContent>
+
+				{isOwnProfile && (
+					<TabsContent value="saved">
+						<Posts userId={id} type="saved" />
+					</TabsContent>
 				)}
+			</Tabs>
 			</div>
 		</div>
 	);

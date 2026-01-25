@@ -27,6 +27,7 @@ export function useAdvancedSearch(query, initialFilters = {}) {
     users: { results: [], total: 0, hasMore: false },
     posts: { results: [], total: 0, hasMore: false },
     groups: { results: [], total: 0, hasMore: false },
+    hashtags: { results: [], total: 0, hasMore: false },
     totalResults: 0,
   });
 
@@ -78,6 +79,7 @@ export function useAdvancedSearch(query, initialFilters = {}) {
           users: { results: [], total: 0, hasMore: false },
           posts: { results: [], total: 0, hasMore: false },
           groups: { results: [], total: 0, hasMore: false },
+          hashtags: { results: [], total: 0, hasMore: false },
           totalResults: 0,
         });
         return;
@@ -129,11 +131,21 @@ export function useAdvancedSearch(query, initialFilters = {}) {
               total: data.groups.total,
               hasMore: data.groups.hasMore,
             },
+            hashtags: {
+              results: [...prev.hashtags.results, ...(data.hashtags?.results || [])],
+              total: data.hashtags?.total || 0,
+              hasMore: data.hashtags?.hasMore || false,
+            },
             totalResults: data.totalResults,
           }));
           setOffset(currentOffset + LIMIT);
         } else {
-          setResults(data);
+          // Ensure hashtags exists in data
+          const normalizedData = {
+            ...data,
+            hashtags: data.hashtags || { results: [], total: 0, hasMore: false },
+          };
+          setResults(normalizedData);
           setOffset(LIMIT);
         }
       } catch (err) {
@@ -179,6 +191,9 @@ export function useAdvancedSearch(query, initialFilters = {}) {
     if (currentCategory === "groups" || filters.type === "all") {
       hasMore = hasMore || results.groups.hasMore;
     }
+    if (currentCategory === "hashtags" || filters.type === "all") {
+      hasMore = hasMore || results.hashtags.hasMore;
+    }
 
     if (hasMore && !isLoadingMore) {
       performSearch(true);
@@ -205,7 +220,7 @@ export function useAdvancedSearch(query, initialFilters = {}) {
 
   // Check if there are more results
   const hasMore =
-    results.users.hasMore || results.posts.hasMore || results.groups.hasMore;
+    results.users.hasMore || results.posts.hasMore || results.groups.hasMore || results.hashtags.hasMore;
 
   // Get current results based on active filter
   const getCurrentResults = useCallback(() => {
@@ -214,6 +229,7 @@ export function useAdvancedSearch(query, initialFilters = {}) {
         ...results.users.results.map((u) => ({ ...u, resultType: "user" })),
         ...results.posts.results.map((p) => ({ ...p, resultType: "post" })),
         ...results.groups.results.map((g) => ({ ...g, resultType: "group" })),
+        ...results.hashtags.results.map((h) => ({ ...h, resultType: "hashtag" })),
       ];
     }
     if (filters.type === "users") {
@@ -224,6 +240,9 @@ export function useAdvancedSearch(query, initialFilters = {}) {
     }
     if (filters.type === "groups") {
       return results.groups.results.map((g) => ({ ...g, resultType: "group" }));
+    }
+    if (filters.type === "hashtags") {
+      return results.hashtags.results.map((h) => ({ ...h, resultType: "hashtag" }));
     }
     return [];
   }, [filters.type, results]);
@@ -244,10 +263,12 @@ export function useAdvancedSearch(query, initialFilters = {}) {
     users: results.users.results,
     posts: results.posts.results,
     groups: results.groups.results,
+    hashtags: results.hashtags.results,
     totalResults: results.totalResults,
     usersTotal: results.users.total,
     postsTotal: results.posts.total,
     groupsTotal: results.groups.total,
+    hashtagsTotal: results.hashtags.total,
   };
 }
 

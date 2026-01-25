@@ -9,16 +9,23 @@ import ReelOverlayActions from './ReelOverlayActions';
 export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments }) {
 	const router = useRouter();
 	const videoRef = useRef(null);
+	const containerRef = useRef(null);
 	const queryClient = useQueryClient();
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isMuted, setIsMuted] = useState(true);
+	const [isVisible, setIsVisible] = useState(false);
 	const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
 	const [progress, setProgress] = useState(0);
 	const [isLiked, setIsLiked] = useState(reel.isLiked);
 	const [likesCount, setLikesCount] = useState(reel.likesCount);
+	const [viewsCount, setViewsCount] = useState(reel.viewsCount);
+	const [videoError, setVideoError] = useState(false);
+	const [videoLoaded, setVideoLoaded] = useState(false);
+	const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 	const lastTapRef = useRef(0);
 	const watchTimeRef = useRef(0);
 	const viewTrackedRef = useRef(false);
+	const playAttemptRef = useRef(null);
 
 	// Like mutation
 	const likeMutation = useMutation({
@@ -45,43 +52,103 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 		if (viewTrackedRef.current && !completed) return;
 
 		try {
-			await fetch(`/api/reels/${reel.id}/view`, {
+			const res = await fetch(`/api/reels/${reel.id}/view`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ watchTime, completed }),
 			});
+			const data = await res.json();
 			viewTrackedRef.current = true;
+			
+			// Update view count in real-time if this was a new view
+			if (data.isNewView && data.viewsCount) {
+				setViewsCount(data.viewsCount);
+				// Also update the cache
+				queryClient.setQueryData(['reels'], (oldData) => {
+					if (!oldData?.reels) return oldData;
+					return {
+						...oldData,
+						reels: oldData.reels.map(r => 
+							r.id === reel.id ? { ...r, viewsCount: data.viewsCount } : r
+						),
+					};
+				});
+			}
 		} catch (err) {
 			console.error('Failed to track view:', err);
 		}
-	}, [reel.id]);
+	}, [reel.id, queryClient]);
+
+	// Use IntersectionObserver for more reliable visibility detection
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					setIsVisible(entry.isIntersecting && entry.intersectionRatio > 0.5);
+				});
+			},
+			{
+				threshold: [0.5],
+				rootMargin: '0px',
+			}
+		);
+
+		observer.observe(container);
+		return () => observer.disconnect();
+	}, []);
 
 	// Handle play/pause based on visibility (TikTok-like autoplay)
 	useEffect(() => {
 		const video = videoRef.current;
 		if (!video) return;
 
-		if (isActive) {
+		// Clear any pending play attempts
+		if (playAttemptRef.current) {
+			clearTimeout(playAttemptRef.current);
+		}
+
+		const shouldPlay = isActive && isVisible;
+
+		if (shouldPlay) {
 			// TikTok-style: always muted autoplay
 			video.muted = true;
 			setIsMuted(true);
-			
-			const playPromise = video.play();
-			if (playPromise !== undefined) {
-				playPromise
-					.then(() => {
-						setIsPlaying(true);
-						// Track view after 2 seconds
-						const viewTimer = setTimeout(() => {
-							trackView(2000);
-						}, 2000);
-						return () => clearTimeout(viewTimer);
-					})
-					.catch(() => {
-						// Autoplay was prevented, try again after user interaction
-						setIsPlaying(false);
-					});
+
+			// Reset video to start if needed
+			if (video.currentTime > 0 && video.ended) {
+				video.currentTime = 0;
 			}
+
+			// Attempt to play with retry logic
+			const attemptPlay = async () => {
+				try {
+					await video.play();
+					setIsPlaying(true);
+					setVideoError(false);
+					setAutoplayBlocked(false);
+					
+					// Track view after 2 seconds
+					const viewTimer = setTimeout(() => {
+						trackView(2000);
+					}, 2000);
+					return () => clearTimeout(viewTimer);
+				} catch (err) {
+					console.warn('Autoplay prevented:', err.message);
+					setIsPlaying(false);
+					
+					if (err.name === 'NotAllowedError') {
+						setAutoplayBlocked(true);
+					} else {
+						// Retry after a short delay (user might have interacted with page)
+						playAttemptRef.current = setTimeout(attemptPlay, 500);
+					}
+				}
+			};
+
+			attemptPlay();
 		} else {
 			video.pause();
 			setIsPlaying(false);
@@ -89,7 +156,13 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 			watchTimeRef.current = 0;
 			viewTrackedRef.current = false;
 		}
-	}, [isActive, trackView]);
+
+		return () => {
+			if (playAttemptRef.current) {
+				clearTimeout(playAttemptRef.current);
+			}
+		};
+	}, [isActive, isVisible, trackView]);
 
 	// Progress tracking
 	useEffect(() => {
@@ -105,15 +178,36 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 		const handleEnded = () => {
 			trackView(watchTimeRef.current, true);
 			video.currentTime = 0;
-			video.play();
+			video.play().catch(console.warn);
+		};
+
+		const handleCanPlay = () => {
+			setVideoLoaded(true);
+			setVideoError(false);
+		};
+
+		const handleError = (e) => {
+			console.error('Video error:', e);
+			setVideoError(true);
+			setVideoLoaded(false);
+		};
+
+		const handleLoadedData = () => {
+			setVideoLoaded(true);
 		};
 
 		video.addEventListener('timeupdate', handleTimeUpdate);
 		video.addEventListener('ended', handleEnded);
+		video.addEventListener('canplay', handleCanPlay);
+		video.addEventListener('error', handleError);
+		video.addEventListener('loadeddata', handleLoadedData);
 
 		return () => {
 			video.removeEventListener('timeupdate', handleTimeUpdate);
 			video.removeEventListener('ended', handleEnded);
+			video.removeEventListener('canplay', handleCanPlay);
+			video.removeEventListener('error', handleError);
+			video.removeEventListener('loadeddata', handleLoadedData);
 		};
 	}, [trackView]);
 
@@ -122,8 +216,12 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 		if (!video) return;
 
 		if (video.paused) {
-			video.play();
-			setIsPlaying(true);
+			video.play()
+				.then(() => {
+					setIsPlaying(true);
+					setAutoplayBlocked(false);
+				})
+				.catch(console.warn);
 		} else {
 			video.pause();
 			setIsPlaying(false);
@@ -205,7 +303,7 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 	};
 
 	return (
-		<div className="relative h-full w-full bg-black overflow-hidden">
+		<div ref={containerRef} className="relative h-full w-full bg-black overflow-hidden">
 			{/* Video - TikTok-style full-screen */}
 			<video
 				ref={videoRef}
@@ -214,13 +312,59 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 				loop
 				muted={isMuted}
 				playsInline
+				webkit-playsinline="true"
 				preload="auto"
 				poster={reel.thumbnailUrl}
 				onClick={handleDoubleTap}
 				style={{
 					transition: 'opacity 0.3s ease-in-out',
+					opacity: videoLoaded ? 1 : 0.7,
 				}}
 			/>
+
+			{/* Loading indicator */}
+			{!videoLoaded && !videoError && (
+				<div className="absolute inset-0 flex items-center justify-center bg-black/50">
+					<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+				</div>
+			)}
+
+			{/* Video error state */}
+			{videoError && (
+				<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+					<svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+					</svg>
+					<p className="text-white text-sm">Unable to load video</p>
+					<button 
+						onClick={() => {
+							setVideoError(false);
+							if (videoRef.current) {
+								videoRef.current.load();
+							}
+						}}
+						className="mt-3 px-4 py-2 bg-white/20 rounded-lg text-white text-sm hover:bg-white/30"
+					>
+						Try Again
+					</button>
+				</div>
+			)}
+
+			{/* Tap to Play overlay - shown when autoplay is blocked */}
+			{autoplayBlocked && !videoError && isActive && (
+				<div 
+					className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 cursor-pointer z-20"
+					onClick={togglePlayPause}
+				>
+					<div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4 hover:bg-white/30 transition-all transform hover:scale-105">
+						<svg className="w-12 h-12 text-white ml-2" fill="currentColor" viewBox="0 0 24 24">
+							<path d="M8 5v14l11-7z" />
+						</svg>
+					</div>
+					<p className="text-white text-lg font-medium">Tap to Play</p>
+					<p className="text-white/60 text-sm mt-1">Your browser blocked autoplay</p>
+				</div>
+			)}
 
 			{/* Gradient overlays */}
 			<div className="absolute inset-0 pointer-events-none">
@@ -241,10 +385,14 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 				</div>
 			)}
 
-			{/* Play/Pause indicator */}
-			{!isPlaying && (
-				<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-					<div className="w-20 h-20 bg-black/40 rounded-full flex items-center justify-center">
+			{/* Play/Pause indicator - only show when paused by user, not when autoplay blocked */}
+			{!isPlaying && !videoError && videoLoaded && !autoplayBlocked && (
+				<div 
+					className="absolute inset-0 flex items-center justify-center pointer-events-none cursor-pointer"
+					onClick={togglePlayPause}
+					style={{ pointerEvents: 'auto' }}
+				>
+					<div className="w-20 h-20 bg-black/40 rounded-full flex items-center justify-center hover:bg-black/60 transition-colors">
 						<svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
 							<path d="M8 5v14l11-7z" />
 						</svg>
@@ -335,7 +483,7 @@ export default function ReelCard({ reel, isActive, sessionUserId, onOpenComments
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
 				</svg>
-				{formatCount(reel.viewsCount)} views
+				{formatCount(viewsCount)} views
 			</div>
 		</div>
 	);

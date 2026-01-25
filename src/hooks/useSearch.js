@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
  * 
  * @param {string} query - The search query
  * @param {Object} options - Search options
- * @param {string} options.type - Type of search: 'all', 'users', 'posts', 'groups'
+ * @param {string} options.type - Type of search: 'all', 'users', 'posts', 'groups', 'hashtags'
  * @param {number} options.limit - Number of results to fetch
  * @param {number} options.debounceMs - Debounce delay in milliseconds
  * @param {boolean} options.enabled - Whether the search is enabled
@@ -125,10 +125,12 @@ export function useSearch(query, options = {}) {
     users: results?.users?.results || [],
     posts: results?.posts?.results || [],
     groups: results?.groups?.results || [],
+    hashtags: results?.hashtags?.results || [],
     totalResults: results?.totalResults || 0,
     hasUsers: (results?.users?.results?.length || 0) > 0,
     hasPosts: (results?.posts?.results?.length || 0) > 0,
     hasGroups: (results?.groups?.results?.length || 0) > 0,
+    hasHashtags: (results?.hashtags?.results?.length || 0) > 0,
     hasResults: (results?.totalResults || 0) > 0,
   };
 }

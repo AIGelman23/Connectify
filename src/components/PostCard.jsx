@@ -10,6 +10,18 @@ import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector compone
 import Lightbox from './Lightbox';
 import PhotoCollage from './PhotoCollage';
 import { formatTimestamp } from '../lib/utils';
+import { 
+	Avatar, 
+	ConfirmModal, 
+	Modal,
+	Dropdown, 
+	DropdownTrigger, 
+	DropdownMenu, 
+	DropdownItem,
+	Button,
+	IconButton 
+} from './ui';
+import { VerifiedBadge, AdminBadge } from './ui/Badge';
 
 const MAX_COMMENT_LENGTH = 280;
 
@@ -63,45 +75,42 @@ function EditHistoryModal({ postId, onClose }) {
 	});
 
 	return (
-		<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-			<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-				<div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-					<h3 className="font-bold text-lg text-gray-900 dark:text-white">Edit History</h3>
-					<button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200">
-						<i className="fas fa-times text-xl"></i>
-					</button>
-				</div>
-				<div className="overflow-y-auto p-4 space-y-4 custom-scrollbar">
-					{isLoading ? (
-						<div className="flex justify-center py-8"><i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i></div>
-					) : error ? (
-						<div className="text-center text-red-500 py-4">Failed to load history.</div>
-					) : history && Array.isArray(history) && history.length > 0 ? (
-						history.map((version, index) => {
-							const isOriginal = index === history.length - 1;
-							const prevVersion = history[index + 1];
-							const diff = isOriginal ? [{ type: 'text', value: version.content }] : computeDiff(prevVersion?.content || "", version.content || "");
+		<Modal
+			isOpen={true}
+			onClose={onClose}
+			title="Edit History"
+			size="lg"
+		>
+			<div className="space-y-4 custom-scrollbar">
+				{isLoading ? (
+					<div className="flex justify-center py-8"><i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i></div>
+				) : error ? (
+					<div className="text-center text-red-500 py-4">Failed to load history.</div>
+				) : history && Array.isArray(history) && history.length > 0 ? (
+					history.map((version, index) => {
+						const isOriginal = index === history.length - 1;
+						const prevVersion = history[index + 1];
+						const diff = isOriginal ? [{ type: 'text', value: version.content }] : computeDiff(prevVersion?.content || "", version.content || "");
 
-							return (
-								<div key={index} className="border-b border-gray-100 dark:border-slate-700 last:border-0 pb-4 last:pb-0">
-									<div className="flex items-center gap-2 mb-1">
-										<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(version.createdAt)}</span>
-										{isOriginal && <span className="text-xs bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-slate-400">Original</span>}
-									</div>
-									<div className="text-gray-800 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">
-										{diff.map((part, i) => (
-											<span key={i} className={part.type === 'added' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200' : part.type === 'removed' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 line-through decoration-red-500' : ''}>{part.value}</span>
-										))}
-									</div>
+						return (
+							<div key={index} className="border-b border-gray-100 dark:border-slate-700 last:border-0 pb-4 last:pb-0">
+								<div className="flex items-center gap-2 mb-1">
+									<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(version.createdAt)}</span>
+									{isOriginal && <span className="text-xs bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-slate-400">Original</span>}
 								</div>
-							);
-						})
-					) : (
-						<div className="text-center text-gray-500 py-4">No edit history available.</div>
-					)}
-				</div>
+								<div className="text-gray-800 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">
+									{diff.map((part, i) => (
+										<span key={i} className={part.type === 'added' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200' : part.type === 'removed' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 line-through decoration-red-500' : ''}>{part.value}</span>
+									))}
+								</div>
+							</div>
+						);
+					})
+				) : (
+					<div className="text-center text-gray-500 py-4">No edit history available.</div>
+				)}
 			</div>
-		</div>
+		</Modal>
 	);
 }
 
@@ -134,8 +143,6 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 	const queryClient = useQueryClient();
 	const videoRef = useRef(null);
 	const [localError, setLocalError] = useState(null);
-	const menuRef = useRef(null);
-	const repostMenuRef = useRef(null);
 	const [showToast, setShowToast] = useState(false);
 	const [showReactionMenu, setShowReactionMenu] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -242,42 +249,6 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			document.removeEventListener("touchstart", handleClickOutside);
 		};
 	}, [showReactionMenu]);
-
-	// Close post menu when clicking outside
-	useEffect(() => {
-		if (!showMenu) return;
-
-		const handleClickOutside = (event) => {
-			if (menuRef.current && !menuRef.current.contains(event.target)) {
-				setShowMenu(false);
-			}
-		};
-
-		document.addEventListener("mousedown", handleClickOutside);
-		document.addEventListener("touchstart", handleClickOutside);
-		return () => {
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("touchstart", handleClickOutside);
-		};
-	}, [showMenu]);
-
-	// Close repost menu when clicking outside
-	useEffect(() => {
-		if (!showRepostMenu) return;
-
-		const handleClickOutside = (event) => {
-			if (repostMenuRef.current && !repostMenuRef.current.contains(event.target)) {
-				setShowRepostMenu(false);
-			}
-		};
-
-		document.addEventListener("mousedown", handleClickOutside);
-		document.addEventListener("touchstart", handleClickOutside);
-		return () => {
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("touchstart", handleClickOutside);
-		};
-	}, [showRepostMenu]);
 
 	const handleTouchStart = () => {
 		isLongPress.current = false;
@@ -778,14 +749,6 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 		}
 	};
 
-	const handleRepostClick = useCallback(() => {
-		if (!sessionUserId || isPreview) {
-			setPostError("You must be logged in to repost.");
-			return;
-		}
-		setShowRepostMenu((prev) => !prev);
-	}, [sessionUserId, isPreview, setPostError]);
-
 	const handleInstantRepost = useCallback(() => {
 		if (isNews) {
 			shareNews({});
@@ -1051,41 +1014,59 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				<div className="flex items-center">
 					{isNews ? (
 						<a href={post.link} target="_blank" rel="noopener noreferrer" className="group flex-shrink-0">
-							<img
+							<Avatar
 								src={
 									post.author?.profile?.profilePictureUrl ||
 									post.author?.image ||
-									post.author?.imageUrl ||
-									`https://placehold.co/40x40/A78BFA/ffffff?text=${post.author?.name ? post.author.name[0].toUpperCase() : 'U'}`
+									post.author?.imageUrl
 								}
+								name={post.author?.name || "User"}
 								alt={`${post.author?.name || "User"}'s avatar`}
-								className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
+								size="md"
+								className="border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
 							/>
 						</a>
 					) : (
 						<Link href={`/profile/${post.author?.id || ''}`} className="group flex-shrink-0">
-							<img
+							<Avatar
 								src={
 									post.author?.profile?.profilePictureUrl ||
 									post.author?.image ||
-									post.author?.imageUrl ||
-									`https://placehold.co/40x40/A78BFA/ffffff?text=${post.author?.name ? post.author.name[0].toUpperCase() : 'U'}`
+									post.author?.imageUrl
 								}
+								name={post.author?.name || "User"}
 								alt={`${post.author?.name || "User"}'s avatar`}
-								className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
+								size="md"
+								className="border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
 							/>
 						</Link>
 					)}
 					<div className="ml-2 sm:ml-3">
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-1">
 							{isNews ? (
 								<a href={post.link} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-sm sm:text-[16px]">
 									{post.author?.name}
 								</a>
 							) : (
-								<Link href={`/profile/${post.author?.id || ''}`} className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-sm sm:text-[16px]">
-									{post.author?.name}
-								</Link>
+								<>
+									<Link href={`/profile/${post.author?.id || ''}`} className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-sm sm:text-[16px]">
+										{post.author?.name}
+									</Link>
+									{post.author?.role && post.author.role !== 'USER' && (
+										<AdminBadge 
+											role={post.author.role.toLowerCase()} 
+											size="sm"
+											showTooltip={true}
+										/>
+									)}
+									{post.author?.subscriptionPlan && (
+										<VerifiedBadge 
+											plan={post.author.subscriptionPlan.toLowerCase()} 
+											size="sm"
+											showTooltip={true}
+										/>
+									)}
+								</>
 							)}
 							{isNews && (
 								<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -1120,66 +1101,63 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				</div>
 				{/* Menu button */}
 				{!isPreview && (
-					<div className="relative" ref={menuRef}>
-						<button
-							className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-							aria-label="Post actions"
-							onClick={() => setShowMenu((v) => !v)}
-						>
-							<svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><g fillRule="evenodd"><circle cx="4" cy="10" r="2" /><circle cx="10" cy="10" r="2" /><circle cx="16" cy="10" r="2" /></g></svg>
-						</button>
-						{showMenu && (
-							<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
-								{sessionUserId === post.author?.id && (
-									<button
-										className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
-										onClick={() => { togglePinPost({ postId: post.id, isPinned: post.isPinned }); setShowMenu(false); }}
-									>
-										{post.isPinned ? "Unpin Post" : "Pin Post"}
-									</button>
-								)}
-								{sessionUserId === post.author?.id && (
-									<button
-										className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
-										onClick={() => { setIsEditing(true); setShowMenu(false); }}
-									>
-										Edit Post
-									</button>
-								)}
-								{isEdited && (
-									<button
-										className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
-										onClick={() => { setShowEditHistoryModal(true); setShowMenu(false); }}
-									>
-										View Edit History
-									</button>
-								)}
-								{sessionUserId === post.author?.id && (
-									<button
-										className="block w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-										onClick={() => {
-											setShowDeleteModal(true);
-											setShowMenu(false);
-										}}
-									>
-										Delete Post
-									</button>
-								)}
-								<button
-									className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
-									onClick={() => { handleToggleNotifications(); setShowMenu(false); }}
+					<Dropdown align="end" open={showMenu} onOpenChange={setShowMenu}>
+						<DropdownTrigger asChild>
+							<button
+								className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								aria-label="Post actions"
+							>
+								<svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><g fillRule="evenodd"><circle cx="4" cy="10" r="2" /><circle cx="10" cy="10" r="2" /><circle cx="16" cy="10" r="2" /></g></svg>
+							</button>
+						</DropdownTrigger>
+						<DropdownMenu width="sm">
+							{sessionUserId === post.author?.id && (
+								<DropdownItem
+									icon="fas fa-thumbtack"
+									onClick={() => togglePinPost({ postId: post.id, isPinned: post.isPinned })}
 								>
-									{notificationsOff ? "Turn On Notifications" : "Turn Off Notifications"}
-								</button>
-								<button
-									className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
-									onClick={handleCopyLink}
+									{post.isPinned ? "Unpin Post" : "Pin Post"}
+								</DropdownItem>
+							)}
+							{sessionUserId === post.author?.id && (
+								<DropdownItem
+									icon="fas fa-edit"
+									onClick={() => setIsEditing(true)}
 								>
-									Copy Link
-								</button>
-							</div>
-						)}
-					</div>
+									Edit Post
+								</DropdownItem>
+							)}
+							{isEdited && (
+								<DropdownItem
+									icon="fas fa-history"
+									onClick={() => setShowEditHistoryModal(true)}
+								>
+									View Edit History
+								</DropdownItem>
+							)}
+							{sessionUserId === post.author?.id && (
+								<DropdownItem
+									icon="fas fa-trash"
+									danger
+									onClick={() => setShowDeleteModal(true)}
+								>
+									Delete Post
+								</DropdownItem>
+							)}
+							<DropdownItem
+								icon={notificationsOff ? "fas fa-bell" : "fas fa-bell-slash"}
+								onClick={handleToggleNotifications}
+							>
+								{notificationsOff ? "Turn On Notifications" : "Turn Off Notifications"}
+							</DropdownItem>
+							<DropdownItem
+								icon="fas fa-link"
+								onClick={handleCopyLink}
+							>
+								Copy Link
+							</DropdownItem>
+						</DropdownMenu>
+					</Dropdown>
 				)}
 			</div>
 
@@ -1189,10 +1167,12 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 					<div className="border border-gray-200 dark:border-slate-700 rounded-xl p-3 bg-gray-50 dark:bg-slate-700/50">
 						<div className="flex items-center mb-2">
 							<Link href={`/profile/${post.originalPost.author.id || ''}`} className="flex-shrink-0">
-								<img
-									src={post.originalPost.author.imageUrl || `https://placehold.co/32x32/A78BFA/ffffff?text=${post.originalPost.author.name[0]}`}
+								<Avatar
+									src={post.originalPost.author.imageUrl}
+									name={post.originalPost.author.name}
 									alt={post.originalPost.author.name}
-									className="w-6 h-6 rounded-full object-cover mr-2 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
+									size="xs"
+									className="mr-2 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
 								/>
 							</Link>
 							<Link href={`/profile/${post.originalPost.author.id || ''}`} className="font-semibold text-sm text-gray-900 dark:text-slate-100 hover:underline hover:text-blue-600">{post.originalPost.author.name}</Link>
@@ -1219,20 +1199,22 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 						disabled={editLoading}
 					/>
 					<div className="flex gap-2">
-						<button
-							className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={handleEditPost}
-							disabled={editLoading}
+							loading={editLoading}
 						>
-							{editLoading ? "Saving..." : "Save"}
-						</button>
-						<button
-							className="bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-200 px-4 py-1 rounded hover:bg-gray-300 dark:hover:bg-slate-500"
+							Save
+						</Button>
+						<Button
+							variant="secondary"
+							size="sm"
 							onClick={() => setIsEditing(false)}
 							disabled={editLoading}
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 					{editError && <div className="text-red-500 dark:text-red-400 text-sm mt-1">{editError}</div>}
 				</div>
@@ -1502,35 +1484,30 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				) : (
 					<div></div>
 				)}
-				<div className="relative flex-1" ref={repostMenuRef}>
-					<div className="flex justify-center">
-						<button
-							type="button"
-							disabled={isPreview || isReposting || isSharingNews}
-							className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-green-50 dark:hover:bg-slate-800 hover:text-green-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 ${isPreview || isReposting || isSharingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
-							onClick={handleRepostClick}
-							title={isNews ? "Share News" : "Repost"}
-							aria-label={isNews ? "Share News" : "Repost"}
-						>
-							<i className={`fas fa-retweet text-xl transform group-hover:scale-110 transition-transform ${(isReposting || isSharingNews) ? 'fa-spin' : ''}`}></i>
-						</button>
-					</div>
-					{showRepostMenu && (
-						<div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-50 overflow-hidden animate-fade-in">
-							<button
-								onClick={handleInstantRepost}
-								className="block w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition"
-							>
-								<i className="fas fa-retweet mr-2"></i> {isNews ? 'Share to Feed' : 'Repost'}
-							</button>
-							<button
-								onClick={handleQuoteRepost}
-								className="block w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition"
-							>
-								<i className="fas fa-pen mr-2"></i> {isNews ? 'Share with Comment' : 'Quote'}
-							</button>
-						</div>
-					)}
+				<div className="relative flex-1">
+					<Dropdown align="center" side="top" open={showRepostMenu} onOpenChange={setShowRepostMenu}>
+						<DropdownTrigger asChild>
+							<div className="flex justify-center">
+								<button
+									type="button"
+									disabled={isPreview || isReposting || isSharingNews}
+									className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-green-50 dark:hover:bg-slate-800 hover:text-green-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 ${isPreview || isReposting || isSharingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
+									title={isNews ? "Share News" : "Repost"}
+									aria-label={isNews ? "Share News" : "Repost"}
+								>
+									<i className={`fas fa-retweet text-xl transform group-hover:scale-110 transition-transform ${(isReposting || isSharingNews) ? 'fa-spin' : ''}`}></i>
+								</button>
+							</div>
+						</DropdownTrigger>
+						<DropdownMenu width="sm">
+							<DropdownItem icon="fas fa-retweet" onClick={handleInstantRepost}>
+								{isNews ? 'Share to Feed' : 'Repost'}
+							</DropdownItem>
+							<DropdownItem icon="fas fa-pen" onClick={handleQuoteRepost}>
+								{isNews ? 'Share with Comment' : 'Quote'}
+							</DropdownItem>
+						</DropdownMenu>
+					</Dropdown>
 				</div>
 				<button
 					type="button"
@@ -1569,10 +1546,12 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			{!isPreview && !isNews && (
 				<div className="px-3 sm:px-4 py-2">
 					<form onSubmit={handleAddComment} className="flex items-center space-x-2 sm:space-x-3 mb-3">
-						<img
-							src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
+						<Avatar
+							src={session?.user?.image}
+							name={session?.user?.name || "User"}
 							alt="Your avatar"
-							className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0 border border-gray-200"
+							size="sm"
+							className="flex-shrink-0 border border-gray-200"
 						/>
 						<div className="flex-1 relative" ref={commentContainerRef}>
 							<textarea
@@ -1657,12 +1636,14 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 									))
 							)}
 							{post.comments.length > 2 && (
-								<button
-									className="mt-2 text-blue-600 hover:underline text-sm font-medium"
+								<Button
+									variant="link"
+									size="sm"
 									onClick={toggleCommentSection}
+									className="mt-2"
 								>
 									{activeCommentForPost === post.id ? 'Hide comments' : 'View more comments'}
-								</button>
+								</Button>
 							)}
 						</div>
 					)}
@@ -1673,66 +1654,59 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			)}
 
 			{/* Quote Repost Modal */}
-			{showQuoteModal && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowQuoteModal(false)}>
-					<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-						<div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-							<h3 className="font-bold text-lg text-gray-900 dark:text-white">
-								{isNews ? 'Share News Article' : 'Quote Repost'}
-							</h3>
-							<button onClick={() => setShowQuoteModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200">
-								<i className="fas fa-times text-xl"></i>
-							</button>
-						</div>
-						<div className="p-4">
-							<textarea
-								value={quoteContent}
-								onChange={(e) => setQuoteContent(e.target.value)}
-								placeholder="Add your thoughts..."
-								className="w-full p-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white resize-none"
-								rows={3}
-								autoFocus
+			<Modal
+				isOpen={showQuoteModal}
+				onClose={() => setShowQuoteModal(false)}
+				title={isNews ? 'Share News Article' : 'Quote Repost'}
+				size="lg"
+				footer={
+					<Button
+						variant="primary"
+						onClick={() => isNews ? shareNews({ content: quoteContent }) : repostPost({ content: quoteContent })}
+						loading={isReposting || isSharingNews}
+					>
+						Post
+					</Button>
+				}
+			>
+				<textarea
+					value={quoteContent}
+					onChange={(e) => setQuoteContent(e.target.value)}
+					placeholder="Add your thoughts..."
+					className="w-full p-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white resize-none"
+					rows={3}
+					autoFocus
+				/>
+				<div className="mt-4 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-slate-700/50 opacity-90 pointer-events-none select-none">
+					{isNews && post.imageUrl && (
+						<img
+							src={post.imageUrl}
+							alt={post.title || 'News'}
+							className="w-full h-32 object-cover"
+						/>
+					)}
+					<div className="p-3">
+						<div className="flex items-center mb-2">
+							<Avatar
+								src={post.author?.imageUrl}
+								name={post.author?.name || 'Unknown'}
+								alt={post.author?.name || 'Author'}
+								size="xs"
+								className="mr-2"
 							/>
-							<div className="mt-4 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-slate-700/50 opacity-90 pointer-events-none select-none">
-								{isNews && post.imageUrl && (
-									<img
-										src={post.imageUrl}
-										alt={post.title || 'News'}
-										className="w-full h-32 object-cover"
-									/>
-								)}
-								<div className="p-3">
-									<div className="flex items-center mb-2">
-										<img
-											src={post.author?.imageUrl || `https://placehold.co/32x32/A78BFA/ffffff?text=${post.author?.name?.[0] || 'U'}`}
-											alt={post.author?.name || 'Author'}
-											className="w-6 h-6 rounded-full object-cover mr-2"
-										/>
-										<span className="font-semibold text-sm text-gray-900 dark:text-slate-100">{post.author?.name || 'Unknown'}</span>
-										{isNews && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">News</span>}
-									</div>
-									{isNews && post.title && (
-										<p className="font-medium text-sm text-gray-900 dark:text-slate-100 line-clamp-2 mb-1">{post.title}</p>
-									)}
-									<p className="text-sm text-gray-600 dark:text-slate-300 line-clamp-2">{post.content}</p>
-									{isNews && post.link && (
-										<p className="text-xs text-blue-500 dark:text-blue-400 mt-2 truncate">{post.link}</p>
-									)}
-								</div>
-							</div>
+							<span className="font-semibold text-sm text-gray-900 dark:text-slate-100">{post.author?.name || 'Unknown'}</span>
+							{isNews && <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">News</span>}
 						</div>
-						<div className="p-4 border-t border-gray-200 dark:border-slate-700 flex justify-end">
-							<button
-								onClick={() => isNews ? shareNews({ content: quoteContent }) : repostPost({ content: quoteContent })}
-								disabled={isReposting || isSharingNews}
-								className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-50"
-							>
-								{(isReposting || isSharingNews) ? 'Posting...' : 'Post'}
-							</button>
-						</div>
+						{isNews && post.title && (
+							<p className="font-medium text-sm text-gray-900 dark:text-slate-100 line-clamp-2 mb-1">{post.title}</p>
+						)}
+						<p className="text-sm text-gray-600 dark:text-slate-300 line-clamp-2">{post.content}</p>
+						{isNews && post.link && (
+							<p className="text-xs text-blue-500 dark:text-blue-400 mt-2 truncate">{post.link}</p>
+						)}
 					</div>
 				</div>
-			)}
+			</Modal>
 			<style jsx>{`
 				@keyframes pop {
 					0% { transform: scale(1); }
@@ -1783,102 +1757,30 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			/>
 
 			{/* Delete Confirmation Modal */}
-			{showDeleteModal && (
-				<div
-					className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-					onClick={(e) => {
-						if (e.target === e.currentTarget) setShowDeleteModal(false);
-					}}
-				>
-					<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-auto overflow-hidden animate-in fade-in zoom-in duration-200">
-						{/* Header */}
-						<div className="px-6 pt-6 pb-4 text-center">
-							<div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-								<svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-								</svg>
-							</div>
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-								Delete Post
-							</h3>
-							<p className="text-sm text-gray-500 dark:text-slate-400">
-								Are you sure you want to delete this post? This action cannot be undone.
-							</p>
-						</div>
-
-						{/* Actions */}
-						<div className="px-6 pb-6 flex flex-col sm:flex-row gap-3">
-							<button
-								onClick={() => setShowDeleteModal(false)}
-								className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={() => {
-									deletePost({ postId: post.id });
-									setShowDeleteModal(false);
-								}}
-								disabled={isDeleting}
-								className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
-							>
-								{isDeleting ? (
-									<span className="flex items-center justify-center gap-2">
-										<svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-										</svg>
-										Deleting...
-									</span>
-								) : (
-									"Delete"
-								)}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			<ConfirmModal
+				isOpen={showDeleteModal}
+				onClose={() => setShowDeleteModal(false)}
+				onConfirm={() => deletePost({ postId: post.id })}
+				title="Delete Post"
+				message="Are you sure you want to delete this post? This action cannot be undone."
+				confirmText="Delete"
+				cancelText="Cancel"
+				variant="danger"
+				loading={isDeleting}
+			/>
 
 			{/* Delete Comment Confirmation Modal */}
-			{showDeleteCommentModal && (
-				<div
-					className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-					onClick={(e) => {
-						if (e.target === e.currentTarget) setShowDeleteCommentModal(false);
-					}}
-				>
-					<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-auto overflow-hidden animate-in fade-in zoom-in duration-200">
-						<div className="px-6 pt-6 pb-4 text-center">
-							<div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-								<svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-								</svg>
-							</div>
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-								Delete Comment
-							</h3>
-							<p className="text-sm text-gray-500 dark:text-slate-400">
-								Are you sure you want to delete this comment? This action cannot be undone.
-							</p>
-						</div>
-						<div className="px-6 pb-6 flex flex-col sm:flex-row gap-3">
-							<button
-								onClick={() => setShowDeleteCommentModal(false)}
-								className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={() => commentToDelete && deleteCommentOrReply(commentToDelete)}
-								disabled={isDeletingComment}
-								className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
-							>
-								{isDeletingComment ? "Deleting..." : "Delete"}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			<ConfirmModal
+				isOpen={showDeleteCommentModal}
+				onClose={() => setShowDeleteCommentModal(false)}
+				onConfirm={() => commentToDelete && deleteCommentOrReply(commentToDelete)}
+				title="Delete Comment"
+				message="Are you sure you want to delete this comment? This action cannot be undone."
+				confirmText="Delete"
+				cancelText="Cancel"
+				variant="danger"
+				loading={isDeletingComment}
+			/>
 
 			{/* Edit History Modal */}
 			{showEditHistoryModal && (

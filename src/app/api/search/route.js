@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma";
 /**
  * Unified Search API
  * 
- * GET /api/search?q=<query>&type=<all|users|posts|groups>&limit=10&offset=0
+ * GET /api/search?q=<query>&type=<all|users|posts|groups|hashtags>&limit=10&offset=0
  *     &dateFrom=<ISO>&dateTo=<ISO>&postType=<post|poll|reel|news>
  *     &hasMedia=<true|false>&groupPrivacy=<Public|Private>&sort=<relevance|recent|popular>
  */
@@ -82,6 +82,7 @@ export async function GET(request) {
       users: { results: [], total: 0, hasMore: false },
       posts: { results: [], total: 0, hasMore: false },
       groups: { results: [], total: 0, hasMore: false },
+      hashtags: { results: [], total: 0, hasMore: false },
       query,
       totalResults: 0,
     };
@@ -130,8 +131,19 @@ export async function GET(request) {
       results.groups = groupsResult;
     }
 
+    // Search Hashtags
+    if (type === "all" || type === "hashtags") {
+      const hashtagsResult = await searchHashtags({
+        query: searchTermLower,
+        limit: type === "all" ? 5 : limit,
+        offset: type === "all" ? 0 : offset,
+        sort,
+      });
+      results.hashtags = hashtagsResult;
+    }
+
     results.totalResults =
-      results.users.total + results.posts.total + results.groups.total;
+      results.users.total + results.posts.total + results.groups.total + results.hashtags.total;
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {
@@ -722,4 +734,109 @@ async function searchGroups({
     total,
     hasMore,
   };
+}
+
+/**
+ * Search Hashtags
+ * Searches by: hashtag name
+ * Returns hashtags with usage count and recent posts
+ */
+async function searchHashtags({ query, limit, offset, sort }) {
+  try {
+    // Clean query - remove # if present
+    const cleanQuery = query.replace(/^#/, "");
+
+    // Build where clause
+    const whereClause = {
+      name: { contains: cleanQuery, mode: "insensitive" },
+    };
+
+    // Get total count
+    const total = await prisma.hashtag.count({ where: whereClause });
+
+    // Determine sort order
+    let orderBy = [];
+    if (sort === "recent") {
+      orderBy = [{ createdAt: "desc" }];
+    } else if (sort === "popular" || sort === "relevance") {
+      orderBy = [{ usageCount: "desc" }, { createdAt: "desc" }];
+    } else {
+      orderBy = [{ usageCount: "desc" }];
+    }
+
+    // Fetch hashtags - simpler query without nested includes that might fail
+    const hashtags = await prisma.hashtag.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        usageCount: true,
+        createdAt: true,
+        _count: {
+          select: { posts: true },
+        },
+      },
+      orderBy,
+      skip: offset,
+      take: limit + 1,
+    });
+
+    const hasMore = hashtags.length > limit;
+    const hashtagsToReturn = hasMore ? hashtags.slice(0, limit) : hashtags;
+
+    // Get preview images separately to avoid complex nested query issues
+    const formattedHashtags = await Promise.all(
+      hashtagsToReturn.map(async (hashtag) => {
+        let previewImages = [];
+        
+        try {
+          // Get recent posts with this hashtag for preview images
+          const recentPostHashtags = await prisma.postHashtag.findMany({
+            where: { hashtagId: hashtag.id },
+            take: 3,
+            orderBy: { createdAt: "desc" },
+            include: {
+              post: {
+                select: {
+                  thumbnailUrl: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          });
+          
+          previewImages = recentPostHashtags
+            .map((ph) => ph.post?.thumbnailUrl || ph.post?.imageUrl)
+            .filter(Boolean);
+        } catch (e) {
+          // If fetching preview images fails, just continue without them
+          console.warn("Failed to fetch preview images for hashtag:", hashtag.name);
+        }
+
+        return {
+          id: hashtag.id,
+          name: hashtag.name,
+          displayName: hashtag.name,
+          usageCount: hashtag.usageCount || hashtag._count.posts,
+          postCount: hashtag._count.posts,
+          previewImages,
+          createdAt: hashtag.createdAt,
+        };
+      })
+    );
+
+    return {
+      results: formattedHashtags,
+      total,
+      hasMore,
+    };
+  } catch (error) {
+    console.error("searchHashtags error:", error.message);
+    // Return empty results instead of throwing
+    return {
+      results: [],
+      total: 0,
+      hasMore: false,
+    };
+  }
 }

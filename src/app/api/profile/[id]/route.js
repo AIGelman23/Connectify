@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Fetch the requested profile
+    // Fetch the requested profile with subscription info
     const profile = await prisma.profile.findUnique({
       where: { userId: id },
       include: {
@@ -35,6 +35,13 @@ export async function GET(request, { params }) {
             name: true,
             email: true,
             image: true,
+            role: true,
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
           },
         },
         experiences: true,
@@ -80,6 +87,14 @@ export async function GET(request, { params }) {
       }),
     ]);
 
+    // Get subscription plan (active subscriptions only)
+    const subscriptionPlan = profile.user.subscription?.status === 'active' 
+      ? profile.user.subscription.plan 
+      : null;
+
+    // Get user role for admin badge
+    const userRole = profile.user.role;
+
     // Only return full profile data if users are connected or it's the user's own profile
     const isOwn = session.user.id === id;
     if (!isOwn && !isConnected) {
@@ -89,6 +104,7 @@ export async function GET(request, { params }) {
           user: {
             name: profile.user.name,
             image: profile.user.image,
+            role: profile.user.role,
           },
           headline: profile.headline,
           location: profile.location,
@@ -97,6 +113,8 @@ export async function GET(request, { params }) {
           isProfileComplete: profile.isProfileComplete,
           // Don't include other sensitive data
         },
+        subscriptionPlan,
+        userRole,
         isFollowing: !!isFollowing,
         followersCount,
         followingCount,
@@ -105,6 +123,8 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({
       profile,
+      subscriptionPlan,
+      userRole,
       isFollowing: !!isFollowing,
       followersCount,
       followingCount,

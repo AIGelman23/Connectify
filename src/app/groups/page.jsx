@@ -9,6 +9,7 @@ import ConnectifyLogo from "@/components/ConnectifyLogo";
 import Sidebar from "../../components/Sidebar";
 import GroupCard from "../../components/GroupCard";
 import CreateGroupModal from "../../components/CreateGroupModal";
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 
 export default function GroupsPage() {
   const { data: session, status } = useSession();
@@ -114,37 +115,23 @@ export default function GroupsPage() {
                     Connect with communities that share your interests
                   </p>
                 </div>
-                <button
+                <Button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto"
                 >
-                  <i className="fas fa-plus"></i>
+                  <i className="fas fa-plus mr-2"></i>
                   Create Group
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => setActiveTab('discover')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'discover'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                  }`}
-              >
-                Discover
-              </button>
-              <button
-                onClick={() => setActiveTab('my-groups')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'my-groups'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                  }`}
-              >
-                My Groups ({myGroups.length})
-              </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+              <TabsList>
+                <TabsTrigger value="discover">Discover</TabsTrigger>
+                <TabsTrigger value="my-groups">My Groups ({myGroups.length})</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {/* Groups Grid */}
             {activeTab === 'discover' && (
@@ -170,12 +157,9 @@ export default function GroupsPage() {
                     <p className="text-gray-500 dark:text-slate-400 mb-4">
                       Be the first to create a group and start building your community!
                     </p>
-                    <button
-                      onClick={() => setIsCreateModalOpen(true)}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-                    >
+                    <Button onClick={() => setIsCreateModalOpen(true)}>
                       Create First Group
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -204,12 +188,9 @@ export default function GroupsPage() {
                     <p className="text-gray-500 dark:text-slate-400 mb-4">
                       Discover groups to connect with like-minded people.
                     </p>
-                    <button
-                      onClick={() => setActiveTab('discover')}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-                    >
+                    <Button onClick={() => setActiveTab('discover')}>
                       Discover Groups
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

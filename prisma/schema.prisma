@@ -199,6 +199,14 @@ model User {
   savedDiscussions           SavedDiscussion[]
   groupDiscussionPollVotes   GroupDiscussionPollVote[]
   allowedToViewPosts         PostViewer[]
+  // Stories
+  stories                    Story[]                   @relation("UserStories")
+  storyViews                 StoryView[]               @relation("StoryViews")
+  storyReactions             StoryReaction[]           @relation("StoryReactions")
+  storyReplies               StoryReply[]              @relation("StoryReplies")
+  storyHighlights            StoryHighlight[]          @relation("UserHighlights")
+  // Subscription
+  subscription               Subscription?
 }
 
 model Skill {
@@ -312,6 +320,8 @@ model Post {
   // Visibility settings: PUBLIC, FRIENDS, PRIVATE, SPECIFIC_FRIENDS
   visibility     String         @default("PUBLIC")
   allowedViewers PostViewer[]
+  // Hashtags
+  hashtags       PostHashtag[]
 
   @@index([groupId])
   @@index([visibility])
@@ -532,6 +542,7 @@ model Sound {
   usageCount Int      @default(0)
   createdAt  DateTime @default(now())
   posts      Post[]
+  stories    Story[]  @relation("StoryMusic")
 }
 
 model LiveStream {
@@ -726,4 +737,204 @@ model RateLimit {
   windowStart DateTime @default(now()) @map("window_start")
 
   @@map("rate_limits")
+}
+
+model Hashtag {
+  id         String        @id @default(uuid())
+  name       String        @unique // lowercase, without #
+  usageCount Int           @default(0)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  posts      PostHashtag[]
+
+  @@index([usageCount(sort: Desc)])
+  @@map("hashtags")
+}
+
+model PostHashtag {
+  id        String   @id @default(uuid())
+  postId    String
+  hashtagId String
+  createdAt DateTime @default(now())
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, hashtagId])
+  @@index([hashtagId])
+  @@map("post_hashtags")
+}
+
+// ============================================
+// Stories Feature (Phase 3.1)
+// ============================================
+
+model Story {
+  id           String         @id @default(uuid())
+  authorId     String
+  mediaUrl     String         // Image or video URL
+  mediaType    String         @default("image") // "image" or "video"
+  thumbnailUrl String?        // For video stories
+  duration     Int            @default(5000) // Display duration in ms (5s for images, video length for videos)
+  caption      String?        @db.Text
+  location     String?
+  musicId      String?        // Optional background music
+  filters      Json?          // Applied filters/effects
+  textOverlays Json?          // Text overlays [{text, x, y, fontSize, color, fontFamily}]
+  stickers     Json?          // Stickers [{type, x, y, scale, rotation}]
+  mentions     Json?          // Mentioned users [{userId, x, y}]
+  linkUrl      String?        // Swipe-up link (for verified/business accounts)
+  viewsCount   Int            @default(0)
+  createdAt    DateTime       @default(now())
+  expiresAt    DateTime       // 24 hours after creation
+  isHighlight  Boolean        @default(false) // If saved to highlights
+  highlightId  String?        // Which highlight collection it belongs to
+
+  // Relations
+  author       User           @relation("UserStories", fields: [authorId], references: [id], onDelete: Cascade)
+  music        Sound?         @relation("StoryMusic", fields: [musicId], references: [id])
+  highlight    StoryHighlight? @relation(fields: [highlightId], references: [id])
+  views        StoryView[]
+  reactions    StoryReaction[]
+  replies      StoryReply[]
+
+  @@index([authorId])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("stories")
+}
+
+model StoryView {
+  id        String   @id @default(uuid())
+  storyId   String
+  viewerId  String
+  viewedAt  DateTime @default(now())
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer    User     @relation("StoryViews", fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, viewerId])
+  @@index([storyId])
+  @@index([viewerId])
+  @@map("story_views")
+}
+
+model StoryReaction {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  emoji     String   // Reaction emoji
+  createdAt DateTime @default(now())
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation("StoryReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([storyId])
+  @@map("story_reactions")
+}
+
+model StoryReply {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation("StoryReplies", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([userId])
+  @@map("story_replies")
+}
+
+model StoryHighlight {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  coverUrl    String?  // Custom cover image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation("UserHighlights", fields: [userId], references: [id], onDelete: Cascade)
+  stories     Story[]
+
+  @@index([userId])
+  @@map("story_highlights")
+}
+
+// =====================
+// Subscription Models
+// =====================
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  stripeCustomerId     String    @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  
+  // Subscription status
+  status               String    @default("inactive") // active, canceled, past_due, trialing, inactive
+  plan                 String    @default("free") // free, basic, pro, business
+  
+  // Billing period
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  
+  // Trial
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  
+  // Timestamps
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices             Invoice[]
+  
+  @@index([status])
+  @@index([plan])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id                   String   @id @default(uuid())
+  subscriptionId       String
+  stripeInvoiceId      String   @unique
+  
+  // Invoice details
+  amountPaid           Int      // in cents
+  amountDue            Int      // in cents
+  currency             String   @default("usd")
+  status               String   // paid, open, void, uncollectible
+  
+  // URLs
+  invoicePdf           String?
+  hostedInvoiceUrl     String?
+  
+  // Dates
+  periodStart          DateTime
+  periodEnd            DateTime
+  paidAt               DateTime?
+  createdAt            DateTime @default(now())
+  
+  subscription         Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([subscriptionId])
+  @@map("invoices")
+}
+
+model PremiumFeatureUsage {
+  id          String   @id @default(uuid())
+  userId      String
+  feature     String   // analytics_views, boosted_posts, scheduled_posts, etc.
+  usedAt      DateTime @default(now())
+  metadata    Json?
+  
+  @@index([userId, feature])
+  @@index([usedAt])
+  @@map("premium_feature_usage")
 }

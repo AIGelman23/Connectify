@@ -7,10 +7,11 @@ import { useSearch, useRecentSearches } from "@/hooks/useSearch";
 import { highlightMatch } from "@/lib/searchUtils";
 
 const TABS = [
-  { id: "all", label: "All" },
-  { id: "users", label: "People" },
-  { id: "posts", label: "Posts" },
-  { id: "groups", label: "Groups" },
+  { id: "all", label: "All", icon: "fa-th" },
+  { id: "users", label: "People", icon: "fa-user" },
+  { id: "posts", label: "Posts", icon: "fa-file-alt" },
+  { id: "groups", label: "Groups", icon: "fa-users" },
+  { id: "hashtags", label: "Tags", icon: "fa-hashtag" },
 ];
 
 export default function SearchDropdown({ onClose }) {
@@ -33,6 +34,7 @@ export default function SearchDropdown({ onClose }) {
     users,
     posts,
     groups,
+    hashtags,
     hasResults,
     clearResults,
   } = useSearch(query, {
@@ -49,13 +51,15 @@ export default function SearchDropdown({ onClose }) {
         ...users.map((u) => ({ ...u, type: "user" })),
         ...posts.map((p) => ({ ...p, type: "post" })),
         ...groups.map((g) => ({ ...g, type: "group" })),
+        ...hashtags.map((h) => ({ ...h, type: "hashtag" })),
       ];
     }
     if (activeTab === "users") return users.map((u) => ({ ...u, type: "user" }));
     if (activeTab === "posts") return posts.map((p) => ({ ...p, type: "post" }));
     if (activeTab === "groups") return groups.map((g) => ({ ...g, type: "group" }));
+    if (activeTab === "hashtags") return hashtags.map((h) => ({ ...h, type: "hashtag" }));
     return [];
-  }, [activeTab, users, posts, groups]);
+  }, [activeTab, users, posts, groups, hashtags]);
 
   // Handle click outside
   useEffect(() => {
@@ -105,6 +109,8 @@ export default function SearchDropdown({ onClose }) {
       router.push(`/dashboard?postId=${result.id}`);
     } else if (result.type === "group") {
       router.push(`/groups/${result.id}`);
+    } else if (result.type === "hashtag") {
+      router.push(`/hashtag/${result.name}`);
     }
   };
 
@@ -166,24 +172,29 @@ export default function SearchDropdown({ onClose }) {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 overflow-hidden min-w-[320px] animate-fade-in-down">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50 overflow-hidden min-w-[360px] animate-fade-in-down">
           {/* Category Tabs */}
           {query.length >= 2 && (
-            <div className="flex border-b border-gray-200 dark:border-slate-700">
+            <div className="flex border-b border-gray-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`flex-shrink-0 px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === tab.id
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                      : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50"
                   }`}
                 >
-                  {tab.label}
+                  <i className={`fas ${tab.icon} text-[10px]`}></i>
+                  <span>{tab.label}</span>
                   {results && tab.id !== "all" && (
-                    <span className="ml-1 text-xs">
-                      ({results[tab.id === "users" ? "users" : tab.id]?.total || 0})
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      activeTab === tab.id 
+                        ? "bg-blue-100 dark:bg-blue-900/50" 
+                        : "bg-gray-100 dark:bg-slate-600"
+                    }`}>
+                      {results[tab.id]?.total || 0}
                     </span>
                   )}
                 </button>
@@ -328,6 +339,30 @@ export default function SearchDropdown({ onClose }) {
                   ))}
                 </ResultSection>
               )}
+
+              {/* Hashtags Section */}
+              {(activeTab === "all" || activeTab === "hashtags") && hashtags.length > 0 && (
+                <ResultSection
+                  title="Hashtags"
+                  show={activeTab === "all"}
+                >
+                  {hashtags.map((hashtag, index) => (
+                    <HashtagResultItem
+                      key={hashtag.id}
+                      hashtag={hashtag}
+                      query={query}
+                      isSelected={
+                        selectedIndex ===
+                          (activeTab === "all"
+                            ? users.length + posts.length + groups.length + index
+                            : index) &&
+                        (activeTab === "hashtags" || activeTab === "all")
+                      }
+                      onClick={() => handleResultClick({ ...hashtag, type: "hashtag" })}
+                    />
+                  ))}
+                </ResultSection>
+              )}
             </div>
           )}
 
@@ -359,6 +394,13 @@ export default function SearchDropdown({ onClose }) {
         }
         .animate-fade-in-down {
           animation: fade-in-down 0.2s ease-out;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>
@@ -528,6 +570,53 @@ function GroupResultItem({ group, query, isSelected, onClick }) {
         <span className="text-xs text-green-600 dark:text-green-400">
           <i className="fas fa-check-circle"></i>
         </span>
+      )}
+    </div>
+  );
+}
+
+// Hashtag Result Item
+function HashtagResultItem({ hashtag, query, isSelected, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
+        isSelected
+          ? "bg-blue-50 dark:bg-blue-900/20"
+          : "hover:bg-gray-50 dark:hover:bg-slate-700/50"
+      }`}
+    >
+      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+        <i className="fas fa-hashtag text-white text-lg"></i>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
+          {highlightMatch(`#${hashtag.displayName || hashtag.name}`, query)}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-slate-400">
+          {(hashtag.usageCount || hashtag.postCount || 0).toLocaleString()} post
+          {(hashtag.usageCount || hashtag.postCount || 0) !== 1 ? "s" : ""}
+        </p>
+      </div>
+      {/* Preview thumbnails */}
+      {hashtag.previewImages && hashtag.previewImages.length > 0 && (
+        <div className="flex -space-x-2">
+          {hashtag.previewImages.slice(0, 3).map((img, index) => (
+            <div
+              key={index}
+              className="w-6 h-6 rounded border-2 border-white dark:border-slate-800 overflow-hidden"
+            >
+              <img
+                src={img}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

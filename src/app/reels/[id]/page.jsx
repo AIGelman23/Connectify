@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Navbar from '../../../components/NavBar';
-import ReelsFeed from '../../../components/reels/ReelsFeed';
+import SingleReelViewer from '../../../components/reels/SingleReelViewer';
 import ConnectifyLogo from "@/components/ConnectifyLogo";
 
 export default function SingleReelPage() {
@@ -38,18 +38,7 @@ export default function SingleReelPage() {
 				<Navbar session={session} router={router} />
 			</div>
 			<main className="flex-1 relative">
-				<ReelsFeed sessionUserId={session?.user?.id} initialReelId={reelId} />
-
-				{/* Mobile back button */}
-				<button
-					onClick={() => router.push('/reels')}
-					className="fixed top-4 left-4 z-50 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center"
-					aria-label="Go back"
-				>
-					<svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-					</svg>
-				</button>
+				<SingleReelViewer reelId={reelId} sessionUserId={session?.user?.id} />
 			</main>
 		</div>
 	);

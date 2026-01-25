@@ -6,16 +6,18 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import ConnectifyLogo from "@/components/ConnectifyLogo";
+import { Avatar, Button, Badge, CountBadge } from '@/components/ui';
 
 // Modern UserCard with Facebook-like visuals
 const UserCard = ({ user, type, onConnect, onAcceptOrReject, onNavigateToProfile }) => {
 	return (
 		<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-row items-center gap-4 w-full max-w-full mx-auto hover:shadow-lg transition">
-			<img
+			<Avatar
 				src={user.imageUrl}
-				alt={user.name}
+				name={user.name}
+				size="lg"
 				onClick={() => onNavigateToProfile(user.id)}
-				className="w-14 h-14 rounded-full object-cover border-2 border-blue-200 dark:border-blue-500 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
+				className="cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all border-2 border-blue-200 dark:border-blue-500"
 			/>
 			<div className="flex-1 min-w-0">
 				<h3
@@ -25,64 +27,53 @@ const UserCard = ({ user, type, onConnect, onAcceptOrReject, onNavigateToProfile
 				<p className="text-xs text-gray-500 dark:text-slate-400 truncate">{user.headline}</p>
 				<div className="flex flex-row gap-2 mt-2">
 					{type === 'searchResult' && user.connectionStatus === 'CONNECTED' && (
-						<span className="px-3 py-1 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
-							<i className="fas fa-check-circle"></i> Connected
-						</span>
+						<Badge variant="success" className="text-xs">
+							<i className="fas fa-check-circle mr-1"></i> Connected
+						</Badge>
 					)}
 					{type === 'searchResult' && user.connectionStatus === 'SENT_PENDING' && (
-						<span className="px-3 py-1 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
-							<i className="fas fa-clock"></i> Pending
-						</span>
+						<Badge variant="warning" className="text-xs">
+							<i className="fas fa-clock mr-1"></i> Pending
+						</Badge>
 					)}
 					{type === 'searchResult' && user.connectionStatus === 'RECEIVED_PENDING' && (
-						<button onClick={() => onAcceptOrReject(user.requestId, 'accept')}
-							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs">
+						<Button size="sm" onClick={() => onAcceptOrReject(user.requestId, 'accept')}>
 							Accept
-						</button>
+						</Button>
 					)}
 					{type === 'searchResult' && user.connectionStatus === 'NOT_CONNECTED' && (
-						<button onClick={() => onConnect(user.id)}
-							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs">
+						<Button size="sm" onClick={() => onConnect(user.id)}>
 							Add Friend
-						</button>
+						</Button>
 					)}
 
 					{type === 'receivedRequest' && (
 						<>
-							<button
-								onClick={() => onAcceptOrReject(user.requestId, 'accept')}
-								className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs"
-							>
+							<Button size="sm" onClick={() => onAcceptOrReject(user.requestId, 'accept')}>
 								Confirm
-							</button>
-							<button
-								onClick={() => onAcceptOrReject(user.requestId, 'reject')}
-								className="px-3 py-1 bg-gray-200 text-gray-700 font-medium rounded-full hover:bg-gray-300 transition text-xs"
-							>
+							</Button>
+							<Button size="sm" variant="secondary" onClick={() => onAcceptOrReject(user.requestId, 'reject')}>
 								Delete
-							</button>
+							</Button>
 						</>
 					)}
 
 					{type === 'sentRequest' && (
-						<span className="px-3 py-1 bg-yellow-100 text-yellow-700 font-medium rounded-full text-xs flex items-center gap-1">
-							<i className="fas fa-clock"></i> Pending
-						</span>
+						<Badge variant="warning" className="text-xs">
+							<i className="fas fa-clock mr-1"></i> Pending
+						</Badge>
 					)}
 
 					{type === 'myConnection' && (
-						<span className="px-3 py-1 bg-green-100 text-green-700 font-medium rounded-full text-xs flex items-center gap-1">
-							<i className="fas fa-check-circle"></i> Friends
-						</span>
+						<Badge variant="success" className="text-xs">
+							<i className="fas fa-check-circle mr-1"></i> Friends
+						</Badge>
 					)}
 
 					{type === 'suggestion' && (
-						<button
-							onClick={() => onConnect(user.id)}
-							className="px-3 py-1 bg-blue-600 text-white font-medium rounded-full hover:bg-blue-700 transition text-xs"
-						>
+						<Button size="sm" onClick={() => onConnect(user.id)}>
 							Add Friend
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>
@@ -97,7 +88,7 @@ const Section = ({ title, users, type, onConnect, onAcceptOrReject, onNavigateTo
 		<div className="mb-8 bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700">
 			<div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2">
 				<span className="text-lg font-semibold text-gray-800 dark:text-slate-100">{title}</span>
-				<span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300">{users.length}</span>
+				<CountBadge count={users.length} max={99} />
 			</div>
 			<div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
 				{users.map((user) => (
@@ -428,33 +419,30 @@ export default function MyNetworkPage() {
 					)}
 
 					<div className="flex flex-col md:flex-row gap-8">
-						{/* Sidebar: Always visible, Facebook-like left nav */}
-						<aside className="w-full md:w-64 flex-shrink-0 mb-4 md:mb-0">
-							<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-col space-y-1 w-full">
-								{sectionData.map(section => (
-									<button
-										key={section.key}
-										onClick={() => handleSectionChange(section.key)}
-										className={`flex items-center px-4 py-3 rounded-lg transition font-semibold gap-3 text-base w-full
-											${selectedSection === section.key
-												? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
-												: 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
-											}`}
-									>
-										<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-blue-600 dark:text-blue-400' : 'text-blue-400 dark:text-blue-500'}`}></i>
-										<span className="flex-1 break-words text-left">{section.title}</span>
-										<span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${section.count > 0
-											? selectedSection === section.key
-												? 'bg-blue-600 text-white'
-												: 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'
-											: 'bg-gray-200 dark:bg-slate-600 text-gray-400 dark:text-slate-400'
-											}`}>
-											{section.count}
-										</span>
-									</button>
-								))}
-							</div>
-						</aside>
+					{/* Sidebar: Always visible, Facebook-like left nav */}
+					<aside className="w-full md:w-64 flex-shrink-0 mb-4 md:mb-0">
+						<div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-gray-200 dark:border-slate-700 p-4 flex flex-col space-y-1 w-full">
+							{sectionData.map(section => (
+								<button
+									key={section.key}
+									onClick={() => handleSectionChange(section.key)}
+									className={`flex items-center px-4 py-3 rounded-lg transition font-semibold gap-3 text-base w-full
+										${selectedSection === section.key
+											? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+											: 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
+										}`}
+								>
+									<i className={`${section.icon} text-lg ${selectedSection === section.key ? 'text-blue-600 dark:text-blue-400' : 'text-blue-400 dark:text-blue-500'}`}></i>
+									<span className="flex-1 break-words text-left">{section.title}</span>
+									<CountBadge 
+										count={section.count} 
+										max={99}
+										variant={selectedSection === section.key ? 'primary' : 'default'}
+									/>
+								</button>
+							))}
+						</div>
+					</aside>
 
 						{/* Main content */}
 						<main className="flex-1">
