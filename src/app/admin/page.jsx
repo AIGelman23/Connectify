@@ -93,7 +93,7 @@ export default function AdminDashboard() {
 
   if (loading && page === 1 && !reports.length) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <div className="flex flex-col items-center">
           <ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
         </div>
@@ -185,11 +185,11 @@ export default function AdminDashboard() {
                           {report.targetContent ? (
                             <p className="whitespace-pre-wrap line-clamp-3">{report.targetContent}</p>
                           ) : (
-                            <p className="italic text-gray-500">Content not found or deleted</p>
+                            <p className="italic text-gray-500 dark:text-slate-400">Content not found or deleted</p>
                           )}
                           {report.targetAuthor && (
                             <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 dark:text-slate-400">
                                 Author: <span className="font-medium">{report.targetAuthor.name}</span> ({report.targetAuthor.email})
                               </p>
                               <button

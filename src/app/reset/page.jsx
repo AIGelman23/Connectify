@@ -92,10 +92,10 @@ export default function PublicResetPasswordPage() {
 
   if (validating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Validating your reset token...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-slate-300">Validating your reset token...</p>
         </div>
       </div>
     );
@@ -103,14 +103,14 @@ export default function PublicResetPasswordPage() {
 
   if (!tokenValid && !validating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
-        <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-10 max-w-md w-full border border-gray-200">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4 sm:p-6">
+        <div className="bg-white dark:bg-slate-800 shadow-xl rounded-2xl p-6 sm:p-10 max-w-md w-full border border-gray-200 dark:border-slate-700">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-4 text-center">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-red-800">
               Invalid Link
             </span>
           </h1>
-          <p className="text-gray-600 mb-8 text-center text-md sm:text-lg">
+          <p className="text-gray-600 dark:text-slate-300 mb-8 text-center text-md sm:text-lg">
             This password reset link is invalid or has expired.
           </p>
           <div className="text-center">
@@ -129,14 +129,14 @@ export default function PublicResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
-      <div className="bg-white shadow-xl rounded-2xl p-6 sm:p-10 max-w-md w-full border border-gray-200 animate-fade-in-up">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4 sm:p-6">
+      <div className="bg-white dark:bg-slate-800 shadow-xl rounded-2xl p-6 sm:p-10 max-w-md w-full border border-gray-200 dark:border-slate-700 animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-4 text-center">
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
             Reset Password
           </span>
         </h1>
-        <p className="text-gray-600 mb-8 text-center text-md sm:text-lg">
+        <p className="text-gray-600 dark:text-slate-300 mb-8 text-center text-md sm:text-lg">
           Please enter your new password below.
         </p>
 
@@ -160,26 +160,26 @@ export default function PublicResetPasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">New Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="appearance-none block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-base transition duration-150 ease-in-out"
+              className="appearance-none block w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-slate-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-base transition duration-150 ease-in-out"
               placeholder="••••••••"
             />
           </div>
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-1">Confirm New Password</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">Confirm New Password</label>
             <input
               id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="appearance-none block w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-base transition duration-150 ease-in-out"
+              className="appearance-none block w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-slate-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-base transition duration-150 ease-in-out"
               placeholder="••••••••"
             />
           </div>

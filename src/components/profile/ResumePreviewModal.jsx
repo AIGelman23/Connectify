@@ -267,44 +267,44 @@ export default function ResumePreviewModal({ isOpen, onClose, resumeUrl }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full h-full max-w-4xl max-h-screen flex flex-col animate-scale-in">
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h3 className="text-xl font-bold text-gray-800">Resume Preview</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full h-full max-w-4xl max-h-screen flex flex-col animate-scale-in">
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-600">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Resume Preview</h3>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out p-2 rounded-full hover:bg-gray-100"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition duration-150 ease-in-out p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
             aria-label="Close"
           >
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
         {/* MODIFIED: Added 'overflow-hidden' to the container div and attached containerRef */}
-        <div ref={containerRef} className="flex-grow p-4 flex flex-col items-center justify-center relative min-h-[500px] overflow-hidden">
+        <div ref={containerRef} className="flex-grow p-4 flex flex-col items-center justify-center relative min-h-[500px] overflow-hidden dark:bg-slate-900">
           {loadingPdf && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10 rounded-lg">
+            <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-slate-800 bg-opacity-80 dark:bg-opacity-80 z-10 rounded-lg">
               <div className="flex flex-col items-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-                <p className="mt-4 text-lg text-gray-700">Loading PDF...</p>
+                <p className="mt-4 text-lg text-gray-700 dark:text-gray-300">Loading PDF...</p>
               </div>
             </div>
           )}
           {pdfError && !loadingPdf && (
-            <div className="absolute inset-0 flex items-center justify-center bg-red-100 text-red-700 p-4 rounded-lg z-10">
+            <div className="absolute inset-0 flex items-center justify-center bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg z-10">
               <p className="text-center">{pdfError}</p>
             </div>
           )}
           {!loadingPdf && !pdfError && !pdfDoc && (
-            <div className="text-center text-gray-500">
+            <div className="text-center text-gray-500 dark:text-gray-400">
               <i className="fas fa-file-pdf text-6xl mb-4"></i>
               <p>No PDF document loaded or selected.</p>
             </div>
           )}
 
-          <canvas ref={canvasRef} id="pdf-canvas" className="border border-gray-300 shadow-md rounded-lg bg-gray-200"></canvas>
+          <canvas ref={canvasRef} id="pdf-canvas" className="border border-gray-300 dark:border-slate-600 shadow-md rounded-lg bg-gray-200 dark:bg-slate-700"></canvas>
         </div>
 
         {pdfDoc && (
-          <div className="flex justify-center items-center p-4 border-t border-gray-200 bg-gray-50 space-x-2 rounded-b-lg">
+          <div className="flex justify-center items-center p-4 border-t border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 space-x-2 rounded-b-lg">
             <button
               onClick={onPrevPage}
               disabled={pageNum <= 1 || pageRendering}
@@ -313,7 +313,7 @@ export default function ResumePreviewModal({ isOpen, onClose, resumeUrl }) {
               <i className="fas fa-chevron-left"></i>
               <span>Prev</span>
             </button>
-            <span className="text-gray-700 font-semibold">
+            <span className="text-gray-700 dark:text-gray-300 font-semibold">
               Page {pageNum} / {numPages}
             </span>
             <button
@@ -327,7 +327,7 @@ export default function ResumePreviewModal({ isOpen, onClose, resumeUrl }) {
             <button
               onClick={onZoomIn}
               disabled={pageRendering}
-              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-3 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               title="Zoom In"
             >
               <i className="fas fa-search-plus"></i>
@@ -335,7 +335,7 @@ export default function ResumePreviewModal({ isOpen, onClose, resumeUrl }) {
             <button
               onClick={onZoomOut}
               disabled={pageRendering}
-              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-3 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
               title="Zoom Out"
             >
               <i className="fas fa-search-minus"></i>

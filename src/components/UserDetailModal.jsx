@@ -86,13 +86,13 @@ export default function UserDetailModal({ userId, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">User Details</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 focus:outline-none"
             >
               <span className="sr-only">Close</span>
               <svg
@@ -118,7 +118,7 @@ export default function UserDetailModal({ userId, onClose }) {
           )}
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm text-center">
+            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-md text-sm text-center">
               {error}
             </div>
           )}
@@ -130,17 +130,17 @@ export default function UserDetailModal({ userId, onClose }) {
                   <img
                     src={user.image}
                     alt={user.name}
-                    className="h-24 w-24 rounded-full object-cover border-4 border-gray-100"
+                    className="h-24 w-24 rounded-full object-cover border-4 border-gray-100 dark:border-slate-600"
                   />
                 ) : (
-                  <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-3xl font-bold border-4 border-gray-100">
+                  <div className="h-24 w-24 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 text-3xl font-bold border-4 border-gray-100 dark:border-slate-600">
                     {user.name?.[0]?.toUpperCase() || '?'}
                   </div>
                 )}
-                <h3 className="mt-3 text-xl font-semibold text-gray-900">
+                <h3 className="mt-3 text-xl font-semibold text-gray-900 dark:text-white">
                   {user.name}
                 </h3>
-                <p className="text-gray-500">{user.email}</p>
+                <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
 
                 {/* Badges Section */}
                 <div className="mt-2 flex flex-wrap justify-center gap-2">
@@ -157,37 +157,37 @@ export default function UserDetailModal({ userId, onClose }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-4">
+              <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
                 <dl className="grid grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Joined
                     </dt>
-                    <dd className="mt-1 text-sm text-gray-900">
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       User ID
                     </dt>
-                    <dd className="mt-1 text-xs text-gray-500 truncate" title={user.id}>
+                    <dd className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate" title={user.id}>
                       {user.id}
                     </dd>
                   </div>
-                  <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="bg-gray-50 dark:bg-slate-700 p-3 rounded-lg text-center">
+                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Posts
                     </dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
+                    <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
                       {user._count?.posts || 0}
                     </dd>
                   </div>
-                  <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="bg-gray-50 dark:bg-slate-700 p-3 rounded-lg text-center">
+                    <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Comments
                     </dt>
-                    <dd className="mt-1 text-2xl font-semibold text-gray-900">
+                    <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
                       {user._count?.comments || 0}
                     </dd>
                   </div>
@@ -196,7 +196,7 @@ export default function UserDetailModal({ userId, onClose }) {
             </div>
           )}
         </div>
-        <div className="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg gap-2">
+        <div className="bg-gray-50 dark:bg-slate-700 px-6 py-4 flex justify-end rounded-b-lg gap-2">
           {user && !loading && (
             <button
               type="button"
@@ -211,7 +211,7 @@ export default function UserDetailModal({ userId, onClose }) {
           )}
           <button
             type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-600 border border-gray-300 dark:border-slate-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             onClick={onClose}
           >
             Close

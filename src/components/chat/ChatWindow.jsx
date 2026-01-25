@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import TypingIndicator from "./TypingIndicator";
+import ChatSearch from "./ChatSearch";
+import MediaGallery from "./MediaGallery";
 
 export default function ChatWindow({
   conversation,
@@ -29,6 +31,36 @@ export default function ChatWindow({
   hideHeader = false,
 }) {
   const messagesEndRef = useRef(null);
+  const messageListRef = useRef(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMediaGalleryOpen, setIsMediaGalleryOpen] = useState(false);
+
+  // Handle search result click - scroll to message
+  const handleSearchResultClick = useCallback((message) => {
+    const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Highlight the message briefly
+      messageElement.classList.add("bg-yellow-100", "dark:bg-yellow-900/30");
+      setTimeout(() => {
+        messageElement.classList.remove("bg-yellow-100", "dark:bg-yellow-900/30");
+      }, 2000);
+    }
+  }, []);
+
+  // Handle media click from gallery
+  const handleMediaClick = useCallback((media) => {
+    // Find the message with this media and scroll to it
+    const messageElement = document.querySelector(`[data-message-id="${media.messageId}"]`);
+    if (messageElement) {
+      setIsMediaGalleryOpen(false);
+      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      messageElement.classList.add("bg-blue-100", "dark:bg-blue-900/30");
+      setTimeout(() => {
+        messageElement.classList.remove("bg-blue-100", "dark:bg-blue-900/30");
+      }, 2000);
+    }
+  }, []);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -78,17 +110,29 @@ export default function ChatWindow({
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
       {!hideHeader && (
-        <ChatHeader
-          conversation={conversation}
-          currentUserId={currentUserId}
-          isOnline={isOnline}
-          lastSeen={lastSeen}
-          onBack={onBack}
-        />
+        <div className="relative">
+          <ChatHeader
+            conversation={conversation}
+            currentUserId={currentUserId}
+            isOnline={isOnline}
+            lastSeen={lastSeen}
+            onBack={onBack}
+            onSearchToggle={() => setIsSearchOpen(!isSearchOpen)}
+            onMediaGalleryToggle={() => setIsMediaGalleryOpen(true)}
+            isSearchOpen={isSearchOpen}
+          />
+          {/* Search Panel */}
+          <ChatSearch
+            messages={messages}
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            onResultClick={handleSearchResultClick}
+          />
+        </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-900">
+      <div ref={messageListRef} className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-900">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
@@ -124,6 +168,14 @@ export default function ChatWindow({
         onCancelReply={onCancelReply}
         disabled={sendingMessage}
         conversationId={conversation.id}
+      />
+
+      {/* Media Gallery Modal */}
+      <MediaGallery
+        messages={messages}
+        isOpen={isMediaGalleryOpen}
+        onClose={() => setIsMediaGalleryOpen(false)}
+        onMediaClick={handleMediaClick}
       />
     </div>
   );

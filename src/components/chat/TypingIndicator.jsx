@@ -5,7 +5,7 @@ export default function TypingIndicator({ users = [] }) {
 
   // Format the typing text
   const getTypingText = () => {
-    const getName = (user) => user?.name || user?.userName || "Someone";
+    const getName = (user) => user?.name?.split(" ")[0] || user?.userName || "Someone";
 
     if (users.length === 1) {
       return `${getName(users[0])} is typing`;
@@ -17,16 +17,34 @@ export default function TypingIndicator({ users = [] }) {
   };
 
   return (
-    <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400">
-      {/* Animated dots */}
-      <div className="flex gap-1">
-        <span className="w-2 h-2 bg-gray-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-        <span className="w-2 h-2 bg-gray-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-        <span className="w-2 h-2 bg-gray-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+    <div className="flex items-center gap-2 px-2">
+      {/* Avatar placeholder */}
+      {users[0] && (
+        <img
+          src={users[0]?.image || `https://placehold.co/24x24/e4e6eb/666?text=${(users[0]?.name?.[0] || "?").toUpperCase()}`}
+          alt=""
+          className="w-6 h-6 rounded-full object-cover"
+        />
+      )}
+
+      {/* Messenger-style typing bubble */}
+      <div className="bg-[#e4e6eb] dark:bg-slate-700 rounded-full px-4 py-2.5 flex items-center gap-1">
+        <span
+          className="w-2 h-2 bg-gray-500 dark:bg-slate-400 rounded-full animate-pulse"
+          style={{ animationDuration: "1s", animationDelay: "0ms" }}
+        />
+        <span
+          className="w-2 h-2 bg-gray-500 dark:bg-slate-400 rounded-full animate-pulse"
+          style={{ animationDuration: "1s", animationDelay: "200ms" }}
+        />
+        <span
+          className="w-2 h-2 bg-gray-500 dark:bg-slate-400 rounded-full animate-pulse"
+          style={{ animationDuration: "1s", animationDelay: "400ms" }}
+        />
       </div>
 
-      {/* Text */}
-      <span className="text-sm">{getTypingText()}...</span>
+      {/* Text - subtle */}
+      <span className="text-xs text-gray-500 dark:text-slate-400">{getTypingText()}</span>
     </div>
   );
 }

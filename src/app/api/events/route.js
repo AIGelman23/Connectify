@@ -1,91 +1,114 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { neon, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 
-// Simple in-memory cache to avoid rate limits
-const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Required for Neon to work in local Node.js environments
+if (typeof window === "undefined") {
+  neonConfig.webSocketConstructor = ws;
+}
+
+const sql = neon(process.env.DATABASE_URL);
+
+const RequestSchema = z.object({
+  lat: z.coerce.number(),
+  lon: z.coerce.number(),
+  type: z.enum(["all", "sports", "events", "music"]).default("all"),
+  radius: z.coerce.number().default(30),
+  size: z.coerce.number().default(10),
+  timeframe: z.enum(["upcoming", "past", "all"]).default("upcoming"),
+});
+
+async function checkRateLimit(ip) {
+  try {
+    const windowSeconds = 60;
+    const maxRequests = 20;
+    const key = `rl_${ip}`;
+
+    const result = await sql`
+      INSERT INTO rate_limits (key, count, window_start)
+      VALUES (${key}, 1, NOW())
+      ON CONFLICT (key) DO UPDATE
+      SET count = CASE 
+          WHEN rate_limits.window_start + INTERVAL '1 second' * ${windowSeconds} <= NOW() THEN 1 
+          ELSE rate_limits.count + 1 
+        END,
+        window_start = CASE 
+          WHEN rate_limits.window_start + INTERVAL '1 second' * ${windowSeconds} <= NOW() THEN NOW() 
+          ELSE rate_limits.window_start 
+        END
+      RETURNING count;
+    `;
+    return result[0].count <= maxRequests;
+  } catch (e) {
+    console.error("Rate limit DB error (skipping check):", e);
+    return true; // Fallback: allow request if DB is down
+  }
+}
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const lat = searchParams.get("lat");
-  const lon = searchParams.get("lon");
-  const type = searchParams.get("type") || "all"; // "all", "sports", or "events"
-  const radius = searchParams.get("radius") || "30";
-  const size = searchParams.get("size") || "4";
-
-  if (!lat || !lon) {
-    return NextResponse.json(
-      { error: "Missing lat/lon parameters" },
-      { status: 400 }
-    );
-  }
-
-  const API_KEY =
-    process.env.TICKETMASTER_API_KEY ||
-    process.env.NEXT_PUBLIC_TICKETMASTER_API;
-
-  if (!API_KEY) {
-    return NextResponse.json(
-      { error: "Ticketmaster API key not configured" },
-      { status: 500 }
-    );
-  }
-
-  // Build cache key
-  const cacheKey = `${lat}-${lon}-${type}-${radius}-${size}`;
-
-  // Check cache
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return NextResponse.json(cached.data);
-  }
-
   try {
-    let url = `https://app.ticketmaster.com/discovery/v2/events.json?latlong=${lat},${lon}&radius=${radius}&unit=km&sort=date,asc&size=${size}&apikey=${API_KEY}`;
+    const { searchParams } = new URL(request.url);
+    const query = RequestSchema.safeParse(Object.fromEntries(searchParams));
 
-    // Add sports filter if requested
-    if (type === "sports") {
-      url += "&classificationName=Sports";
+    if (!query.success) {
+      return NextResponse.json(
+        { error: "Invalid parameters" },
+        { status: 400 },
+      );
     }
 
-    const response = await fetch(url);
+    const { lat, lon, type, radius, size, timeframe } = query.data;
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        // Return cached data if available, even if expired
-        if (cached) {
-          return NextResponse.json(cached.data);
-        }
-        return NextResponse.json(
-          { error: "Rate limited", events: [] },
-          { status: 429 }
-        );
-      }
-      throw new Error(`Ticketmaster API error: ${response.status}`);
+    // Rate Limit Check
+    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const isAllowed = await checkRateLimit(ip);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429 },
+      );
     }
 
-    const data = await response.json();
-    const events = data._embedded?.events || [];
+    const API_KEY = process.env.TICKETMASTER_API_KEY;
+    const now = new Date().toISOString().split(".")[0] + "Z";
 
-    const result = { events };
-
-    // Cache the result
-    cache.set(cacheKey, {
-      data: result,
-      timestamp: Date.now(),
+    const params = new URLSearchParams({
+      latlong: `${lat},${lon}`,
+      radius: radius.toString(),
+      unit: "miles",
+      size: size.toString(),
+      apikey: API_KEY,
     });
 
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Error fetching events:", error);
-
-    // Return cached data if available
-    if (cached) {
-      return NextResponse.json(cached.data);
+    // Timeframe Logic
+    if (timeframe === "upcoming") {
+      params.append("startDateTime", now);
+      params.append("sort", "date,asc");
+    } else if (timeframe === "past") {
+      params.append("endDateTime", now);
+      params.append("sort", "date,desc");
     }
 
+    if (type !== "all") {
+      params.append("classificationName", type);
+    }
+
+    const response = await fetch(
+      `https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`,
+      { next: { revalidate: 300 } },
+    );
+
+    const data = await response.json();
+    return NextResponse.json({
+      events: data._embedded?.events || [],
+      timeframe,
+    });
+  } catch (error) {
+    console.error("Critical API Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch events", events: [] },
-      { status: 500 }
+      { error: "Internal Server Error", events: [] },
+      { status: 500 },
     );
   }
 }

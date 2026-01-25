@@ -207,14 +207,14 @@ export default function MessageInput({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700">
+    <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-t border-gray-100 dark:border-slate-700/50">
       {/* Reply preview */}
       {replyingTo && (
-        <div className="px-4 py-2 bg-gray-50 dark:bg-slate-700/50 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+        <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-transparent dark:from-slate-700/50 dark:to-transparent flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-1 h-10 bg-indigo-500 rounded-full" />
+            <div className="w-1 h-10 bg-blue-500 rounded-full" />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
                 Replying to {replyingTo.sender?.name}
               </p>
               <p className="text-sm text-gray-600 dark:text-slate-400 truncate">
@@ -224,9 +224,9 @@ export default function MessageInput({
           </div>
           <button
             onClick={onCancelReply}
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+            className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -281,16 +281,16 @@ export default function MessageInput({
       )}
 
       {/* Input area */}
-      <form onSubmit={handleSubmit} className="p-4 flex items-end gap-2">
-        {/* Attach button */}
+      <form onSubmit={handleSubmit} className="p-3 flex items-end gap-2">
+        {/* Plus button for attachments */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition"
+          className="p-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
           title="Attach file"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
           </svg>
         </button>
         <input
@@ -302,47 +302,50 @@ export default function MessageInput({
           className="hidden"
         />
 
-        {/* Text input */}
-        <div className="flex-1 relative">
+        {/* Text input with emoji button inside */}
+        <div className="flex-1 relative flex items-end">
           <textarea
             ref={inputRef}
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Aa"
             disabled={disabled}
             rows={1}
-            className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-slate-600 rounded-2xl
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-              bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100
+            className="w-full px-4 py-2.5 pr-12 border-0 rounded-full
+              focus:outline-none focus:ring-2 focus:ring-blue-500/20
+              bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100
               placeholder-gray-500 dark:placeholder-slate-400
-              resize-none max-h-32 disabled:opacity-50"
+              resize-none max-h-32 disabled:opacity-50 transition-all"
             style={{
-              minHeight: "44px",
+              minHeight: "42px",
               height: "auto",
             }}
           />
+          {/* Emoji button inside input */}
+          <div className="absolute right-2 bottom-1.5">
+            <EmojiSelector onEmojiSelect={handleEmojiSelect} />
+          </div>
         </div>
 
-        {/* Emoji picker */}
-        <EmojiSelector onEmojiSelect={handleEmojiSelect} />
-
-        {/* Send button */}
+        {/* Send button - Messenger style */}
         <button
           type="submit"
           disabled={(!message.trim() && attachments.length === 0) || disabled || isUploading}
-          className="p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700
-            disabled:opacity-50 disabled:cursor-not-allowed transition"
+          className={`p-2 rounded-full transition-all flex-shrink-0 ${(!message.trim() && attachments.length === 0) || disabled || isUploading
+              ? "text-gray-400 dark:text-slate-500"
+              : "text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700"
+            }`}
           title={isUploading ? "Uploading..." : "Send message"}
         >
           {isUploading ? (
-            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           )}
         </button>

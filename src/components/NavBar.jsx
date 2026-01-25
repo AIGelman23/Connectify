@@ -298,7 +298,7 @@ export default function Navbar({ session, router }) {
 										className="navbar-search-input block w-full pl-10 pr-3 py-2 rounded-full text-sm"
 									/>
 									{showSearchDropdown && searchText && (
-										<ul className="navbar-search-dropdown absolute z-10 mt-1 w-full rounded-md shadow-lg bg-white border border-gray-200 max-h-64 overflow-y-auto">
+										<ul className="navbar-search-dropdown absolute z-10 mt-1 w-full rounded-md shadow-lg max-h-64 overflow-y-auto">
 											{friendResults.length > 0 ? (
 												friendResults.map(friend => (
 													<li
@@ -308,7 +308,7 @@ export default function Navbar({ session, router }) {
 															setShowSearchDropdown(false);
 															router.push(`/profile/${friend.id}`);
 														}}
-														className="cursor-pointer px-3 py-2 flex items-center hover:bg-blue-50"
+														className="cursor-pointer px-3 py-2 flex items-center hover:bg-blue-50 dark:hover:bg-slate-700"
 													>
 														<img
 															src={
@@ -323,7 +323,7 @@ export default function Navbar({ session, router }) {
 													</li>
 												))
 											) : (
-												<li className="cursor-pointer px-3 py-2 text-gray-500">No friends found</li>
+												<li className="cursor-pointer px-3 py-2 text-gray-500 dark:text-gray-400">No friends found</li>
 											)}
 										</ul>
 									)}
@@ -333,7 +333,7 @@ export default function Navbar({ session, router }) {
 						<div className="hidden md:flex items-center space-x-4 flex-1 justify-center pl-8">
 							<NavLink iconClass="fas fa-home" text="Home" href="/dashboard" router={router} isActive={currentPath === '/dashboard'} />
 							<NavLink iconClass="fas fa-play-circle" text="Reels" href="/reels" router={router} isActive={currentPath === '/reels' || currentPath.startsWith('/reels/')} />
-							<NavLink iconClass="fas fa-users" text="Network" href="/network" router={router} isActive={currentPath === '/network'} />
+							<NavLink iconClass="fas fa-user-friends" text="Network" href="/network" router={router} isActive={currentPath === '/network'} />
 							<NavLink iconClass="fas fa-briefcase" text="Jobs" href="/jobs" router={router} isActive={currentPath === '/jobs'} />
 							<NavLink
 								iconClass="fas fa-bell"
@@ -554,11 +554,11 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 	return (
 		<div ref={menuRef} className="notifications-dropdown-container absolute top-full right-0 mt-2 w-80 rounded-lg shadow-lg z-30 animate-fade-in-down">
 			{/* Header */}
-			<div className="flex justify-between items-center px-4 py-3">
+			<div className="flex justify-between items-center px-4 py-3 border-b dark:border-slate-700">
 				<h4 className="font-bold text-lg">Notifications</h4>
 				<button
 					onClick={onMarkAllRead}
-					className="text-blue-600 hover:underline text-sm font-medium"
+					className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
 				>
 					Mark all as read
 				</button>
@@ -566,15 +566,15 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 			{/* List */}
 			<div className="max-h-80 overflow-y-auto">
 				{notifications.length === 0 ? (
-					<p className="text-sm p-6 text-center">
+					<p className="text-sm p-6 text-center text-gray-500 dark:text-gray-400">
 						No new notifications.
 					</p>
 				) : (
 					<>
 						{groupedNotifications.today && groupedNotifications.today.length > 0 && (
-							<div className="border-b border-gray-100">
-								<div className="px-4 py-2 bg-gray-50">
-									<span className="text-xs font-medium text-gray-500">TODAY</span>
+							<div className="border-b border-gray-100 dark:border-slate-700">
+								<div className="px-4 py-2 bg-gray-50 dark:bg-slate-700">
+									<span className="text-xs font-medium text-gray-500 dark:text-gray-400">TODAY</span>
 								</div>
 								{groupedNotifications.today.map((notif) => (
 									<NotificationItem
@@ -590,9 +590,9 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 						)}
 
 						{groupedNotifications.yesterday && groupedNotifications.yesterday.length > 0 && (
-							<div className="border-b border-gray-100">
-								<div className="px-4 py-2 bg-gray-50">
-									<span className="text-xs font-medium text-gray-500">YESTERDAY</span>
+							<div className="border-b border-gray-100 dark:border-slate-700">
+								<div className="px-4 py-2 bg-gray-50 dark:bg-slate-700">
+									<span className="text-xs font-medium text-gray-500 dark:text-gray-400">YESTERDAY</span>
 								</div>
 								{groupedNotifications.yesterday.map((notif) => (
 									<NotificationItem
@@ -608,9 +608,9 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 						)}
 
 						{groupedNotifications.thisWeek && groupedNotifications.thisWeek.length > 0 && (
-							<div className="border-b border-gray-100">
-								<div className="px-4 py-2 bg-gray-50">
-									<span className="text-xs font-medium text-gray-500">THIS WEEK</span>
+							<div className="border-b border-gray-100 dark:border-slate-700">
+								<div className="px-4 py-2 bg-gray-50 dark:bg-slate-700">
+									<span className="text-xs font-medium text-gray-500 dark:text-gray-400">THIS WEEK</span>
 								</div>
 								{groupedNotifications.thisWeek.map((notif) => (
 									<NotificationItem
@@ -627,8 +627,8 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 
 						{groupedNotifications.older && groupedNotifications.older.length > 0 && (
 							<div>
-								<div className="px-4 py-2 bg-gray-50">
-									<span className="text-xs font-medium text-gray-500">OLDER</span>
+								<div className="px-4 py-2 bg-gray-50 dark:bg-slate-700">
+									<span className="text-xs font-medium text-gray-500 dark:text-gray-400">OLDER</span>
 								</div>
 								{groupedNotifications.older.map((notif) => (
 									<NotificationItem
@@ -646,13 +646,13 @@ function NotificationMenu({ notifications, onMarkAllRead, onClearNotification, o
 				)}
 			</div>
 			{/* Footer */}
-			<div className="p-3 text-center">
+			<div className="p-3 text-center border-t dark:border-slate-700">
 				<button
 					onClick={() => {
 						onClose();
 						router.push('/notifications');
 					}}
-					className="text-blue-600 hover:underline text-sm font-medium"
+					className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
 				>
 					View all notifications
 				</button>
@@ -697,7 +697,7 @@ function NotificationItem({ notification, onClearNotification, formatTimeAgo, ro
 					<p className={`text-sm ${notification.read ? "text-gray-600" : "text-gray-800 font-semibold"}`}>
 						{notification.message}
 					</p>
-					<span className="text-xs text-gray-500">
+					<span className="text-xs text-gray-500 dark:text-slate-400">
 						{formatTimeAgo(notification.createdAt)}
 					</span>
 
@@ -832,7 +832,7 @@ function MobileBottomNav({ router, currentPath, notificationCount }) {
 	const navItems = [
 		{ icon: 'fas fa-home', href: '/dashboard', label: 'Home' },
 		{ icon: 'fas fa-play-circle', href: '/reels', label: 'Reels' },
-		{ icon: 'fas fa-users', href: '/network', label: 'Network' },
+		{ icon: 'fas fa-user-friends', href: '/network', label: 'Network' },
 		{ icon: 'fas fa-bell', href: '/notifications', label: 'Notifications', badge: notificationCount },
 	];
 

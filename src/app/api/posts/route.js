@@ -59,7 +59,7 @@ async function getNestedRepliesForReply(parentId) {
           }`,
       },
       replies: await getNestedRepliesForReply(reply.id), // Recursively fetch nested replies
-    }))
+    })),
   );
 }
 
@@ -139,7 +139,7 @@ export async function POST(request) {
       console.log("Unauthorized POST request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -150,7 +150,7 @@ export async function POST(request) {
     if (currentUser?.isBanned) {
       return NextResponse.json(
         { message: "You are banned from performing this action." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -172,10 +172,27 @@ export async function POST(request) {
       typeof body.originalPostId === "string" ? body.originalPostId : null;
     const pollOptions = Array.isArray(body.pollOptions)
       ? body.pollOptions.filter(
-          (o) => typeof o === "string" && o.trim().length > 0
+          (o) => typeof o === "string" && o.trim().length > 0,
         )
       : [];
+    const groupId = typeof body.groupId === "string" ? body.groupId : null;
     const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+
+    // --- Visibility settings ---
+    // Valid values: PUBLIC, FRIENDS, PRIVATE, SPECIFIC_FRIENDS
+    const validVisibilities = [
+      "PUBLIC",
+      "FRIENDS",
+      "PRIVATE",
+      "SPECIFIC_FRIENDS",
+    ];
+    const visibility = validVisibilities.includes(body.visibility)
+      ? body.visibility
+      : "PUBLIC";
+    // Array of user IDs who can view the post (only used when visibility is SPECIFIC_FRIENDS)
+    const allowedViewers = Array.isArray(body.allowedViewers)
+      ? body.allowedViewers.filter(Boolean)
+      : [];
 
     // --- DEBUG LOGGING ---
     console.log("DEBUG: imageUrl:", imageUrl);
@@ -196,7 +213,7 @@ export async function POST(request) {
       "videoUrl:",
       videoUrl,
       "content:",
-      content
+      content,
     );
 
     // --- Tagging friends ---
@@ -216,14 +233,14 @@ export async function POST(request) {
     ) {
       return NextResponse.json(
         { message: "Post content or media is required." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Defensive: Ensure prisma is defined and initialized
     if (!prisma || typeof prisma.post?.create !== "function") {
       throw new Error(
-        "Prisma client is not initialized. Check your prisma import and setup."
+        "Prisma client is not initialized. Check your prisma import and setup.",
       );
     }
 
@@ -241,6 +258,15 @@ export async function POST(request) {
         videoUrl,
         expiresAt,
         originalPostId,
+        groupId,
+        visibility,
+        // Create PostViewer records if visibility is SPECIFIC_FRIENDS
+        allowedViewers:
+          visibility === "SPECIFIC_FRIENDS" && allowedViewers.length > 0
+            ? {
+                create: allowedViewers.map((userId) => ({ userId })),
+              }
+            : undefined,
         pollOptions:
           pollOptions.length > 0
             ? {
@@ -286,8 +312,8 @@ export async function POST(request) {
                 postId: post.id,
                 userId,
               },
-            })
-          )
+            }),
+          ),
         );
 
         // Get author info for notification message
@@ -308,8 +334,8 @@ export async function POST(request) {
                 message: `${author?.name || "Someone"} tagged you in a post.`,
                 read: false,
               },
-            })
-          )
+            }),
+          ),
         );
       });
     }
@@ -362,7 +388,7 @@ export async function POST(request) {
         id: tf.user.id,
         name: tf.user.name,
         imageUrl: tf.user.profile?.profilePictureUrl || tf.user.image || null,
-      })
+      }),
     );
 
     // Format the post object to match what your frontend expects
@@ -401,7 +427,7 @@ export async function POST(request) {
           },
           timestamp: formatTimestamp(comment.createdAt),
           replies: await getNestedReplies(comment.id), // <-- always use this!
-        }))
+        })),
       ),
       taggedFriends: formattedTaggedFriends,
       pollOptions: (postWithTags.pollOptions || []).map((opt) => ({
@@ -419,7 +445,7 @@ export async function POST(request) {
     console.error("Error creating post:", error, error?.stack);
     return NextResponse.json(
       { message: "Failed to create post.", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -432,7 +458,7 @@ export async function GET(request) {
       console.log("Unauthorized request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -447,6 +473,7 @@ export async function GET(request) {
     const skip = parseInt(searchParams.get("skip") || "0", 10); // Number of posts to skip
     const targetUserId = searchParams.get("userId");
     const type = searchParams.get("type");
+    const groupId = searchParams.get("groupId");
 
     let where = {};
     // Only sort by isPinned when viewing a specific user's profile
@@ -458,6 +485,9 @@ export async function GET(request) {
       // Sort pinned posts first only on their profile page
       where.authorId = targetUserId;
       orderBy = [{ isPinned: "desc" }, { createdAt: "desc" }];
+    } else if (groupId) {
+      // Fetch posts for a specific group
+      where.groupId = groupId;
     } else {
       // 1. Find all accepted connections for the current user
       const connections = await prisma.connectionRequest.findMany({
@@ -507,6 +537,75 @@ export async function GET(request) {
       orderBy = [{ createdAt: "desc" }]; // Sort by when post was created, not pinned
     } else if (type === "trending") {
       orderBy = [{ likesCount: "desc" }, { commentsCount: "desc" }];
+    } else if (type) {
+      where.type = type;
+    }
+
+    // --- Visibility filtering ---
+    // Users can see posts if:
+    // 1. They are the author
+    // 2. Post is PUBLIC
+    // 3. Post is FRIENDS and viewer is connected to the author
+    // 4. Post is SPECIFIC_FRIENDS and viewer is in allowedViewers
+    // Note: PRIVATE posts are only visible to the author
+
+    // Get current user's connections for visibility filtering
+    const userConnections = await prisma.connectionRequest.findMany({
+      where: {
+        OR: [
+          { senderId: userId, status: "ACCEPTED" },
+          { receiverId: userId, status: "ACCEPTED" },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    const connectedFriendIds = new Set();
+    userConnections.forEach((conn) => {
+      if (conn.senderId !== userId) {
+        connectedFriendIds.add(conn.senderId);
+      }
+      if (conn.receiverId !== userId) {
+        connectedFriendIds.add(conn.receiverId);
+      }
+    });
+
+    const friendIdsArray = Array.from(connectedFriendIds);
+
+    // Build visibility filter
+    const visibilityFilter = {
+      OR: [
+        // User can always see their own posts
+        { authorId: userId },
+        // Public posts
+        { visibility: "PUBLIC" },
+        // Friends-only posts from connected users
+        {
+          AND: [
+            { visibility: "FRIENDS" },
+            { authorId: { in: friendIdsArray } },
+          ],
+        },
+        // Specific friends posts where user is in allowedViewers
+        {
+          AND: [
+            { visibility: "SPECIFIC_FRIENDS" },
+            { allowedViewers: { some: { userId: userId } } },
+          ],
+        },
+      ],
+    };
+
+    // Merge visibility filter with existing where clause
+    if (where.AND) {
+      where.AND.push(visibilityFilter);
+    } else if (Object.keys(where).length > 0) {
+      where = { AND: [where, visibilityFilter] };
+    } else {
+      where = visibilityFilter;
     }
 
     // 3. Fetch posts from these users with pagination
@@ -586,6 +685,19 @@ export async function GET(request) {
           where: { userId },
           select: { id: true },
         },
+        // Include visibility and allowed viewers
+        allowedViewers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                profile: { select: { profilePictureUrl: true } },
+              },
+            },
+          },
+        },
         originalPost: {
           include: {
             author: {
@@ -638,7 +750,7 @@ export async function GET(request) {
               .map((like) => like.user.name)
               .filter(Boolean);
             const likedByCurrentUser = (comment.likes || []).some(
-              (like) => like.userId === userId
+              (like) => like.userId === userId,
             );
             return {
               ...comment,
@@ -659,7 +771,7 @@ export async function GET(request) {
               timestamp: formatTimestamp(comment.createdAt),
               replies,
             };
-          })
+          }),
         );
 
         // DEBUG: Log the full comments structure for this post
@@ -706,8 +818,18 @@ export async function GET(request) {
               }
             : null,
           isSaved: post.savedBy && post.savedBy.length > 0,
+          // Visibility info
+          visibility: post.visibility || "PUBLIC",
+          allowedViewers: (post.allowedViewers || []).map((viewer) => ({
+            id: viewer.user.id,
+            name: viewer.user.name,
+            imageUrl:
+              viewer.user.profile?.profilePictureUrl ||
+              viewer.user.image ||
+              null,
+          })),
         };
-      })
+      }),
     );
 
     // DEBUG: Log the final posts structure
@@ -715,7 +837,7 @@ export async function GET(request) {
 
     return NextResponse.json(
       { posts: formattedPosts, hasMore: hasMore },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("API Error fetching posts:", error);
@@ -724,7 +846,7 @@ export async function GET(request) {
         message: "Internal server error fetching posts.",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -737,7 +859,7 @@ export async function PATCH(request) {
       console.log("Unauthorized PATCH request - no valid session found");
       return NextResponse.json(
         { message: "Unauthorized. Please log in." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -748,7 +870,7 @@ export async function PATCH(request) {
     if (currentUser?.isBanned) {
       return NextResponse.json(
         { message: "You are banned from performing this action." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -769,7 +891,7 @@ export async function PATCH(request) {
     if (!action) {
       return NextResponse.json(
         { message: "Action is required." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -780,7 +902,7 @@ export async function PATCH(request) {
       if (!postId || typeof content !== "string" || !content.trim()) {
         return NextResponse.json(
           { message: "Post ID and new content are required for editing." },
-          { status: 400 }
+          { status: 400 },
         );
       }
       // Only allow author to edit
@@ -788,13 +910,13 @@ export async function PATCH(request) {
       if (!post) {
         return NextResponse.json(
           { message: "Post not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
       if (post.authorId !== userId) {
         return NextResponse.json(
           { message: "Not authorized to edit this post." },
-          { status: 403 }
+          { status: 403 },
         );
       }
       await prisma.post.update({
@@ -803,14 +925,14 @@ export async function PATCH(request) {
       });
       return NextResponse.json(
         { message: "Post updated successfully." },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "react") {
       const reactionType = requestBody.reactionType || "LIKE";
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required for reacting to a post." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -836,7 +958,7 @@ export async function PATCH(request) {
         });
         return NextResponse.json(
           { message: "Reaction updated.", likesCount: post.likesCount },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -861,13 +983,13 @@ export async function PATCH(request) {
           message: "Post reacted successfully.",
           likesCount: updated.likesCount,
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "unreact") {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required for removing reaction." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -885,7 +1007,7 @@ export async function PATCH(request) {
         });
         return NextResponse.json(
           { message: "Not reacted.", likesCount: post?.likesCount || 0 },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -910,7 +1032,7 @@ export async function PATCH(request) {
           message: "Reaction removed successfully.",
           likesCount: Math.max(0, updated.likesCount),
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "comment") {
       if (!postId || !commentContent || commentContent.trim() === "") {
@@ -918,7 +1040,7 @@ export async function PATCH(request) {
           {
             message: "Post ID and comment content are required for commenting.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -960,13 +1082,13 @@ export async function PATCH(request) {
           message: "Comment added successfully.",
           commentsCount: updatedEntity.commentsCount,
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "like_comment") {
       if (!commentId) {
         return NextResponse.json(
           { message: "Comment ID is required for liking a comment." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -986,7 +1108,7 @@ export async function PATCH(request) {
         if (existingLike) {
           return NextResponse.json(
             { message: "Already liked.", likesCount: comment.likesCount },
-            { status: 200 }
+            { status: 200 },
           );
         }
 
@@ -1011,7 +1133,7 @@ export async function PATCH(request) {
             message: "Comment liked successfully.",
             likesCount: updated.likesCount,
           },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -1023,7 +1145,7 @@ export async function PATCH(request) {
       if (!reply) {
         return NextResponse.json(
           { message: "Comment or reply not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -1037,7 +1159,7 @@ export async function PATCH(request) {
       if (existingReplyLike) {
         return NextResponse.json(
           { message: "Already liked.", likesCount: reply.likesCount },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -1062,13 +1184,13 @@ export async function PATCH(request) {
           message: "Reply liked successfully.",
           likesCount: updatedReply.likesCount,
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "unlike_comment") {
       if (!commentId) {
         return NextResponse.json(
           { message: "Comment ID is required for unliking." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1088,7 +1210,7 @@ export async function PATCH(request) {
         if (!existingLike) {
           return NextResponse.json(
             { message: "Not liked.", likesCount: comment.likesCount },
-            { status: 200 }
+            { status: 200 },
           );
         }
 
@@ -1112,7 +1234,7 @@ export async function PATCH(request) {
             message: "Comment unliked successfully.",
             likesCount: Math.max(0, updated.likesCount),
           },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -1124,7 +1246,7 @@ export async function PATCH(request) {
       if (!reply) {
         return NextResponse.json(
           { message: "Comment or reply not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -1138,7 +1260,7 @@ export async function PATCH(request) {
       if (!existingReplyLike) {
         return NextResponse.json(
           { message: "Not liked.", likesCount: reply.likesCount },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -1162,7 +1284,7 @@ export async function PATCH(request) {
           message: "Reply unliked successfully.",
           likesCount: Math.max(0, updatedReply.likesCount),
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "delete_comment") {
       if (!commentId || !postId) {
@@ -1171,7 +1293,7 @@ export async function PATCH(request) {
             message:
               "Comment ID and Post ID are required for deleting a comment.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1186,7 +1308,7 @@ export async function PATCH(request) {
         if (commentToDelete.authorId !== userId) {
           return NextResponse.json(
             { message: "You are not authorized to delete this comment." },
-            { status: 403 }
+            { status: 403 },
           );
         }
 
@@ -1208,7 +1330,7 @@ export async function PATCH(request) {
             return count;
           };
           commentsDeletedCount += await countNestedReplies(
-            commentToDelete.replyThreads
+            commentToDelete.replyThreads,
           );
         }
 
@@ -1223,7 +1345,7 @@ export async function PATCH(request) {
         });
         const newCount = Math.max(
           0,
-          (currentPost?.commentsCount || 0) - commentsDeletedCount
+          (currentPost?.commentsCount || 0) - commentsDeletedCount,
         );
 
         await prisma.post.update({
@@ -1233,7 +1355,7 @@ export async function PATCH(request) {
 
         return NextResponse.json(
           { message: "Comment deleted successfully." },
-          { status: 200 }
+          { status: 200 },
         );
       }
 
@@ -1246,14 +1368,14 @@ export async function PATCH(request) {
       if (!replyToDelete) {
         return NextResponse.json(
           { message: "Comment or reply not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
       if (replyToDelete.authorId !== userId) {
         return NextResponse.json(
           { message: "You are not authorized to delete this reply." },
-          { status: 403 }
+          { status: 403 },
         );
       }
 
@@ -1284,7 +1406,7 @@ export async function PATCH(request) {
       });
       const newCount = Math.max(
         0,
-        (currentPost?.commentsCount || 0) - repliesDeletedCount
+        (currentPost?.commentsCount || 0) - repliesDeletedCount,
       );
 
       await prisma.post.update({
@@ -1294,7 +1416,7 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         { message: "Reply deleted successfully." },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "reply_comment") {
       if (
@@ -1308,7 +1430,7 @@ export async function PATCH(request) {
             message:
               "Parent comment ID, Post ID, and reply content are required.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1323,7 +1445,7 @@ export async function PATCH(request) {
             message:
               "Parent comment not found or does not belong to this post.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1346,7 +1468,7 @@ export async function PATCH(request) {
               message:
                 "Parent reply not found or doesn't belong to this comment.",
             },
-            { status: 404 }
+            { status: 404 },
           );
         }
 
@@ -1416,14 +1538,14 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         { message: "Reply added successfully.", reply: formattedReply },
-        { status: 201 }
+        { status: 201 },
       );
     } else if (action === "delete_post") {
       // --- Delete post ---
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required for deleting a post." },
-          { status: 400 }
+          { status: 400 },
         );
       }
       // Only allow author to delete
@@ -1431,38 +1553,38 @@ export async function PATCH(request) {
       if (!post) {
         return NextResponse.json(
           { message: "Post not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
       if (post.authorId !== userId) {
         return NextResponse.json(
           { message: "Not authorized to delete this post." },
-          { status: 403 }
+          { status: 403 },
         );
       }
       await prisma.post.delete({ where: { id: postId } });
       return NextResponse.json(
         { message: "Post deleted successfully." },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "pin" || action === "unpin") {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const post = await prisma.post.findUnique({ where: { id: postId } });
       if (!post) {
         return NextResponse.json(
           { message: "Post not found." },
-          { status: 404 }
+          { status: 404 },
         );
       }
       if (post.authorId !== userId) {
         return NextResponse.json(
           { message: "Not authorized." },
-          { status: 403 }
+          { status: 403 },
         );
       }
 
@@ -1473,13 +1595,13 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         { message: `Post ${action}ned successfully.` },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "vote") {
       if (!postId || !optionId) {
         return NextResponse.json(
           { message: "Post ID and Option ID are required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1490,7 +1612,7 @@ export async function PATCH(request) {
       if (post && post.expiresAt && new Date() > new Date(post.expiresAt)) {
         return NextResponse.json(
           { message: "Poll has expired." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1516,7 +1638,7 @@ export async function PATCH(request) {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1532,7 +1654,7 @@ export async function PATCH(request) {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
       // Check if already saved
@@ -1550,7 +1672,7 @@ export async function PATCH(request) {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const existingSave = await prisma.savedPost.findUnique({
@@ -1565,7 +1687,7 @@ export async function PATCH(request) {
       if (!postId) {
         return NextResponse.json(
           { message: "Post ID is required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1576,14 +1698,14 @@ export async function PATCH(request) {
 
       return NextResponse.json(
         { message: "Share count updated." },
-        { status: 200 }
+        { status: 200 },
       );
     } else if (action === "report") {
       const { targetId, targetType, reason } = requestBody;
       if (!targetId || !targetType) {
         return NextResponse.json(
           { message: "Target ID and type are required." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -1597,23 +1719,23 @@ export async function PATCH(request) {
       });
       return NextResponse.json(
         { message: "Report submitted." },
-        { status: 200 }
+        { status: 200 },
       );
     } else {
       return NextResponse.json(
         { message: "Invalid action specified." },
-        { status: 400 }
+        { status: 400 },
       );
     }
   } catch (error) {
     console.error(
       "API Error updating entity (like/comment/like_comment/delete_comment/reply_comment):",
-      error
+      error,
     );
     if (error.code === "P2025") {
       return NextResponse.json(
         { message: "Entity not found." },
-        { status: 404 }
+        { status: 404 },
       );
     }
     return NextResponse.json(
@@ -1621,7 +1743,7 @@ export async function PATCH(request) {
         message: "Internal server error updating entity.",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

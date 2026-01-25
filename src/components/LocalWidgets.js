@@ -38,7 +38,7 @@ export default function LocalWidgets() {
       setLoadingWeather(true);
       setWeatherError(null);
       fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current_weather=true&temperature_unit=fahrenheit&windspeed_unit=mph`
+        `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current_weather=true&temperature_unit=fahrenheit&windspeed_unit=mph`,
       )
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch weather");
@@ -60,7 +60,7 @@ export default function LocalWidgets() {
       setEventsError(null);
 
       fetch(
-        `/api/events?lat=${location.latitude}&lon=${location.longitude}&type=all&radius=20&size=3`
+        `/api/events?lat=${location.latitude}&lon=${location.longitude}&type=all&radius=20&size=3`,
       )
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch events");
@@ -117,7 +117,7 @@ export default function LocalWidgets() {
       setSportsError(null);
 
       fetch(
-        `/api/events?lat=${location.latitude}&lon=${location.longitude}&type=sports&radius=50&size=4`
+        `/api/events?lat=${location.latitude}&lon=${location.longitude}&type=sports&radius=50&size=4`,
       )
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch sports");
@@ -146,7 +146,7 @@ export default function LocalWidgets() {
     // If we have a News API key and city, fetch local news
     if (NEWS_API_KEY && city) {
       fetch(
-        `https://newsapi.org/v2/everything?q="${city}"&sortBy=publishedAt&pageSize=4&apiKey=${NEWS_API_KEY}`
+        `https://newsapi.org/v2/everything?q="${city}"&sortBy=publishedAt&pageSize=4&apiKey=${NEWS_API_KEY}`,
       )
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch news");
@@ -173,7 +173,7 @@ export default function LocalWidgets() {
 
     function fetchCategoryNews() {
       return fetch(
-        `https://saurav.tech/NewsAPI/top-headlines/category/${newsCategory}/us.json`
+        `https://saurav.tech/NewsAPI/top-headlines/category/${newsCategory}/us.json`,
       )
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch news");
@@ -239,7 +239,9 @@ export default function LocalWidgets() {
             </div>
           </div>
         ) : (
-          <div className="text-gray-400 text-sm">Loading forecast...</div>
+          <div className="text-gray-400 dark:text-slate-500 text-sm">
+            Loading forecast...
+          </div>
         )}
       </div>
 
@@ -266,9 +268,10 @@ export default function LocalWidgets() {
                 ? new Date(event.dates.start.localDate)
                 : new Date();
               const eventTime = event.dates?.start?.localTime || "";
-              const sportType = event.classifications?.[0]?.subGenre?.name ||
-                               event.classifications?.[0]?.genre?.name ||
-                               "Sports";
+              const sportType =
+                event.classifications?.[0]?.subGenre?.name ||
+                event.classifications?.[0]?.genre?.name ||
+                "Sports";
 
               // Pick emoji based on sport type
               const getSportEmoji = (type) => {
@@ -280,7 +283,12 @@ export default function LocalWidgets() {
                 if (t.includes("hockey") || t.includes("nhl")) return "🏒";
                 if (t.includes("tennis")) return "🎾";
                 if (t.includes("golf")) return "⛳";
-                if (t.includes("boxing") || t.includes("mma") || t.includes("ufc")) return "🥊";
+                if (
+                  t.includes("boxing") ||
+                  t.includes("mma") ||
+                  t.includes("ufc")
+                )
+                  return "🥊";
                 if (t.includes("racing") || t.includes("nascar")) return "🏎️";
                 return "🏆";
               };
@@ -290,7 +298,9 @@ export default function LocalWidgets() {
                   key={event.id}
                   className="flex items-start p-2 -mx-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-md transition-colors"
                 >
-                  <span className="mr-3 text-xl">{getSportEmoji(sportType)}</span>
+                  <span className="mr-3 text-xl">
+                    {getSportEmoji(sportType)}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <a
                       href={event.url}
@@ -301,7 +311,11 @@ export default function LocalWidgets() {
                       {event.name}
                     </a>
                     <p className="text-xs text-gray-500 dark:text-slate-400">
-                      {eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                      {eventDate.toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
                       {eventTime && ` • ${eventTime.slice(0, 5)}`}
                     </p>
                   </div>
@@ -310,7 +324,9 @@ export default function LocalWidgets() {
             })}
           </ul>
         ) : (
-          <div className="text-gray-400 dark:text-slate-500 text-sm">No sports events found nearby.</div>
+          <div className="text-gray-400 dark:text-slate-500 text-sm">
+            No sports events found nearby.
+          </div>
         )}
       </div>
 
@@ -370,7 +386,9 @@ export default function LocalWidgets() {
             })}
           </ul>
         ) : (
-          <div className="text-gray-400 text-sm">No events found.</div>
+          <div className="text-gray-400 dark:text-slate-500 text-sm">
+            No events found.
+          </div>
         )}
       </div>
 
@@ -401,9 +419,9 @@ export default function LocalWidgets() {
                   {place.tags.amenity === "cafe"
                     ? "☕"
                     : place.tags.amenity === "bar" ||
-                      place.tags.amenity === "pub"
-                    ? "🍺"
-                    : "🍽️"}
+                        place.tags.amenity === "pub"
+                      ? "🍺"
+                      : "🍽️"}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
@@ -417,7 +435,9 @@ export default function LocalWidgets() {
             ))}
           </ul>
         ) : (
-          <div className="text-gray-400 text-sm">Finding local spots...</div>
+          <div className="text-gray-400 dark:text-slate-500 text-sm">
+            Finding local spots...
+          </div>
         )}
       </div>
 
@@ -425,7 +445,9 @@ export default function LocalWidgets() {
       <div className="min-w-[280px] w-[85vw] sm:w-[350px] lg:w-full flex-shrink-0 snap-center bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-gray-500 dark:text-slate-400">
-            {process.env.NEXT_PUBLIC_NEWS_API_KEY && city ? `${city} News` : "Trending News"}
+            {process.env.NEXT_PUBLIC_NEWS_API_KEY && city
+              ? `${city} News`
+              : "Trending News"}
           </h3>
           <select
             value={newsCategory}
@@ -473,7 +495,9 @@ export default function LocalWidgets() {
             ))}
           </ul>
         ) : (
-          <div className="text-gray-400 text-sm">Loading headlines...</div>
+          <div className="text-gray-400 dark:text-slate-500 text-sm">
+            Loading headlines...
+          </div>
         )}
       </div>
 

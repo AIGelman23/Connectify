@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import MessageReactions from "./MessageReactions";
 import ReadReceipts from "./ReadReceipts";
+import LinkPreview, { extractFirstUrl } from "./LinkPreview";
 
 export default function MessageBubble({
   message,
@@ -159,6 +160,7 @@ export default function MessageBubble({
         );
 
       default:
+        const linkUrl = extractFirstUrl(message.content);
         return (
           <div>
             {/* Reply preview */}
@@ -175,6 +177,8 @@ export default function MessageBubble({
               </div>
             )}
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            {/* Link Preview */}
+            {linkUrl && <LinkPreview url={linkUrl} isOwnMessage={isOwnMessage} />}
           </div>
         );
     }
@@ -193,7 +197,7 @@ export default function MessageBubble({
 
   return (
     <div
-      className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} ${!isLastInGroup ? "mb-0.5" : "mb-2"}`}
+      className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} ${!isLastInGroup ? "mb-0.5" : "mb-3"} px-2`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => {
         setShowActions(false);
@@ -203,98 +207,95 @@ export default function MessageBubble({
     >
       {/* Avatar (for received messages) */}
       {!isOwnMessage && (
-        <div className="w-8 flex-shrink-0 mr-2">
-          {showAvatar && (
+        <div className="w-7 flex-shrink-0 mr-2 self-end">
+          {showAvatar && isLastInGroup && (
             <img
               src={
                 message.sender?.image ||
-                `https://placehold.co/32x32/6366F1/ffffff?text=${(
+                `https://placehold.co/28x28/0084ff/ffffff?text=${(
                   message.sender?.name?.[0] || "U"
                 ).toUpperCase()}`
               }
               alt={message.sender?.name}
-              className="w-8 h-8 rounded-full object-cover"
+              className="w-7 h-7 rounded-full object-cover"
             />
           )}
         </div>
       )}
 
-      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[75%]`}>
+      <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[70%]`}>
         {/* Sender name (for group chats) */}
-        {!isOwnMessage && showName && (
-          <span className="text-xs font-medium text-gray-500 dark:text-slate-400 ml-1 mb-0.5">
+        {!isOwnMessage && showName && isFirstInGroup && (
+          <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 ml-1 mb-1">
             {message.sender?.name}
           </span>
         )}
 
         <div className="relative group">
-          {/* Message bubble */}
+          {/* Message bubble - Facebook Messenger colors */}
           <div
             className={`
-              px-4 py-2 rounded-2xl shadow-sm
+              px-3 py-2 rounded-[18px]
               ${isOwnMessage
-                ? `bg-indigo-600 text-white ${isFirstInGroup ? "rounded-tr-md" : ""} ${isLastInGroup ? "rounded-br-md" : ""}`
-                : `bg-white dark:bg-slate-700 text-gray-800 dark:text-slate-100 ${isFirstInGroup ? "rounded-tl-md" : ""} ${isLastInGroup ? "rounded-bl-md" : ""}`
+                ? `bg-[#0084ff] text-white ${isLastInGroup ? "rounded-br-[4px]" : ""}`
+                : `bg-[#e4e6eb] dark:bg-slate-700 text-gray-900 dark:text-slate-100 ${isLastInGroup ? "rounded-bl-[4px]" : ""}`
               }
             `}
           >
             {renderContent()}
 
-            {/* Time and status */}
-            <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
-              <span className={`text-xs ${isOwnMessage ? "text-indigo-200" : "text-gray-400 dark:text-slate-500"}`}>
-                {formattedTime}
-              </span>
-              {message.editedAt && (
-                <span className={`text-xs ${isOwnMessage ? "text-indigo-200" : "text-gray-400 dark:text-slate-500"}`}>
-                  (edited)
+            {/* Time - only show on last message in group */}
+            {isLastInGroup && (
+              <div className={`flex items-center gap-1 mt-1 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                <span className={`text-[10px] ${isOwnMessage ? "text-blue-100" : "text-gray-500 dark:text-slate-400"}`}>
+                  {formattedTime}
+                  {message.editedAt && " · Edited"}
                 </span>
-              )}
-              {isOwnMessage && (
-                <>
-                  {status === "sending" && (
-                    <svg className="w-3 h-3 text-indigo-200 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  )}
-                  {status === "sent" && !message.seenBy?.length && (
-                    <svg className="w-3 h-3 text-indigo-200" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                  {status === "failed" && onRetry && (
-                    <button
-                      onClick={() => onRetry(message.id)}
-                      className="p-0.5 rounded hover:bg-red-500/20 transition"
-                      title="Retry sending"
-                    >
-                      <svg className="w-3 h-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </button>
-                  )}
-                  <ReadReceipts status={message.status || status} seenBy={message.seenBy} />
-                </>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Action buttons */}
+          {/* Status indicators - show outside bubble for own messages */}
+          {isOwnMessage && isLastInGroup && (
+            <div className="flex items-center justify-end mt-1 mr-1">
+              {status === "sending" && (
+                <div className="w-3 h-3 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+              )}
+              {status === "sent" && !message.seenBy?.length && (
+                <svg className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+              {status === "failed" && onRetry && (
+                <button
+                  onClick={() => onRetry(message.id)}
+                  className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  title="Retry sending"
+                >
+                  <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              )}
+              <ReadReceipts status={message.status || status} seenBy={message.seenBy} />
+            </div>
+          )}
+
+          {/* Action buttons - Messenger style hover menu */}
           {showActions && (
             <div
               className={`
-                absolute top-0 flex items-center gap-1 p-1 bg-white dark:bg-slate-800 rounded-full shadow-lg
-                ${isOwnMessage ? "right-full mr-2" : "left-full ml-2"}
+                absolute top-1/2 -translate-y-1/2 flex items-center gap-0.5 p-0.5 bg-white dark:bg-slate-800 rounded-full shadow-md border border-gray-100 dark:border-slate-600
+                ${isOwnMessage ? "right-full mr-1" : "left-full ml-1"}
               `}
             >
               {/* React button */}
               <button
                 onClick={() => setShowReactionPicker(!showReactionPicker)}
-                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition"
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 title="React"
               >
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
@@ -302,45 +303,35 @@ export default function MessageBubble({
               {/* Reply button */}
               <button
                 onClick={() => onReply?.(message)}
-                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition"
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 title="Reply"
               >
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                 </svg>
               </button>
 
-              {/* Edit button (own messages only) */}
-              {canEdit && (
-                <button
-                  onClick={() => onEdit?.(message)}
-                  className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition"
-                  title="Edit"
-                >
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-              )}
-
-              {/* Delete button */}
+              {/* More actions dropdown trigger */}
               <button
-                onClick={() => onDelete?.(message, canDeleteForEveryone)}
-                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition"
-                title="Delete"
+                onClick={() => {
+                  if (canEdit) onEdit?.(message);
+                  else onDelete?.(message, canDeleteForEveryone);
+                }}
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                title={canEdit ? "Edit" : "Delete"}
               >
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <svg className="w-4 h-4 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                 </svg>
               </button>
             </div>
           )}
 
-          {/* Reaction picker */}
+          {/* Reaction picker - Messenger style */}
           {showReactionPicker && (
             <div
               className={`
-                absolute bottom-full mb-2 p-1 bg-white dark:bg-slate-800 rounded-full shadow-lg flex gap-1
+                absolute bottom-full mb-1 p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-gray-100 dark:border-slate-600 flex gap-0.5
                 ${isOwnMessage ? "right-0" : "left-0"}
               `}
             >
@@ -348,7 +339,7 @@ export default function MessageBubble({
                 <button
                   key={emoji}
                   onClick={() => handleReact(emoji)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition text-lg"
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 hover:scale-125 transition-all text-xl"
                 >
                   {emoji}
                 </button>

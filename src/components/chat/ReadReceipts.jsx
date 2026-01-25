@@ -11,7 +11,7 @@ export default function ReadReceipts({
   // Single checkmark for sent
   if (status === "sent") {
     return (
-      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-4 h-4 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
       </svg>
     );
@@ -20,7 +20,7 @@ export default function ReadReceipts({
   // Double checkmark for delivered
   if (status === "delivered") {
     return (
-      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-4 h-4 text-gray-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7M5 13l4 4M12 13l4 4L26 7" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 13l4 4L16 7" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 13l4 4L22 7" />

@@ -11,3 +11,6 @@ export { default as MessageReactions } from "./MessageReactions";
 export { default as TypingIndicator } from "./TypingIndicator";
 export { default as ReadReceipts } from "./ReadReceipts";
 export { default as OnlineStatus } from "./OnlineStatus";
+export { default as ChatSearch } from "./ChatSearch";
+export { default as MediaGallery } from "./MediaGallery";
+export { default as LinkPreview } from "./LinkPreview";

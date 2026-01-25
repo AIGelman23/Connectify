@@ -48,13 +48,13 @@ export default function LoginPage() {
       <AnimatedBackground />
       <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
-          <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
             {/* Logo at the top of the login box */}
             <div className="flex justify-center mb-6">
               <ConnectifyLogo width={300} height={120} />
             </div>
 
-            <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">
+            <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white mb-6">
               Welcome back
             </h2>
 
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
             <form className="mb-4 space-y-6" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Email address
                 </label>
                 <div className="mt-1">
@@ -80,15 +80,14 @@ export default function LoginPage() {
                     spellCheck={false}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
                     placeholder="you@example.com"
-                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Password
                 </label>
                 <div className="mt-1 relative">
@@ -101,14 +100,13 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10 bg-white text-gray-900"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
                     placeholder="••••••••"
-                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 touch-manipulation"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-gray-400 touch-manipulation"
                     style={{ minWidth: '44px', minHeight: '44px' }}
                     onClick={(e) => {
                       e.preventDefault();
@@ -152,10 +150,10 @@ export default function LoginPage() {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
+                  <div className="w-full border-t border-gray-300 dark:border-slate-600"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                  <span className="px-2 bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400">Or continue with</span>
                 </div>
               </div>
 
@@ -212,7 +210,7 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Don't have an account?{" "}
                 <Link
                   href="/auth/signup"

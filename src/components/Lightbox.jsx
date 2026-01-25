@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Comment } from './Comment';
 import { formatTimestamp } from '../lib/utils';
 
-export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClose, post, sessionUserId, onLikeComment, onReply, onDeleteComment, onAddComment, onReaction, onReport, onSave, isSaved: isSavedProp }) {
+export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClose, post, sessionUserId, currentUser, onLikeComment, onReply, onDeleteComment, onAddComment, onReaction, onReport, onSave, isSaved: isSavedProp }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
@@ -591,6 +591,7 @@ export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClos
                       onReply={onReply}
                       onLike={onLikeComment}
                       sessionUserId={sessionUserId}
+                      currentUser={currentUser}
                       onDeleteComment={onDeleteComment}
                       postId={post.id}
                       onReport={onReport}
@@ -620,7 +621,7 @@ export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClos
                   onChange={(e) => setCommentText(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                   placeholder="Add a comment..."
-                  className="flex-1 px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm"
+                  className="flex-1 px-4 py-2.5 border-none rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm"
                 />
                 <button
                   type="submit"
@@ -773,6 +774,7 @@ export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClos
                     onReply={onReply}
                     onLike={onLikeComment}
                     sessionUserId={sessionUserId}
+                    currentUser={currentUser}
                     onDeleteComment={onDeleteComment}
                     postId={post.id}
                     onReport={onReport}
@@ -789,7 +791,7 @@ export default function Lightbox({ images = [], initialIndex = 0, isOpen, onClos
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Write a comment..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm"
+                  className="flex-1 px-4 py-2.5 border-none rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm"
                 />
                 <button
                   type="submit"

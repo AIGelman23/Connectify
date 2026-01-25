@@ -2,14 +2,108 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Comment, Reply } from './Comment';
 import EmojiSelector from './EmojiSelector'; // Import the EmojiSelector component 
 import Lightbox from './Lightbox';
+import PhotoCollage from './PhotoCollage';
+import { formatTimestamp } from '../lib/utils';
 
 const MAX_COMMENT_LENGTH = 280;
+
+// Helper for simple text diffing
+const computeDiff = (oldText = "", newText = "") => {
+	const oldChars = (oldText || "").split("");
+	const newChars = (newText || "").split("");
+
+	let prefixLen = 0;
+	while (prefixLen < oldChars.length && prefixLen < newChars.length && oldChars[prefixLen] === newChars[prefixLen]) {
+		prefixLen++;
+	}
+
+	let suffixLen = 0;
+	while (
+		oldChars.length - 1 - suffixLen >= prefixLen &&
+		newChars.length - 1 - suffixLen >= prefixLen &&
+		oldChars[oldChars.length - 1 - suffixLen] === newChars[newChars.length - 1 - suffixLen]
+	) {
+		suffixLen++;
+	}
+
+	const result = [];
+	if (prefixLen > 0) {
+		result.push({ type: 'text', value: oldChars.slice(0, prefixLen).join('') });
+	}
+
+	const removed = oldChars.slice(prefixLen, oldChars.length - suffixLen).join('');
+	const added = newChars.slice(prefixLen, newChars.length - suffixLen).join('');
+
+	if (removed) result.push({ type: 'removed', value: removed });
+	if (added) result.push({ type: 'added', value: added });
+
+	if (suffixLen > 0) {
+		result.push({ type: 'text', value: oldChars.slice(oldChars.length - suffixLen).join('') });
+	}
+
+	return result;
+};
+
+function EditHistoryModal({ postId, onClose }) {
+	const { data: history, isLoading, error } = useQuery({
+		queryKey: ['postHistory', postId],
+		queryFn: async () => {
+			const res = await fetch(`/api/posts/${postId}/history`);
+			if (!res.ok) throw new Error("Failed to fetch edit history");
+			const data = await res.json();
+			return Array.isArray(data) ? data : (data.history || []);
+		},
+		staleTime: 1000 * 60 * 5, // 5 minutes
+	});
+
+	return (
+		<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+			<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+				<div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+					<h3 className="font-bold text-lg text-gray-900 dark:text-white">Edit History</h3>
+					<button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200">
+						<i className="fas fa-times text-xl"></i>
+					</button>
+				</div>
+				<div className="overflow-y-auto p-4 space-y-4 custom-scrollbar">
+					{isLoading ? (
+						<div className="flex justify-center py-8"><i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i></div>
+					) : error ? (
+						<div className="text-center text-red-500 py-4">Failed to load history.</div>
+					) : history && Array.isArray(history) && history.length > 0 ? (
+						history.map((version, index) => {
+							const isOriginal = index === history.length - 1;
+							const prevVersion = history[index + 1];
+							const diff = isOriginal ? [{ type: 'text', value: version.content }] : computeDiff(prevVersion?.content || "", version.content || "");
+
+							return (
+								<div key={index} className="border-b border-gray-100 dark:border-slate-700 last:border-0 pb-4 last:pb-0">
+									<div className="flex items-center gap-2 mb-1">
+										<span className="text-xs text-gray-500 dark:text-slate-400">{formatTimestamp(version.createdAt)}</span>
+										{isOriginal && <span className="text-xs bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-500 dark:text-slate-400">Original</span>}
+									</div>
+									<div className="text-gray-800 dark:text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">
+										{diff.map((part, i) => (
+											<span key={i} className={part.type === 'added' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200' : part.type === 'removed' ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 line-through decoration-red-500' : ''}>{part.value}</span>
+										))}
+									</div>
+								</div>
+							);
+						})
+					) : (
+						<div className="text-center text-gray-500 py-4">No edit history available.</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
 
 export default function PostCard({ post, sessionUserId: propSessionUserId, setPostError: propSetPostError, openReplyModal, isPreview = false }) {
 	const { data: session } = useSession();
@@ -31,12 +125,17 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 	const [showRepostMenu, setShowRepostMenu] = useState(false);
 	const [showQuoteModal, setShowQuoteModal] = useState(false);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false);
+	const [showEditHistoryModal, setShowEditHistoryModal] = useState(false);
+	const [commentToDelete, setCommentToDelete] = useState(null);
 	const [quoteContent, setQuoteContent] = useState("");
 	const commentInputRef = useRef(null);
 	const commentContainerRef = useRef(null);
 	const queryClient = useQueryClient();
 	const videoRef = useRef(null);
 	const [localError, setLocalError] = useState(null);
+	const menuRef = useRef(null);
+	const repostMenuRef = useRef(null);
 	const [showToast, setShowToast] = useState(false);
 	const [showReactionMenu, setShowReactionMenu] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -48,6 +147,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 	const longPressTimerRef = useRef(null);
 	const isLongPress = useRef(false);
 	const isNews = post.type === 'news';
+	const isEdited = post.isEdited || (post.updatedAt && post.updatedAt !== post.createdAt);
 
 	// Auto-play video when in viewport
 	useEffect(() => {
@@ -142,6 +242,42 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			document.removeEventListener("touchstart", handleClickOutside);
 		};
 	}, [showReactionMenu]);
+
+	// Close post menu when clicking outside
+	useEffect(() => {
+		if (!showMenu) return;
+
+		const handleClickOutside = (event) => {
+			if (menuRef.current && !menuRef.current.contains(event.target)) {
+				setShowMenu(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		document.addEventListener("touchstart", handleClickOutside);
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("touchstart", handleClickOutside);
+		};
+	}, [showMenu]);
+
+	// Close repost menu when clicking outside
+	useEffect(() => {
+		if (!showRepostMenu) return;
+
+		const handleClickOutside = (event) => {
+			if (repostMenuRef.current && !repostMenuRef.current.contains(event.target)) {
+				setShowRepostMenu(false);
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		document.addEventListener("touchstart", handleClickOutside);
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("touchstart", handleClickOutside);
+		};
+	}, [showRepostMenu]);
 
 	const handleTouchStart = () => {
 		isLongPress.current = false;
@@ -244,7 +380,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 	});
 
 	// Delete Comment/Reply Mutation
-	const { mutate: deleteCommentOrReply } = useMutation({
+	const { mutate: deleteCommentOrReply, isPending: isDeletingComment } = useMutation({
 		mutationFn: async ({ commentId, postId }) => {
 			const res = await fetch('/api/posts', {
 				method: 'PATCH',
@@ -263,6 +399,8 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['posts'] });
+			setShowDeleteCommentModal(false);
+			setCommentToDelete(null);
 		},
 		onError: (err) => {
 			setPostError(err.message || "Failed to delete comment/reply. Please try again.");
@@ -693,10 +831,9 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			setPostError("You must be logged in to delete a comment.");
 			return;
 		}
-		if (confirm("Are you sure you want to delete this comment/reply? This action cannot be undone.")) {
-			deleteCommentOrReply({ commentId, postId });
-		}
-	}, [sessionUserId, deleteCommentOrReply, setPostError]);
+		setCommentToDelete({ commentId, postId });
+		setShowDeleteCommentModal(true);
+	}, [sessionUserId, setPostError]);
 
 	const handleLikeComment = useCallback((commentId, isLiking) => {
 		if (!sessionUserId) {
@@ -889,9 +1026,9 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 		: (post.imageUrl && !isGiphyImage(post.imageUrl) ? [post.imageUrl] : []);
 
 	return (
-		<div id={post.id} className={`post-card rounded-2xl shadow-sm border mb-6 w-full max-w-2xl mx-auto transition-all duration-200 hover:shadow-xl hover:scale-[1.01] ${isNews
+		<div id={post.id} className={`post-card shadow-sm border mb-4 w-full max-w-2xl mx-auto ${isNews
 			? 'bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-slate-900 dark:to-blue-950/20 border-blue-200 dark:border-blue-900/50'
-			: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 dark:shadow-slate-900/30 backdrop-blur-sm'
+			: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'
 			}`}>
 			{/* Toast Notification */}
 			{showToast && (
@@ -910,7 +1047,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			)}
 
 			{/* Header */}
-			<div className={`flex items-center justify-between px-4 ${post.isPinned && post.author?.id === session?.user?.id ? 'pt-2' : 'pt-4'} pb-2`}>
+			<div className={`flex items-center justify-between px-3 sm:px-4 ${post.isPinned && post.author?.id === session?.user?.id ? 'pt-2' : 'pt-4'} pb-2`}>
 				<div className="flex items-center">
 					{isNews ? (
 						<a href={post.link} target="_blank" rel="noopener noreferrer" className="group flex-shrink-0">
@@ -922,7 +1059,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 									`https://placehold.co/40x40/A78BFA/ffffff?text=${post.author?.name ? post.author.name[0].toUpperCase() : 'U'}`
 								}
 								alt={`${post.author?.name || "User"}'s avatar`}
-								className="w-11 h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
+								className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
 							/>
 						</a>
 					) : (
@@ -935,18 +1072,18 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 									`https://placehold.co/40x40/A78BFA/ffffff?text=${post.author?.name ? post.author.name[0].toUpperCase() : 'U'}`
 								}
 								alt={`${post.author?.name || "User"}'s avatar`}
-								className="w-11 h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
+								className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white shadow group-hover:ring-2 group-hover:ring-blue-500 transition cursor-pointer"
 							/>
 						</Link>
 					)}
-					<div className="ml-3">
+					<div className="ml-2 sm:ml-3">
 						<div className="flex items-center gap-2">
 							{isNews ? (
-								<a href={post.link} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-[16px]">
+								<a href={post.link} target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-sm sm:text-[16px]">
 									{post.author?.name}
 								</a>
 							) : (
-								<Link href={`/profile/${post.author?.id || ''}`} className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-[16px]">
+								<Link href={`/profile/${post.author?.id || ''}`} className="font-semibold text-gray-900 dark:text-slate-100 leading-tight hover:underline hover:text-blue-600 focus:underline outline-none text-sm sm:text-[16px]">
 									{post.author?.name}
 								</Link>
 							)}
@@ -976,14 +1113,14 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 							<span title={new Date(post.createdAt).toLocaleString()}>{getTimestamp()}</span>
 							<span aria-hidden="true">·</span>
 							<span title="Public" className="inline-flex items-center">
-								<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" className="text-gray-400"><path d="M10 2C5.03 2 1 6.03 1 11c0 4.97 4.03 9 9 9s9-4.03 9-9c0-4.97-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7 0-3.87 3.13-7 7-7s7 3.13 7 7c0 3.87-3.13 7-7 7zm0-12c-2.76 0-5 2.24-5 5 0 2.76 2.24 5 5 5s5-2.24 5-5c0-2.76-2.24-5-5-5z" /></svg>
+								<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" className="text-gray-400 dark:text-slate-500"><path d="M10 2C5.03 2 1 6.03 1 11c0 4.97 4.03 9 9 9s9-4.03 9-9c0-4.97-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7 0-3.87 3.13-7 7-7s7 3.13 7 7c0 3.87-3.13 7-7 7zm0-12c-2.76 0-5 2.24-5 5 0 2.76 2.24 5 5 5s5-2.24 5-5c0-2.76-2.24-5-5-5z" /></svg>
 							</span>
 						</div>
 					</div>
 				</div>
 				{/* Menu button */}
 				{!isPreview && (
-					<div className="relative">
+					<div className="relative" ref={menuRef}>
 						<button
 							className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
 							aria-label="Post actions"
@@ -1007,6 +1144,14 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 										onClick={() => { setIsEditing(true); setShowMenu(false); }}
 									>
 										Edit Post
+									</button>
+								)}
+								{isEdited && (
+									<button
+										className="block w-full text-left px-4 py-2 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700"
+										onClick={() => { setShowEditHistoryModal(true); setShowMenu(false); }}
+									>
+										View Edit History
 									</button>
 								)}
 								{sessionUserId === post.author?.id && (
@@ -1040,7 +1185,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 
 			{/* Reposted Content */}
 			{post.originalPost && (
-				<div className="px-4 py-2">
+				<div className="px-3 sm:px-4 py-2">
 					<div className="border border-gray-200 dark:border-slate-700 rounded-xl p-3 bg-gray-50 dark:bg-slate-700/50">
 						<div className="flex items-center mb-2">
 							<Link href={`/profile/${post.originalPost.author.id || ''}`} className="flex-shrink-0">
@@ -1057,7 +1202,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 							<img src={post.originalPost.imageUrl} alt="Original post media" className="rounded-lg max-h-48 w-full object-cover" />
 						)}
 						{post.originalPost.videoUrl && (
-							<video src={post.originalPost.videoUrl} controls className="rounded-lg max-h-48 w-full object-cover" />
+							<video src={post.originalPost.videoUrl} controls className="max-h-48 w-full object-cover !rounded-none" />
 						)}
 					</div>
 				</div>
@@ -1065,7 +1210,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 
 			{/* Content */}
 			{isEditing ? (
-				<div className="px-4 py-2">
+				<div className="px-3 sm:px-4 py-2">
 					<textarea
 						className="w-full border border-gray-300 dark:border-slate-600 rounded-lg p-2 mb-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
 						value={editContent}
@@ -1094,7 +1239,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			) : (
 				<>
 					{post.title && (
-						<div className="px-4 pt-1 pb-1">
+						<div className="px-3 sm:px-4 pt-1 pb-1">
 							{isNews ? (
 								<a
 									href={post.link}
@@ -1110,9 +1255,9 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 						</div>
 					)}
 					{post.content && (
-						<div className="px-4 py-2 text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed whitespace-pre-line">
+						<div className="px-3 sm:px-4 py-2 text-gray-900 dark:text-slate-100 text-sm sm:text-[15px] leading-relaxed whitespace-pre-line">
 							{post.content}
-							{post.updatedAt && post.updatedAt !== post.createdAt && (
+							{isEdited && (
 								<span className="ml-2 text-xs text-gray-400 dark:text-slate-500">(edited)</span>
 							)}
 						</div>
@@ -1122,63 +1267,32 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 
 			{/* Media */}
 			{post.imageUrls && post.imageUrls.length > 0 ? (
-				<div className="px-4 py-2">
-					<div className={`grid gap-1 ${post.imageUrls.length === 1 ? 'grid-cols-1' :
-						post.imageUrls.length === 2 ? 'grid-cols-2' :
-							post.imageUrls.length === 3 ? 'grid-cols-2' : // 3 images: first one big, next two stacked? or just grid
-								'grid-cols-2'
-						}`}>
-						{post.imageUrls.map((url, index) => {
-							const isGiphy = isGiphyImage(url);
-							const handleClick = () => handleImageClick(url, lightboxImages.indexOf(url));
-							const clickableClass = (isNews || !isGiphy) ? 'cursor-pointer hover:opacity-95 transition-opacity' : '';
-
-							// Facebook style logic for 3+ images
-							if (post.imageUrls.length === 3 && index === 0) {
-								return (
-									<div key={index} className="col-span-2">
-										<img src={url} alt={`Post image ${index}`} className={`w-full h-64 object-cover rounded-xl border border-gray-200 ${clickableClass}`} onClick={handleClick} />
-									</div>
-								);
-							}
-							if (post.imageUrls.length > 4 && index === 3) {
-								return (
-									<div key={index} className={`relative ${clickableClass}`} onClick={handleClick}>
-										<img src={url} alt={`Post image ${index}`} className="w-full h-48 object-cover rounded-xl border border-gray-200" />
-										<div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
-											<span className="text-white text-2xl font-bold">+{post.imageUrls.length - 4}</span>
-										</div>
-									</div>
-								);
-							}
-							if (post.imageUrls.length > 4 && index > 3) return null;
-
-							return (
-								<img key={index} src={url} alt={`Post image ${index}`} className={`w-full ${post.imageUrls.length === 1 ? 'max-h-96 object-contain' : 'h-48 object-cover'} rounded-xl border border-gray-200 ${clickableClass}`} onClick={handleClick} />
-							);
-						})}
-					</div>
-				</div>
+				<PhotoCollage
+					images={post.imageUrls}
+					onImageClick={(url) => handleImageClick(url, lightboxImages.indexOf(url))}
+					layout={post.layout || 'classic'}
+					autoScroll={lightboxIndex === null}
+				/>
 			) : post.imageUrl && (
-				<div className="flex justify-center px-4 py-2">
+				<div className="flex justify-center px-0 py-0">
 					<img
 						src={post.imageUrl}
 						alt="Post attachment"
-						className={`rounded-xl border border-gray-200 shadow max-h-96 w-full ${post.imageUrl.endsWith('.gif') ? 'object-contain' : 'object-cover'} bg-gray-100 ${(isNews || !isGiphyImage(post.imageUrl)) ? 'cursor-pointer hover:opacity-95 transition-opacity' : ''}`}
+						className={`max-h-[350px] sm:max-h-[500px] w-full ${post.imageUrl.endsWith('.gif') ? 'object-contain bg-gray-50 dark:bg-slate-900' : 'object-cover'} ${(isNews || !isGiphyImage(post.imageUrl)) ? 'cursor-pointer hover:brightness-95 transition-all duration-200' : ''} rounded-none`}
 						style={{ maxWidth: "100%" }}
 						onClick={() => handleImageClick(post.imageUrl, 0)}
 					/>
 				</div>
 			)}
 			{post.videoUrl && (
-				<div className="flex justify-center px-4 py-2">
+				<div className="flex justify-center px-0 py-0">
 					<video
 						ref={videoRef}
 						src={post.videoUrl}
 						controls
 						muted
 						playsInline
-						className="rounded-xl border border-gray-200 shadow max-h-96 w-full bg-black"
+						className="max-h-[350px] sm:max-h-[500px] w-full bg-black !rounded-none"
 						style={{ maxWidth: "100%" }}
 					>
 						<source src={post.videoUrl} type="video/mp4" />
@@ -1191,7 +1305,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 
 			{/* Poll Display */}
 			{post.pollOptions && post.pollOptions.length > 0 && (
-				<div className="px-4 py-2">
+				<div className="px-3 sm:px-4 py-2">
 					{(() => {
 						// Calculate total votes if options are objects with counts
 						const totalVotes = post.pollOptions.reduce((acc, opt) => acc + (typeof opt === 'object' ? (opt.count || 0) : 0), 0);
@@ -1267,7 +1381,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			)}
 
 			{/* Reactions/Stats Row */}
-			<div className="flex items-center justify-between px-4 py-2 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
+			<div className="flex items-center justify-between px-3 sm:px-4 py-2 mt-1 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
 				<div className="flex items-center space-x-2">
 					{likesCount > 0 && !isNews && (
 						<div className="flex items-center cursor-pointer hover:underline">
@@ -1297,7 +1411,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 			</div>
 
 			{/* Actions Row */}
-			<div className="flex justify-between items-center px-6 py-2 border-t border-gray-100 dark:border-slate-700 mt-1">
+			<div className="flex justify-between items-center px-2 sm:px-4 py-1 border-t border-gray-100 dark:border-slate-700">
 				{!isNews ? (
 					<div className="relative" ref={reactionContainerRef} onMouseLeave={() => setShowReactionMenu(false)}>
 						{/* Reaction Menu */}
@@ -1355,7 +1469,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 							onTouchStart={handleTouchStart}
 							onTouchEnd={handleTouchEnd}
 							disabled={isLiking || isPreview}
-							className={`group flex items-center justify-center p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 ${userReaction
+							className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 ${userReaction
 								? (userReaction === 'LOVE' ? 'text-red-500 bg-red-50 dark:bg-red-900/20' :
 									userReaction === 'HAHA' || userReaction === 'WOW' || userReaction === 'SAD' ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' :
 										userReaction === 'ANGRY' ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' :
@@ -1388,12 +1502,12 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				) : (
 					<div></div>
 				)}
-				<div className="relative flex-1">
+				<div className="relative flex-1" ref={repostMenuRef}>
 					<div className="flex justify-center">
 						<button
 							type="button"
 							disabled={isPreview || isReposting || isSharingNews}
-							className={`group flex items-center justify-center p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-green-50 dark:hover:bg-slate-800 hover:text-green-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 ${isPreview || isReposting || isSharingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
+							className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-green-50 dark:hover:bg-slate-800 hover:text-green-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 ${isPreview || isReposting || isSharingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
 							onClick={handleRepostClick}
 							title={isNews ? "Share News" : "Repost"}
 							aria-label={isNews ? "Share News" : "Repost"}
@@ -1421,7 +1535,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				<button
 					type="button"
 					disabled={isPreview}
-					className={`group flex items-center justify-center p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
+					className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full text-gray-500 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 ${isPreview ? 'opacity-50 cursor-not-allowed' : ''}`}
 					onClick={handleShare}
 					title="Share"
 					aria-label="Share"
@@ -1431,7 +1545,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				<button
 					type="button"
 					disabled={isPreview || isBookmarkingNews}
-					className={`group flex items-center justify-center p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-500 ${isSaved ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-500 dark:text-slate-400 hover:bg-yellow-50 dark:hover:bg-slate-800 hover:text-yellow-500'} ${isPreview || isBookmarkingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
+					className={`group flex items-center justify-center p-1.5 sm:p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-500 ${isSaved ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-500 dark:text-slate-400 hover:bg-yellow-50 dark:hover:bg-slate-800 hover:text-yellow-500'} ${isPreview || isBookmarkingNews ? 'opacity-50 cursor-not-allowed' : ''}`}
 					onClick={handleSave}
 					title={isSaved ? "Unsave Post" : "Save Post"}
 					aria-label={isSaved ? "Unsave Post" : "Save Post"}
@@ -1453,12 +1567,12 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 
 			{/* Comment Input and Top Comments (Facebook style) */}
 			{!isPreview && !isNews && (
-				<div className="px-4 py-2">
-					<form onSubmit={handleAddComment} className="flex items-center space-x-3 mb-3">
+				<div className="px-3 sm:px-4 py-2">
+					<form onSubmit={handleAddComment} className="flex items-center space-x-2 sm:space-x-3 mb-3">
 						<img
 							src={session?.user?.image || `https://placehold.co/32x32/A78BFA/ffffff?text=${session?.user?.name ? session.user.name[0].toUpperCase() : 'U'}`}
 							alt="Your avatar"
-							className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200"
+							className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0 border border-gray-200"
 						/>
 						<div className="flex-1 relative" ref={commentContainerRef}>
 							<textarea
@@ -1469,22 +1583,25 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 								onKeyDown={handleKeyDown}
 								maxLength={MAX_COMMENT_LENGTH}
 								placeholder="Write a comment..."
-								className="w-full pl-4 pr-24 py-2 border border-gray-200 dark:border-slate-600 rounded-2xl bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm placeholder-gray-500 dark:placeholder-slate-400 resize-none overflow-hidden min-h-[40px]"
+								className="w-full pl-3 sm:pl-4 pr-28 sm:pr-32 py-2.5 sm:py-3 border-none rounded-3xl bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-[15px] placeholder-gray-500 dark:placeholder-slate-400 resize-none overflow-hidden min-h-[40px] sm:min-h-[44px]"
 								rows={1}
 							/>
-							<div className="absolute right-2 bottom-2 flex items-center space-x-1">
-								<span className={`text-xs ${commentInputText.length >= MAX_COMMENT_LENGTH ? 'text-red-600 font-bold' : (commentInputText.length > MAX_COMMENT_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400')}`}>
-									{commentInputText.length}/{MAX_COMMENT_LENGTH}
-								</span>
+							<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+								{commentInputText.length > 0 && (
+									<span className={`text-[10px] mr-1 ${commentInputText.length >= MAX_COMMENT_LENGTH ? 'text-red-600 font-bold' : (commentInputText.length > MAX_COMMENT_LENGTH * 0.9 ? 'text-red-500' : 'text-gray-400 dark:text-slate-500')}`}>
+										{commentInputText.length}/{MAX_COMMENT_LENGTH}
+									</span>
+								)}
 								<EmojiSelector
 									onEmojiSelect={handleAddEmoji}
 								/>
 								<button
 									type="submit"
-									className="text-blue-600 hover:text-blue-800 transition duration-150 ease-in-out p-1 rounded-full ml-1"
+									disabled={!commentInputText.trim()}
+									className={`p-2 rounded-full transition-all duration-200 flex items-center justify-center w-8 h-8 ${commentInputText.trim() ? 'text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'text-gray-400 cursor-not-allowed'}`}
 									aria-label="Post comment"
 								>
-									<i className="fas fa-paper-plane text-lg"></i>
+									<i className="fas fa-paper-plane text-sm"></i>
 								</button>
 							</div>
 							{commentInputText.length >= MAX_COMMENT_LENGTH && (
@@ -1498,23 +1615,26 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 					{post.comments && post.comments.length > 0 && (
 						<div className="space-y-2">
 							{activeCommentForPost === post.id ? (
-								/* Show ALL comments when expanded */
-								post.comments
-									.slice()
-									.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
-									.map(comment => (
-										<Comment
-											key={comment.id}
-											comment={comment}
-											onReply={handleReply}
-											onLike={handleLikeComment}
-											sessionUserId={sessionUserId}
-											onDeleteComment={handleDeleteComment}
-											postId={post.id}
-											targetCommentId={targetCommentId}
-											onReport={handleReport}
-										/>
-									))
+								/* Show ALL comments when expanded - Scrollable Window */
+								<div className="max-h-[500px] overflow-y-auto pr-1 custom-scrollbar space-y-3">
+									{post.comments
+										.slice()
+										.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0) || new Date(b.createdAt) - new Date(a.createdAt))
+										.map(comment => (
+											<Comment
+												key={comment.id}
+												comment={comment}
+												onReply={handleReply}
+												onLike={handleLikeComment}
+												sessionUserId={sessionUserId}
+												currentUser={session?.user}
+												onDeleteComment={handleDeleteComment}
+												postId={post.id}
+												targetCommentId={targetCommentId}
+												onReport={handleReport}
+											/>
+										))}
+								</div>
 							) : (
 								/* Show only top 2 comments when collapsed */
 								post.comments
@@ -1528,6 +1648,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 											onReply={handleReply}
 											onLike={handleLikeComment}
 											sessionUserId={sessionUserId}
+											currentUser={session?.user}
 											onDeleteComment={handleDeleteComment}
 											postId={post.id}
 											targetCommentId={targetCommentId}
@@ -1628,6 +1749,19 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				.animate-fade-in {
 					animation: fade-in 0.2s ease-out;
 				}
+				.custom-scrollbar::-webkit-scrollbar {
+					width: 6px;
+				}
+				.custom-scrollbar::-webkit-scrollbar-track {
+					background: transparent;
+				}
+				.custom-scrollbar::-webkit-scrollbar-thumb {
+					background-color: rgba(156, 163, 175, 0.5);
+					border-radius: 20px;
+				}
+				.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+					background-color: rgba(156, 163, 175, 0.8);
+				}
 			`}</style>
 
 			<Lightbox
@@ -1637,6 +1771,7 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 				onClose={() => setLightboxIndex(null)}
 				post={post}
 				sessionUserId={sessionUserId}
+				currentUser={session?.user}
 				onLikeComment={handleLikeComment}
 				onReply={handleReply}
 				onDeleteComment={handleDeleteComment}
@@ -1702,6 +1837,52 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* Delete Comment Confirmation Modal */}
+			{showDeleteCommentModal && (
+				<div
+					className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+					onClick={(e) => {
+						if (e.target === e.currentTarget) setShowDeleteCommentModal(false);
+					}}
+				>
+					<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-auto overflow-hidden animate-in fade-in zoom-in duration-200">
+						<div className="px-6 pt-6 pb-4 text-center">
+							<div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+								<svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+								</svg>
+							</div>
+							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+								Delete Comment
+							</h3>
+							<p className="text-sm text-gray-500 dark:text-slate-400">
+								Are you sure you want to delete this comment? This action cannot be undone.
+							</p>
+						</div>
+						<div className="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+							<button
+								onClick={() => setShowDeleteCommentModal(false)}
+								className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={() => commentToDelete && deleteCommentOrReply(commentToDelete)}
+								disabled={isDeletingComment}
+								className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+							>
+								{isDeletingComment ? "Deleting..." : "Delete"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Edit History Modal */}
+			{showEditHistoryModal && (
+				<EditHistoryModal postId={post.id} onClose={() => setShowEditHistoryModal(false)} />
 			)}
 		</div>
 	);

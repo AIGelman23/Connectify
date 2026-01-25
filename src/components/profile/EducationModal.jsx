@@ -94,26 +94,26 @@ export default function EducationModal({ isOpen, onClose, onSave, educationToEdi
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
-				<h3 className="text-2xl font-bold mb-4 border-b pb-2">
+		<div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+			<div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in">
+				<h3 className="text-2xl font-bold mb-4 border-b pb-2 text-gray-900 dark:text-white dark:border-slate-600">
 					{educationToEdit?.id ? 'Edit Education' : 'Add Education'}
 				</h3>
 				<div className="space-y-4">
 					<div>
-						<label className="block text-sm font-semibold text-gray-700 mb-1">Institution</label>
+						<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Institution</label>
 						<input
 							type="text"
 							name="institution"
 							value={formData.institution}
 							onChange={handleChange}
-							className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-1 ${errors.institution ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-indigo-500'
-								}`}
+							className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 ${errors.institution ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-slate-600 focus:ring-indigo-500'
+								} dark:bg-slate-700 dark:text-white`}
 						/>
 						{errors.institution && <p className="text-red-500 text-xs mt-1">{errors.institution}</p>}
 					</div>
 					<div>
-						<label className="block text-sm font-semibold text-gray-700 mb-1">Degree</label>
+						<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Degree</label>
 						<input
 							type="text"
 							name="degree"
@@ -125,57 +125,57 @@ export default function EducationModal({ isOpen, onClose, onSave, educationToEdi
 						{errors.degree && <p className="text-red-500 text-xs mt-1">{errors.degree}</p>}
 					</div>
 					<div>
-						<label className="block text-sm font-semibold text-gray-700 mb-1">Field of Study (Optional)</label>
+						<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Field of Study (Optional)</label>
 						<input
 							type="text"
 							name="fieldOfStudy"
 							value={formData.fieldOfStudy}
 							onChange={handleChange}
-							className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white"
 						/>
 					</div>
 					<div className="flex space-x-4">
 						<div className="flex-1">
-							<label className="block text-sm font-semibold text-gray-700 mb-1">Start Date</label>
+							<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
 							<input
 								type="date"
 								name="startDate"
 								value={formData.startDate}
 								onChange={handleChange}
-								className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-indigo-500'
-									} dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600`}
+								className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 ${errors.startDate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-slate-600 focus:ring-indigo-500'
+									} dark:bg-slate-700 dark:text-white`}
 							/>
 							{errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
 						</div>
 						<div className="flex-1">
-							<label className="block text-sm font-semibold text-gray-700 mb-1">End Date</label>
+							<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">End Date</label>
 							<input
 								type="date"
 								name="endDate"
 								value={formData.endDate}
 								onChange={handleChange}
-								className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 ${errors.endDate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-indigo-500'
-									} dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600`}
+								className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 ${errors.endDate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-slate-600 focus:ring-indigo-500'
+									} dark:bg-slate-700 dark:text-white`}
 							/>
 							{errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
 						</div>
 					</div>
 					{errors.dateRange && <p className="text-red-500 text-xs mt-1 text-center">{errors.dateRange}</p>}
 					<div>
-						<label className="block text-sm font-semibold text-gray-700 mb-1">Description (Optional)</label>
+						<label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Description (Optional)</label>
 						<textarea
 							name="description"
 							value={formData.description}
 							onChange={handleChange}
 							rows="3"
-							className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y dark:bg-slate-700 dark:text-white"
 						></textarea>
 					</div>
 				</div>
 				<div className="flex justify-end space-x-3 mt-6">
 					<button
 						onClick={onClose}
-						className="px-5 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition duration-150 ease-in-out flex items-center space-x-2"
+						className="px-5 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-slate-500 transition duration-150 ease-in-out flex items-center space-x-2"
 					>
 						<i className="fas fa-times"></i>
 						<span>Cancel</span>

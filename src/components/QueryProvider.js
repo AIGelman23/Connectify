@@ -54,7 +54,10 @@ export default function QueryProvider({ children }) {
     navigator.serviceWorker
       .register("/service-worker.js")
       .then((registration) => {
-        console.log("Service Worker registered with scope:", registration.scope);
+        console.log(
+          "Service Worker registered with scope:",
+          registration.scope,
+        );
 
         // Clear any active notifications in the system tray
         registration.getNotifications().then((notifications) => {
@@ -63,9 +66,9 @@ export default function QueryProvider({ children }) {
 
         // Clear the app icon badge if supported
         if ("clearAppBadge" in navigator) {
-          navigator.clearAppBadge().catch((err) =>
-            console.error("Failed to clear badge", err)
-          );
+          navigator
+            .clearAppBadge()
+            .catch((err) => console.error("Failed to clear badge", err));
         }
 
         // Initialize Pusher Beams
@@ -78,43 +81,51 @@ export default function QueryProvider({ children }) {
             // Check if permission is already denied to avoid the error
             if (window.Notification && Notification.permission === "denied") {
               console.warn(
-                "Pusher Beams: Notifications are blocked. Please enable them in your browser settings."
+                "Pusher Beams: Notifications are blocked. Please enable them in your browser settings.",
               );
               return;
             }
 
             beamsClient
               .start()
-              .then(() => beamsClient.addDeviceInterest("hello"))
+              .then((beamsClient) => {
+                // Only add interest if start was successful
+                if (beamsClient) {
+                  return beamsClient.addDeviceInterest("hello");
+                }
+              })
               .then(() =>
                 console.log(
-                  "Successfully registered and subscribed to Pusher Beams!"
-                )
+                  "Successfully registered and subscribed to Pusher Beams!",
+                ),
               )
               .catch((error) => {
+                // Silently handle common errors
                 if (error.name === "NotAllowedError") {
-                  console.warn(
-                    "Pusher Beams: Notification permission denied. Reset browser permissions to enable."
-                  );
+                  // User denied notifications - don't log
                 } else if (
                   error.message &&
-                  error.message.includes("Could not add Device Interest")
+                  (error.message.includes("Could not add Device Interest") ||
+                    error.message.includes("SDK not registered"))
                 ) {
-                  console.warn(
-                    "Pusher Beams: Device interest update skipped (SDK not ready)."
-                  );
+                  // SDK not ready - don't log
                 } else {
-                  console.error("Pusher Beams error:", error);
+                  console.warn("Pusher Beams:", error.message || error);
                 }
               });
           })
-          .catch(() =>
-            console.log("Pusher Beams library not installed or failed to load.")
-          );
+          .catch(() => {
+            // Library not installed - silent fail
+          });
       })
       .catch((error) => {
-        if (error.name === "NotAllowedError" || error.message.includes("denied")) {
-          console.warn("Service Worker registration skipped: Permission denied");
+        if (
+          error.name === "NotAllowedError" ||
+          error.message.includes("denied")
+        ) {
+          console.warn(
+            "Service Worker registration skipped: Permission denied",
+          );
         } else {
           console.error("Service Worker registration failed:", error);
         }
@@ -137,12 +148,13 @@ export default function QueryProvider({ children }) {
 
             beamsClient
               .start()
-              .then(() => beamsClient.addDeviceInterest(`user-${session.user.id}`))
-              .catch((error) => {
-                // Silently handle permission errors - user has denied notifications
-                if (error.name !== "NotAllowedError") {
-                  console.error("Pusher Beams error:", error);
+              .then((client) => {
+                if (client) {
+                  return client.addDeviceInterest(`user-${session.user.id}`);
                 }
+              })
+              .catch(() => {
+                // Silently handle all Beams errors - they're non-critical
               });
           })
           .catch(() => {

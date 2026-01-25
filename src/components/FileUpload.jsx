@@ -98,9 +98,9 @@ const FileUpload = ({
 
 	const getIcon = () => {
 		if (uploadType === 'profilePicture' || uploadType === 'coverPhoto') {
-			return <Image className="w-8 h-8 text-gray-400" />;
+			return <Image className="w-8 h-8 text-gray-400 dark:text-slate-500" />;
 		}
-		return <FileText className="w-8 h-8 text-gray-400" />;
+		return <FileText className="w-8 h-8 text-gray-400 dark:text-slate-500" />;
 	};
 
 	const isImage = selectedFile?.type.startsWith('image/') || (currentUrl && !selectedFile);
@@ -108,7 +108,7 @@ const FileUpload = ({
 	return (
 		<div className={`space-y-4 ${className}`}>
 			{label && (
-				<label className="block text-sm font-medium text-gray-700 mb-2">
+				<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 					{label}
 				</label>
 			)}
@@ -119,7 +119,7 @@ const FileUpload = ({
 					<img
 						src={preview}
 						alt="Preview"
-						className={`w-full h-32 object-cover rounded-lg border-2 border-gray-200 ${uploadType === 'profilePicture' ? 'w-32 h-32 rounded-full' : ''
+						className={`w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-slate-600 ${uploadType === 'profilePicture' ? 'w-32 h-32 rounded-full' : ''
 							}`}
 					/>
 					{selectedFile && (
@@ -135,12 +135,12 @@ const FileUpload = ({
 
 			{/* File Info */}
 			{selectedFile && !isImage && (
-				<div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+				<div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700 rounded-lg border dark:border-slate-600">
 					<div className="flex items-center space-x-3">
-						<FileText className="w-5 h-5 text-gray-500" />
+						<FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
 						<div>
-							<p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
-							<p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+							<p className="text-sm font-medium text-gray-900 dark:text-white">{selectedFile.name}</p>
+							<p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(selectedFile.size)}</p>
 						</div>
 					</div>
 					<button
@@ -156,25 +156,25 @@ const FileUpload = ({
 			{!selectedFile && (
 				<div
 					className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${dragOver
-						? 'border-blue-500 bg-blue-50'
-						: 'border-gray-300 hover:border-gray-400'
+						? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+						: 'border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500'
 						}`}
 					onDrop={handleDrop}
 					onDragOver={handleDragOver}
 					onDragLeave={handleDragLeave}
 				>
 					{getIcon()}
-					<p className="mt-2 text-sm text-gray-600">
+					<p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
 						Drag and drop your file here, or{' '}
 						<button
 							type="button"
 							onClick={openFileDialog}
-							className="text-blue-600 hover:text-blue-500 font-medium"
+							className="text-blue-600 dark:text-blue-400 hover:text-blue-500 font-medium"
 						>
 							browse
 						</button>
 					</p>
-					<p className="text-xs text-gray-500 mt-1">
+					<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 						Max size: {maxSize}MB
 					</p>
 				</div>
@@ -185,7 +185,7 @@ const FileUpload = ({
 				<button
 					type="button"
 					onClick={openFileDialog}
-					className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+					className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 				>
 					Change File
 				</button>

@@ -97,7 +97,7 @@ export default function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-sky-100 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
 				<div className="flex flex-col items-center">
 					<ConnectifyLogo width={350} height={350} className="mx-auto animate-pulse" />
 				</div>

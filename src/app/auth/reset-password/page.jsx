@@ -158,12 +158,12 @@ export default function ResetPasswordPage() {
         <AnimatedBackground />
         <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full">
-            <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm text-center">
+            <div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm text-center">
               <div className="flex justify-center mb-6">
                 <ConnectifyLogo width={300} height={120} />
               </div>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Validating your reset token...</p>
+              <p className="mt-4 text-gray-600 dark:text-slate-300">Validating your reset token...</p>
             </div>
           </div>
         </div>
@@ -177,14 +177,14 @@ export default function ResetPasswordPage() {
         <AnimatedBackground />
         <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full">
-            <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
               <div className="flex justify-center mb-6">
                 <ConnectifyLogo width={300} height={120} />
               </div>
-              <h1 className="text-center text-3xl font-extrabold text-gray-900 mb-4">
+              <h1 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white mb-4">
                 Invalid Link
               </h1>
-              <p className="text-gray-600 mb-8 text-center text-sm">
+              <p className="text-gray-600 dark:text-slate-300 mb-8 text-center text-sm">
                 This password reset link is invalid or has expired.
               </p>
               <div className="text-center">
@@ -211,16 +211,16 @@ export default function ResetPasswordPage() {
       <AnimatedBackground />
       <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
-          <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
             {/* Logo at the top */}
             <div className="flex justify-center mb-6">
               <ConnectifyLogo width={300} height={120} />
             </div>
 
-            <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">
+            <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white mb-6">
               Reset Password
             </h2>
-            <p className="text-gray-600 mb-8 text-center text-sm">
+            <p className="text-gray-600 dark:text-slate-300 mb-8 text-center text-sm">
               Please enter your new password below.
             </p>
 
@@ -244,7 +244,7 @@ export default function ResetPasswordPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300">New Password</label>
                 <div className="mt-1 relative">
                   <input
                     id="password"
@@ -252,14 +252,13 @@ export default function ResetPasswordPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10 bg-white text-gray-900"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base pr-10 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="••••••••"
-                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 touch-manipulation"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-slate-400 touch-manipulation"
                     style={{ minWidth: '44px', minHeight: '44px' }}
                     onClick={(e) => {
                       e.preventDefault();
@@ -281,7 +280,7 @@ export default function ResetPasswordPage() {
                 </div>
               </div>
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Confirm New Password</label>
                 <div className="mt-1">
                   <input
                     id="confirmPassword"
@@ -289,9 +288,8 @@ export default function ResetPasswordPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input appearance-none block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="••••••••"
-                    style={{ WebkitAppearance: 'none', backgroundColor: 'white !important', color: '#111827 !important' }}
                   />
                 </div>
               </div>

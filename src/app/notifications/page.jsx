@@ -181,7 +181,7 @@ export default function NotificationsPage() {
                       notification.message || 'New notification.'
                     )}
                   </p>
-                  <span className="text-xs text-gray-500">{notification.timestamp}</span>
+                  <span className="text-xs text-gray-500 dark:text-slate-400">{notification.timestamp}</span>
                 </div>
 
                 {/* Mark as Read Indicator */}

@@ -78,19 +78,19 @@ export default function MessageList({
   return (
     <div
       ref={messagesContainerRef}
-      className="flex flex-col p-4 space-y-4"
+      className="flex flex-col px-2 py-4"
     >
       {groupedMessages.map((group) => (
         <div key={group.date}>
-          {/* Date divider */}
+          {/* Date divider - Messenger style */}
           <div className="flex items-center justify-center my-4">
-            <span className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-slate-400 bg-gray-200 dark:bg-slate-700 rounded-full">
+            <span className="px-3 py-1.5 text-[11px] font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">
               {group.formattedDate}
             </span>
           </div>
 
           {/* Messages for this date */}
-          <div className="space-y-2">
+          <div className="space-y-0.5">
             {group.messages.map((message, index) => {
               const prevMessage = index > 0 ? group.messages[index - 1] : null;
               const nextMessage =
@@ -133,21 +133,19 @@ export default function MessageList({
       ))}
 
       {messages.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-slate-500">
-          <svg
-            className="w-12 h-12 mb-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-          <p className="text-sm">No messages yet. Start the conversation!</p>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-slate-500">
+          {/* Messenger-style wave icon */}
+          <div className="w-20 h-20 mb-4 rounded-full bg-gradient-to-br from-[#0084ff] to-[#00c6ff] flex items-center justify-center">
+            <svg
+              className="w-10 h-10 text-white"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.936 1.444 5.544 3.7 7.254V22l3.4-1.866c.9.252 1.87.39 2.9.39 5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.024 12.463l-2.545-2.715-4.97 2.715 5.465-5.8 2.609 2.714 4.906-2.714-5.465 5.8z"/>
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-gray-600 dark:text-slate-300">No messages yet</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Say hi to start the conversation!</p>
         </div>
       )}
     </div>

@@ -100,8 +100,8 @@ export default function JobsPage() {
 
 	if (status === "loading" || loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-				<div className="flex items-center space-x-2 text-indigo-600">
+			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4">
+				<div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400">
 					<svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
 						<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
 						<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -120,9 +120,9 @@ export default function JobsPage() {
 	return (
 		<>
 			<Navbar session={session} router={router} />
-			<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 pt-4"> {/* Added pt-4 to adjust for fixed navbar */}
+			<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4 sm:p-6 lg:p-8 pt-4"> {/* Added pt-4 to adjust for fixed navbar */}
 				<div className="max-w-4xl mx-auto">
-					<h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-8 text-center">
+					<h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-8 text-center">
 						<span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
 							Job Listings
 						</span>
@@ -138,43 +138,43 @@ export default function JobsPage() {
 					)}
 
 					{jobListings.length === 0 && !loading && !error && (
-						<div className="text-center py-10 bg-white shadow-xl rounded-2xl border border-gray-200">
-							<p className="text-gray-600 text-lg">No job listings found at the moment.</p>
+						<div className="text-center py-10 bg-white dark:bg-slate-800 shadow-xl rounded-2xl border border-gray-200 dark:border-slate-700">
+							<p className="text-gray-600 dark:text-slate-300 text-lg">No job listings found at the moment.</p>
 						</div>
 					)}
 
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						{jobListings.map((job) => (
-							<div key={job.id} className="bg-white shadow-lg rounded-2xl p-6 border border-gray-200 flex flex-col">
+							<div key={job.id} className="bg-white dark:bg-slate-800 shadow-lg rounded-2xl p-6 border border-gray-200 dark:border-slate-700 flex flex-col">
 								<div className="flex items-center mb-4">
 									<img
 										src={job.logo}
 										alt={`${job.company} Logo`}
-										className="w-12 h-12 rounded-lg object-cover mr-4 border border-gray-200"
+										className="w-12 h-12 rounded-lg object-cover mr-4 border border-gray-200 dark:border-slate-600"
 									/>
 									<div>
-										<h3 className="text-xl font-bold text-gray-900">{job.title}</h3>
-										<p className="text-md text-gray-700">{job.company}</p>
+										<h3 className="text-xl font-bold text-gray-900 dark:text-white">{job.title}</h3>
+										<p className="text-md text-gray-700 dark:text-slate-300">{job.company}</p>
 									</div>
 								</div>
-								<p className="text-sm text-gray-600 mb-2 flex items-center">
-									<svg className="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+								<p className="text-sm text-gray-600 dark:text-slate-400 mb-2 flex items-center">
+									<svg className="w-4 h-4 mr-1 text-gray-500 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
 										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
 									</svg>
 									{job.location}
 								</p>
 								{job.salary && (
-									<p className="text-sm text-gray-600 mb-4 flex items-center">
-										<svg className="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+									<p className="text-sm text-gray-600 dark:text-slate-400 mb-4 flex items-center">
+										<svg className="w-4 h-4 mr-1 text-gray-500 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2V8z"></path>
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 13h10a3 3 0 003-3V6a3 3 0 00-3-3H7a3 3 0 00-3 3v4a3 3 0 003 3z"></path>
 										</svg>
 										{job.salary}
 									</p>
 								)}
-								<p className="text-gray-700 text-sm mb-4 line-clamp-3">{job.description}</p>
-								<div className="mt-auto flex justify-between items-center text-xs text-gray-500">
+								<p className="text-gray-700 dark:text-slate-300 text-sm mb-4 line-clamp-3">{job.description}</p>
+								<div className="mt-auto flex justify-between items-center text-xs text-gray-500 dark:text-slate-400">
 									<span>Posted: {job.posted}</span>
 									<button className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150 ease-in-out shadow-md transform hover:scale-105">
 										Apply Now

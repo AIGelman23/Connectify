@@ -53,12 +53,12 @@ export default function RegisterPage() {
       <AnimatedBackground />
       <div className="min-h-screen flex items-center justify-center bg-transparent py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
-          <div className="bg-white bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 py-8 px-6 shadow-lg rounded-lg sm:px-10 backdrop-blur-sm">
             <div className="flex justify-center mb-6">
               <ConnectifyLogo width={300} height={120} />
             </div>
 
-            <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">
+            <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white mb-6">
               Create your account
             </h2>
 
@@ -76,7 +76,7 @@ export default function RegisterPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Full Name</label>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Full Name</label>
                 <div className="mt-1">
                   <input
                     id="name"
@@ -84,14 +84,14 @@ export default function RegisterPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="auth-input block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="Your name"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Email Address</label>
                 <div className="mt-1">
                   <input
                     id="email"
@@ -99,14 +99,14 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="auth-input block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="you@example.com"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Password</label>
                 <div className="mt-1">
                   <input
                     id="password"
@@ -114,7 +114,7 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="auth-input block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="At least 8 characters"
                     minLength={8}
                   />
@@ -122,7 +122,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                <label htmlFor="confirm" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Confirm Password</label>
                 <div className="mt-1">
                   <input
                     id="confirm"
@@ -130,7 +130,7 @@ export default function RegisterPage() {
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     required
-                    className="auth-input block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white text-gray-900"
+                    className="auth-input block w-full px-3 py-3 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
                     placeholder="Re-enter password"
                   />
                 </div>
@@ -149,7 +149,7 @@ export default function RegisterPage() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-slate-400">
                 Already have an account?{" "}
                 <Link href="/auth/login" className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
                   Log in
