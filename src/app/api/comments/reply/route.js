@@ -96,6 +96,13 @@ export async function POST(request) {
             name: true,
             email: true,
             image: true,
+            role: true,
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
           },
         },
       },
@@ -113,6 +120,13 @@ export async function POST(request) {
             name: true,
             email: true,
             image: true,
+            role: true,
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
           },
         },
       },
@@ -161,6 +175,10 @@ function createNestedRepliesStructure(replies) {
           `https://placehold.co/32x32/3B82F6/FFFFFF?text=${reply.author.name.charAt(
             0
           )}`,
+        role: reply.author.role,
+        subscriptionPlan: reply.author.subscription?.status === 'active' 
+          ? reply.author.subscription.plan 
+          : null,
       },
       replies: [],
     };
@@ -202,6 +220,13 @@ export async function GET(request) {
             name: true,
             email: true,
             image: true,
+            role: true,
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
+            },
           },
         },
       },

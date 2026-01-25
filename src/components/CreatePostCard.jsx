@@ -880,15 +880,19 @@ export default function CreatePostCard({ groupId = null, postType = 'post', plac
 
 	// Visibility options configuration
 	const visibilityOptions = [
-		{ value: 'PUBLIC', label: 'Public', icon: '🌍', description: 'Anyone can see this post' },
-		{ value: 'FRIENDS', label: 'Friends', icon: '👥', description: 'Only your connections can see' },
-		{ value: 'SPECIFIC_FRIENDS', label: 'Specific Friends', icon: '👤', description: 'Only selected friends can see' },
-		{ value: 'PRIVATE', label: 'Only Me', icon: '🔒', description: 'Only you can see this post' },
+		{ value: 'PUBLIC', label: 'Public', icon: 'fa-globe-americas', description: 'Anyone can see this post' },
+		{ value: 'FRIENDS', label: 'Friends', icon: 'fa-user-friends', description: 'Only your connections can see' },
+		{ value: 'SPECIFIC_FRIENDS', label: 'Specific Friends', icon: 'fa-user-check', description: 'Only selected friends can see' },
+		{ value: 'PRIVATE', label: 'Only Me', icon: 'fa-lock', description: 'Only you can see this post' },
 	];
 
 	const getVisibilityLabel = () => {
 		const option = visibilityOptions.find(o => o.value === visibility);
-		return option ? `${option.icon} ${option.label}` : '🌍 Public';
+		return option ? (
+			<><i className={`fas ${option.icon} mr-1`}></i> {option.label}</>
+		) : (
+			<><i className="fas fa-globe-americas mr-1"></i> Public</>
+		);
 	};
 
 	const handleVisibilitySelect = (value) => {
@@ -978,7 +982,7 @@ export default function CreatePostCard({ groupId = null, postType = 'post', plac
 		<div className="create-post-card bg-white dark:bg-slate-800 shadow-md border border-gray-200 dark:border-slate-700 mb-4 sm:mb-6 w-full max-w-3xl mx-auto p-0">
 			<div className="flex items-start px-3 sm:px-4 pt-3 sm:pt-4 pb-2">
 				<Avatar
-					src={session?.user?.profile?.profilePictureUrl || session?.user?.image}
+					src={session?.user?.image}
 					name={session?.user?.name}
 					size="md"
 					className="border border-gray-200 mt-1"
@@ -1337,9 +1341,9 @@ export default function CreatePostCard({ groupId = null, postType = 'post', plac
 											type="button"
 											className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-3 ${visibility === option.value ? 'bg-blue-50 dark:bg-blue-900/30' : ''
 												}`}
-											onClick={() => handleVisibilitySelect(option.value)}
-										>
-											<span className="text-xl">{option.icon}</span>
+										onClick={() => handleVisibilitySelect(option.value)}
+									>
+										<i className={`fas ${option.icon} text-xl`}></i>
 											<div>
 												<p className={`text-sm font-medium ${visibility === option.value ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-slate-300'}`}>
 													{option.label}

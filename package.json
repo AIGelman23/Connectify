@@ -60,6 +60,7 @@
     "socket.io-client": "^4.8.1",
     "stripe": "^20.2.0",
     "uploadthing": "^7.7.2",
+    "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

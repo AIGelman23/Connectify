@@ -130,6 +130,7 @@ export default function VideoTrimmer({ videoBlob, onTrimComplete, onCancel }) {
 	};
 
 	const formatTime = (seconds) => {
+		if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00.0";
 		const mins = Math.floor(seconds / 60);
 		const secs = Math.floor(seconds % 60);
 		const ms = Math.floor((seconds % 1) * 10);
@@ -140,9 +141,9 @@ export default function VideoTrimmer({ videoBlob, onTrimComplete, onCancel }) {
 		onTrimComplete({ startTime, endTime, duration: endTime - startTime });
 	};
 
-	const startPercent = (startTime / duration) * 100;
-	const endPercent = (endTime / duration) * 100;
-	const currentPercent = (currentTime / duration) * 100;
+	const startPercent = duration > 0 ? (startTime / duration) * 100 : 0;
+	const endPercent = duration > 0 ? (endTime / duration) * 100 : 0;
+	const currentPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
 	return (
 		<div className="h-screen w-full relative bg-black flex flex-col">

@@ -28,6 +28,7 @@ export default function ProfilePage() {
 	const [followersCount, setFollowersCount] = useState(0);
 	const [followingCount, setFollowingCount] = useState(0);
 	const [subscriptionPlan, setSubscriptionPlan] = useState(null);
+	const [userRole, setUserRole] = useState(null);
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -63,6 +64,7 @@ export default function ProfilePage() {
 				setFollowersCount(data.followersCount || 0);
 				setFollowingCount(data.followingCount || 0);
 				setSubscriptionPlan(data.subscriptionPlan || null);
+				setUserRole(data.userRole || null);
 			} catch (err) {
 				console.error("Failed to fetch profile:", err);
 				setError(err.message || "Failed to load profile");
@@ -168,6 +170,7 @@ export default function ProfilePage() {
 					followersCount={followersCount}
 					followingCount={followingCount}
 					subscriptionPlan={subscriptionPlan}
+					userRole={userRole}
 				/>
 
 			{/* Friends List Section */}

@@ -17,8 +17,15 @@ async function getNestedReplies(commentId, currentUserId = null) {
           id: true,
           name: true,
           image: true,
+          role: true,
           profile: {
             select: { profilePictureUrl: true },
+          },
+          subscription: {
+            select: {
+              plan: true,
+              status: true,
+            },
           },
         },
       },
@@ -58,6 +65,10 @@ async function getNestedReplies(commentId, currentUserId = null) {
           `https://placehold.co/32x32/A78BFA/ffffff?text=${
             reply.author.name ? reply.author.name[0].toUpperCase() : "U"
           }`,
+        role: reply.author.role,
+        subscriptionPlan: reply.author.subscription?.status === 'active' 
+          ? reply.author.subscription.plan 
+          : null,
       },
       replies: [],
     });
@@ -112,8 +123,15 @@ export async function GET(request, { params }) {
             id: true,
             name: true,
             image: true,
+            role: true,
             profile: {
               select: { profilePictureUrl: true },
+            },
+            subscription: {
+              select: {
+                plan: true,
+                status: true,
+              },
             },
           },
         },
@@ -148,6 +166,10 @@ export async function GET(request, { params }) {
             `https://placehold.co/32x32/A78BFA/ffffff?text=${
               comment.author.name ? comment.author.name[0].toUpperCase() : "U"
             }`,
+          role: comment.author.role,
+          subscriptionPlan: comment.author.subscription?.status === 'active' 
+            ? comment.author.subscription.plan 
+            : null,
         },
         replies: await getNestedReplies(comment.id, userId),
       }))

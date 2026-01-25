@@ -4,6 +4,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/NavBar";
 import ConnectifyLogo from "@/components/ConnectifyLogo";
 import SoundPicker from "@/components/reels/SoundPicker";
@@ -43,6 +44,7 @@ const FILTER_PRESETS = [
 export default function CreateStoryPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [step, setStep] = useState("mode"); // 'mode' | 'capture' | 'text' | 'edit' | 'publish'
   const [storyMode, setStoryMode] = useState(null); // 'camera' | 'text' | 'upload'
@@ -467,6 +469,9 @@ export default function CreateStoryPage() {
         const errorData = await storyRes.json();
         throw new Error(errorData.error || "Failed to create story");
       }
+
+      // Invalidate stories cache so new story appears immediately
+      queryClient.invalidateQueries({ queryKey: ["stories-feed"] });
 
       // Success - redirect to dashboard
       router.push("/dashboard");

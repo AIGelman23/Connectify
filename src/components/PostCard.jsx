@@ -975,6 +975,28 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 	// Helper to check if URL is a Giphy image
 	const isGiphyImage = (url) => url && (url.includes('giphy.com') || url.includes('giphy.gif'));
 
+	// Helper to get visibility icon based on post.visibility
+	const getVisibilityIcon = () => {
+		switch (post.visibility) {
+			case 'FRIENDS': return 'fa-user-friends';
+			case 'SPECIFIC_FRIENDS': return 'fa-user-check';
+			case 'PRIVATE': return 'fa-lock';
+			case 'PUBLIC':
+			default: return 'fa-globe-americas';
+		}
+	};
+
+	// Helper to get visibility title based on post.visibility
+	const getVisibilityTitle = () => {
+		switch (post.visibility) {
+			case 'FRIENDS': return 'Friends';
+			case 'SPECIFIC_FRIENDS': return 'Specific Friends';
+			case 'PRIVATE': return 'Only Me';
+			case 'PUBLIC':
+			default: return 'Public';
+		}
+	};
+
 	const handleImageClick = (url, index) => {
 		if (isNews && post.link) {
 			window.open(post.link, '_blank', 'noopener,noreferrer');
@@ -1093,8 +1115,8 @@ export default function PostCard({ post, sessionUserId: propSessionUserId, setPo
 						<div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-slate-400 mt-0.5">
 							<span title={new Date(post.createdAt).toLocaleString()}>{getTimestamp()}</span>
 							<span aria-hidden="true">·</span>
-							<span title="Public" className="inline-flex items-center">
-								<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" className="text-gray-400 dark:text-slate-500"><path d="M10 2C5.03 2 1 6.03 1 11c0 4.97 4.03 9 9 9s9-4.03 9-9c0-4.97-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7 0-3.87 3.13-7 7-7s7 3.13 7 7c0 3.87-3.13 7-7 7zm0-12c-2.76 0-5 2.24-5 5 0 2.76 2.24 5 5 5s5-2.24 5-5c0-2.76-2.24-5-5-5z" /></svg>
+							<span title={getVisibilityTitle()} className="inline-flex items-center">
+								<i className={`fas ${getVisibilityIcon()} text-gray-400 dark:text-slate-500 text-sm`}></i>
 							</span>
 						</div>
 					</div>

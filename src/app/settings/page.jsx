@@ -279,7 +279,7 @@ function AccountSection({ session, router }) {
   );
 }
 
-function BillingSection({ router }) {
+function BillingSection({ router, session }) {
   const {
     subscription,
     plan,
@@ -291,7 +291,49 @@ function BillingSection({ router }) {
     currentPeriodEnd,
     openBillingPortal,
     isPortalLoading,
+    refetch,
   } = useSubscription();
+
+  const [isAdminSwitching, setIsAdminSwitching] = useState(false);
+  const [adminSwitchError, setAdminSwitchError] = useState(null);
+
+  // Check if user is admin/moderator/staff
+  const isAdmin = session?.user?.role && session.user.role !== 'USER';
+
+  // Handle admin plan switch
+  const handleAdminPlanSwitch = async (newPlan) => {
+    if (!isAdmin || isAdminSwitching) return;
+    
+    setIsAdminSwitching(true);
+    setAdminSwitchError(null);
+    
+    try {
+      const res = await fetch('/api/subscription', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: newPlan }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to switch plan');
+      }
+      
+      // Refetch subscription data to update UI
+      if (refetch) {
+        await refetch();
+      } else {
+        // Fallback: reload the page
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Admin plan switch error:', error);
+      setAdminSwitchError(error.message);
+    } finally {
+      setIsAdminSwitching(false);
+    }
+  };
 
   // Plan display info
   const planInfo = {
@@ -433,6 +475,78 @@ function BillingSection({ router }) {
           </>
         )}
       </div>
+
+      {/* Admin Plan Switcher */}
+      {isAdmin && (
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <i className="fas fa-shield-alt text-red-500"></i>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300">Admin Plan Switcher</h3>
+            <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full">
+              Free Access
+            </span>
+          </div>
+          
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              As an admin, you can switch between any subscription plan for free.
+            </p>
+            
+            {adminSwitchError && (
+              <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-400 text-sm">
+                <i className="fas fa-exclamation-circle mr-2"></i>
+                {adminSwitchError}
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'free', name: 'Free', icon: 'fas fa-user', color: 'gray' },
+                { id: 'basic', name: 'Basic', icon: 'fas fa-star', color: 'blue' },
+                { id: 'pro', name: 'Pro', icon: 'fas fa-crown', color: 'amber' },
+                { id: 'business', name: 'Business', icon: 'fas fa-building', color: 'purple' },
+              ].map((planOption) => {
+                const isCurrentPlan = plan === planOption.id;
+                const colorClasses = {
+                  gray: 'border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800',
+                  blue: 'border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30',
+                  amber: 'border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30',
+                  purple: 'border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30',
+                };
+                const activeColorClasses = {
+                  gray: 'bg-gray-500 border-gray-500 text-white',
+                  blue: 'bg-blue-500 border-blue-500 text-white',
+                  amber: 'bg-amber-500 border-amber-500 text-white',
+                  purple: 'bg-purple-500 border-purple-500 text-white',
+                };
+                
+                return (
+                  <button
+                    key={planOption.id}
+                    onClick={() => handleAdminPlanSwitch(planOption.id)}
+                    disabled={isCurrentPlan || isAdminSwitching}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                      isCurrentPlan 
+                        ? activeColorClasses[planOption.color]
+                        : `bg-white dark:bg-slate-800 ${colorClasses[planOption.color]} text-gray-700 dark:text-gray-200`
+                    } ${isAdminSwitching ? 'opacity-50 cursor-wait' : ''} ${isCurrentPlan ? 'cursor-default' : 'cursor-pointer'}`}
+                  >
+                    {isAdminSwitching && !isCurrentPlan ? (
+                      <i className="fas fa-spinner fa-spin text-lg"></i>
+                    ) : (
+                      <i className={`${planOption.icon} text-lg`}></i>
+                    )}
+                    <span className="text-xs font-semibold">{planOption.name}</span>
+                    {isCurrentPlan && (
+                      <span className="text-[10px] opacity-80">Current</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Features List */}
       <div className="space-y-3 sm:space-y-4">
@@ -1369,7 +1483,7 @@ export default function SettingsPage() {
       case "account":
         return <AccountSection session={session} router={router} />;
       case "billing":
-        return <BillingSection router={router} />;
+        return <BillingSection router={router} session={session} />;
       case "privacy":
         return <PrivacySection settings={settings} updateSetting={updateSetting} />;
       case "notifications":

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { VerifiedBadge } from "@/components/ui/Badge";
+import { VerifiedBadge, AdminBadge } from "@/components/ui/Badge";
 
 export default function EditProfileHeader({
 	currentProfileState,
@@ -16,6 +16,7 @@ export default function EditProfileHeader({
 	followersCount = 0,
 	followingCount = 0,
 	subscriptionPlan = null,
+	userRole = null,
 }) {
 
 	// Debug logging to track state
@@ -98,50 +99,71 @@ export default function EditProfileHeader({
 			{/* Profile Picture and Basic Info */}
 			<div className="relative px-4 pb-6 flex flex-col items-center profile-main-info">
 				<div className="-mt-16 mb-2">
-					<div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center relative">
-						{currentProfileState.profilePicture ? (
-							<img
-								src={currentProfileState.profilePicture}
-								alt="Profile"
-								className="w-full h-full object-cover"
-							/>
-						) : (
-							<div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-300 text-5xl">
-								<i className="fas fa-user"></i>
+					<div className="relative">
+						<div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg dark:shadow-xl overflow-hidden group flex items-center justify-center">
+							{currentProfileState.profilePicture ? (
+								<img
+									src={currentProfileState.profilePicture}
+									alt="Profile"
+									className="w-full h-full object-cover"
+								/>
+							) : (
+								<div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-300 text-5xl">
+									<i className="fas fa-user"></i>
+								</div>
+							)}
+							{viewMode === 'edit' && (
+								<>
+									<label
+										htmlFor="profilePicture"
+										className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white text-xs font-medium rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1"
+										style={{
+											minWidth: 0,
+											minHeight: 0,
+											fontSize: "0.85rem",
+											lineHeight: 1.2,
+										}}
+									>
+										<i className="fas fa-camera text-base mr-1"></i>
+										<span className="text-xs">Change</span>
+										<input
+											type="file"
+											id="profilePicture"
+											name="profilePicture"
+											accept="image/jpeg,image/png,image/webp"
+											onChange={handleProfileImageChange}
+											className="hidden"
+										/>
+									</label>
+									{currentProfileState.profilePicture && (
+										<button
+											onClick={handleRemoveProfilePicture}
+											className="absolute bottom-0 transform translate-y-8 opacity-0 group-hover:opacity-100 group-hover:translate-y-6 transition-all duration-200 bg-white text-red-500 px-2 py-1 text-xs rounded shadow"
+										>
+											Remove
+										</button>
+									)}
+								</>
+							)}
+						</div>
+						{/* Badge overlays on profile avatar */}
+						{userRole && userRole !== 'USER' && (
+							<div className="absolute bottom-2 left-2 bg-white dark:bg-slate-800 rounded-full p-0.5 shadow-lg flex items-center justify-center">
+								<AdminBadge 
+									role={userRole.toLowerCase()} 
+									size="xl"
+									showTooltip={true}
+								/>
 							</div>
 						)}
-						{viewMode === 'edit' && (
-							<>
-								<label
-									htmlFor="profilePicture"
-									className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white text-xs font-medium rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1"
-									style={{
-										minWidth: 0,
-										minHeight: 0,
-										fontSize: "0.85rem",
-										lineHeight: 1.2,
-									}}
-								>
-									<i className="fas fa-camera text-base mr-1"></i>
-									<span className="text-xs">Change</span>
-									<input
-										type="file"
-										id="profilePicture"
-										name="profilePicture"
-										accept="image/jpeg,image/png,image/webp"
-										onChange={handleProfileImageChange}
-										className="hidden"
-									/>
-								</label>
-								{currentProfileState.profilePicture && (
-									<button
-										onClick={handleRemoveProfilePicture}
-										className="absolute bottom-0 transform translate-y-8 opacity-0 group-hover:opacity-100 group-hover:translate-y-6 transition-all duration-200 bg-white text-red-500 px-2 py-1 text-xs rounded shadow"
-									>
-										Remove
-									</button>
-								)}
-							</>
+						{subscriptionPlan && (
+							<div className="absolute bottom-2 right-2 bg-white dark:bg-slate-800 rounded-full p-0.5 shadow-lg flex items-center justify-center">
+								<VerifiedBadge 
+									plan={subscriptionPlan.toLowerCase()} 
+									size="xl"
+									showTooltip={true}
+								/>
+							</div>
 						)}
 					</div>
 				</div>
@@ -151,13 +173,6 @@ export default function EditProfileHeader({
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
 							{currentProfileState.name || "Your Name"}
 						</h1>
-						{subscriptionPlan && (
-							<VerifiedBadge 
-								plan={subscriptionPlan.toLowerCase()} 
-								size="lg"
-								showTooltip={true}
-							/>
-						)}
 					</div>
 					<p className="mt-1 text-gray-700 dark:text-slate-300">
 						{currentProfileState.headline || "Your Headline"}

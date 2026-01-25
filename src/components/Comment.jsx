@@ -186,13 +186,31 @@ export const Reply = ({ reply, sessionUserId, currentUser, onDeleteReply, postId
 			)}
 
 		<div className="flex items-start gap-2 py-1">
-			<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0">
+			<Link href={`/profile/${reply.user.id}`} className="flex-shrink-0 relative">
 				<Avatar
 					src={reply.user.imageUrl}
 					name={reply.user.name}
 					size="xs"
 					className="hover:ring-2 hover:ring-blue-400 transition-all"
 				/>
+				{reply.user.subscriptionPlan && (
+					<div className="absolute -bottom-0.5 -left-0.5">
+						<VerifiedBadge 
+							plan={reply.user.subscriptionPlan.toLowerCase()} 
+							size="xs"
+							showTooltip={true}
+						/>
+					</div>
+				)}
+				{reply.user.role && reply.user.role !== 'USER' && (
+					<div className="absolute -bottom-0.5 -right-0.5">
+						<AdminBadge 
+							role={reply.user.role.toLowerCase()} 
+							size="xs"
+							showTooltip={true}
+						/>
+					</div>
+				)}
 			</Link>
 
 				<div className="flex-1 min-w-0">
@@ -206,20 +224,6 @@ export const Reply = ({ reply, sessionUserId, currentUser, onDeleteReply, postId
 								>
 									{reply.user.name}
 								</Link>
-								{reply.user.subscriptionPlan && (
-									<VerifiedBadge 
-										plan={reply.user.subscriptionPlan.toLowerCase()} 
-										size="xs"
-										showTooltip={true}
-									/>
-								)}
-								{reply.user.role && reply.user.role !== 'USER' && (
-									<AdminBadge 
-										role={reply.user.role.toLowerCase()} 
-										size="xs"
-										showTooltip={true}
-									/>
-								)}
 							</span>
 							{isAuthor && (
 								<span className="ml-1.5 text-[10px] text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
@@ -436,13 +440,31 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, currentUser, 
 			onMouseLeave={() => setIsHovered(false)}
 		>
 		<div className="flex items-start gap-2.5">
-			<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0">
+			<Link href={`/profile/${comment.user.id}`} className="flex-shrink-0 relative">
 				<Avatar
 					src={comment.user.imageUrl}
 					name={comment.user.name}
 					size="sm"
 					className="hover:ring-2 hover:ring-blue-400 transition-all"
 				/>
+				{comment.user.subscriptionPlan && (
+					<div className="absolute -bottom-0.5 -left-0.5">
+						<VerifiedBadge 
+							plan={comment.user.subscriptionPlan.toLowerCase()} 
+							size="xs"
+							showTooltip={true}
+						/>
+					</div>
+				)}
+				{comment.user.role && comment.user.role !== 'USER' && (
+					<div className="absolute -bottom-0.5 -right-0.5">
+						<AdminBadge 
+							role={comment.user.role.toLowerCase()} 
+							size="xs"
+							showTooltip={true}
+						/>
+					</div>
+				)}
 			</Link>
 
 				<div className="flex-1 min-w-0">
@@ -456,20 +478,6 @@ export const Comment = ({ comment, onReply, onLike, sessionUserId, currentUser, 
 								>
 									{comment.user.name}
 								</Link>
-								{comment.user.subscriptionPlan && (
-									<VerifiedBadge 
-										plan={comment.user.subscriptionPlan.toLowerCase()} 
-										size="xs"
-										showTooltip={true}
-									/>
-								)}
-								{comment.user.role && comment.user.role !== 'USER' && (
-									<AdminBadge 
-										role={comment.user.role.toLowerCase()} 
-										size="xs"
-										showTooltip={true}
-									/>
-								)}
 								{isAuthor && (
 									<span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
 										Author
